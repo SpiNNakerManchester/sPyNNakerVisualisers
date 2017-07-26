@@ -3,13 +3,13 @@
 
 from argparse import ArgumentParser, REMAINDER
 from itertools import repeat
-from spinn_front_end_common.utilities.connections import LiveEventConnection
+from OpenGL.GL import *  # @UnusedWildImport
 import sys
 from threading import Condition, RLock
 
-from OpenGL.GL import *  # @UnusedWildImport
-from .glut_framework import GlutFramework
 from spinn_utilities.overrides import overrides
+from spinn_front_end_common.utilities.connections import LiveEventConnection
+from spynnaker_visualisers.glut_framework import GlutFramework
 
 __all__ = []
 __version__ = 1
