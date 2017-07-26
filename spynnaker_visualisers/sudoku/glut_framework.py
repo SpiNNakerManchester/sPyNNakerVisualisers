@@ -24,7 +24,7 @@ THE SOFTWARE.
 @author: Converted to Python by Donal Fellows
 '''
 
-from OpenGL.GL import glViewport
+import OpenGL.GL as GL
 import OpenGL.GLUT as GLUT
 from datetime import datetime
 from spinn_utilities.abstract_base import AbstractBase, abstractmethod
@@ -66,8 +66,7 @@ class _PerformanceTimer(object):
 
 @add_metaclass(AbstractBase)
 class GlutFramework(object):
-    '''
-    classdocs
+    '''Base for code that wants to visualise using an OpenGL surface.
     '''
 
     def __init__(self):
@@ -125,7 +124,7 @@ class GlutFramework(object):
         :param width: the width of the window in pixels
         :param height: the height of the window in pixels
         """
-        glViewport(0, 0, width, height)
+        GL.glViewport(0, 0, width, height)
 
     def mouseButtonPress(self, button, state, x, y):
         """Called when the mouse buttons are pressed.
@@ -217,4 +216,37 @@ class GlutFramework(object):
         elapsedTimeInSeconds = self.displayTimer.elapsedSeconds
         if GLUT.glutGetWindow() == self.window:
             self.display(elapsedTimeInSeconds)
+            GLUT.glutSwapBuffers()
         self.displayTimer.start()
+
+    def _write_large(self, x, y, string, *args):
+        """Utility function: write a string to a given location as a bitmap.
+        """
+        if len(args):
+            string = string % args
+        GL.glRasterPos2f(x, y)
+        for ch in string:
+            GLUT.glutBitmapCharacter(GLUT.GLUT_BITMAP_TIMES_ROMAN_24, ch)
+
+    def write_small(self, x, y, size, rotate, string, *args):
+        """Utility function: write a string to a given location as a strokes.
+        """
+        if len(args):
+            string = string % args
+        GL.glPushMatrix()
+
+        # antialias the font
+        GL.glEnable(GL.GL_BLEND)
+        GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
+        GL.glEnable(GL.GL_LINE_SMOOTH)
+        GL.glLineWidth(1.5)
+
+        GL.glTranslatef(x, y, 0.0)
+        GL.glScalef(size, size, size)
+        GL.glRotatef(rotate, 0.0, 0.0, 1.0)
+        for ch in string:
+            GLUT.glutStrokeCharacter(GLUT.GLUT_STROKE_ROMAN, ch)
+
+        GL.glDisable(GL.GL_LINE_SMOOTH)
+        GL.glDisable(GL.GL_BLEND)
+        GL.glPopMatrix()

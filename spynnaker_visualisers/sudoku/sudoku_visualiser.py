@@ -8,9 +8,6 @@ import sys
 from threading import Condition, RLock
 
 from OpenGL.GL import *  # @UnusedWildImport
-from OpenGL.GLUT import \
-    glutBitmapCharacter, glutStrokeCharacter, glutSwapBuffers, \
-    GLUT_STROKE_ROMAN, GLUT_BITMAP_TIMES_ROMAN_24
 from .glut_framework import GlutFramework
 from spinn_utilities.overrides import overrides
 
@@ -24,48 +21,6 @@ INIT_WINDOW_HEIGHT = 600
 INIT_WINDOW_X = 100
 INIT_WINDOW_Y = 100
 FRAMES_PER_SECOND = 60
-
-
-def printgl(x, y, style, string, *args):
-    if len(args):
-        string = string % args
-    glRasterPos2f(x, y)
-    for ch in string:
-        glutBitmapCharacter(style, ch)
-
-
-def printglstroke(x, y, size, rotate, string, *args):
-    if len(args):
-        string = string % args
-    glPushMatrix()
-
-    glEnable(GL_BLEND)  # antialias the font
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-    glEnable(GL_LINE_SMOOTH)
-    glLineWidth(1.5)  # end setup for antialiasing
-
-    glTranslatef(x, y, 0.0)
-    glScalef(size, size, size)
-    glRotatef(rotate, 0.0, 0.0, 1.0)
-    for ch in string:
-        glutStrokeCharacter(GLUT_STROKE_ROMAN, ch)
-
-    glDisable(GL_LINE_SMOOTH)
-    glDisable(GL_BLEND)
-    glPopMatrix()
-
-
-def line(x1, y1, x2, y2):
-    glBegin(GL_LINES)
-    glVertex2f(x1, y1)
-    glVertex2f(x2, y2)
-    glEnd()
-
-
-def check_cell(values, correct, x, y, row, col):
-    value = values[y*9 + x]
-    if value == values[row*9 + col]:
-        correct[y*9 + x] = False
 
 
 class SudokuPlot(GlutFramework):
@@ -177,8 +132,6 @@ class SudokuPlot(GlutFramework):
             self._draw_cell_contents(values, valid, probs, start_tick,
                                      x_spacing, cell_width, cell_height)
 
-        self._finish_display()
-
     def _find_cell_values(self, start_tick):
         cell_value = [0 for _ in repeat(None, 81)]
         cell_prob = [0.0 for _ in repeat(None, 81)]
@@ -221,14 +174,14 @@ class SudokuPlot(GlutFramework):
             y, x = divmod(cell, 9)
             for row in xrange(9):
                 if row != y:
-                    check_cell(values, cell_valid, x, y, row, x)
+                    self._check_cell(values, cell_valid, x, y, row, x)
             for col in xrange(9):
                 if col != x:
-                    check_cell(values, cell_valid, x, y, y, col)
+                    self._check_cell(values, cell_valid, x, y, y, col)
             for row in xrange(3 * (y//3), 3 * (y//3 + 1)):
                 for col in xrange(3 * (x//3), 3 * (x//3 + 1)):
                     if x != col and y != row:
-                        check_cell(values, cell_valid, x, y, row, col)
+                        self._check_cell(values, cell_valid, x, y, row, col)
         return cell_valid;
 
     def _start_display(self):
@@ -239,17 +192,19 @@ class SudokuPlot(GlutFramework):
     def _print_text(self, prompt):  # FIXME positioning
         # Guesstimate of length of prompt in pixels
         plen = len(prompt) * 4
-        printgl(self.window_width / 2 - plen, self.window_height - 50,
-                GLUT_BITMAP_TIMES_ROMAN_24, prompt)
+        self.write_large(
+            self.window_width / 2 - plen, self.window_height - 50, prompt)
 
     def _draw_cells(self, width, height):
         glColor4f(0.0, 0.0, 0.0, 1.0)
         for i in range(10):
             glLineWidth(3.0 if i % 3 == 0 else 1.0)
             pos = WINDOW_BORDER + i *  height
-            line(self.window_width - WINDOW_BORDER, pos, WINDOW_BORDER, pos)
+            self._line(self.window_width - WINDOW_BORDER, pos,
+                       WINDOW_BORDER, pos)
             pos = WINDOW_BORDER + i *  width
-            line(pos, self.window_height - WINDOW_BORDER, pos, WINDOW_BORDER)
+            self._line(pos, self.window_height - WINDOW_BORDER,
+                       pos, WINDOW_BORDER)
 
     def _draw_cell_contents(self, value, valid, prob, start, x_spacing,
                             cell_width, cell_height):
@@ -279,13 +234,21 @@ class SudokuPlot(GlutFramework):
             if value[cell] != 0:
                 glColor4f(0, 0, 0, 1 - cell_sat)
                 size = 0.005 * cell_height
-                printglstroke(
+                self.write_small(
                     x_start + (cell_width / 2.0) - (size * 50.0),
                     y_start + (cell_height / 2.0) - (size * 50.0),
                     size, 0, "%d", value[cell])
 
-    def _end_display(self):
-        glutSwapBuffers()
+    def _line(self, x1, y1, x2, y2):
+        glBegin(GL_LINES)
+        glVertex2f(x1, y1)
+        glVertex2f(x2, y2)
+        glEnd()
+
+    def _check_cell(self, values, correct, x, y, row, col):
+        value = values[y*9 + x]
+        if value == values[row*9 + col]:
+            correct[y*9 + x] = False
 
 
 def sudoku_visualiser(args, port, neurons, ms, database):
