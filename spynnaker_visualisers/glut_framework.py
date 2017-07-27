@@ -95,7 +95,7 @@ class GlutFramework(object):
 
         # Function callbacks with wrapper functions
         GLUT.glutDisplayFunc(self.displayFramework)
-        GLUT.glutReshapeFunc(self.reshape)
+        GLUT.glutReshapeFunc(self.reshapeFramework)
         GLUT.glutIdleFunc(self.run)
         GLUT.glutMouseFunc(self.mouseButtonPress)
         GLUT.glutMotionFunc(self.mouseMove)
@@ -218,6 +218,10 @@ class GlutFramework(object):
             self.display(elapsedTimeInSeconds)
             GLUT.glutSwapBuffers()
         self.displayTimer.start()
+
+    def reshapeFramework(self, width, height):
+        if GLUT.glutGetWindow() == self.window:
+            self.reshape(width, height)
 
     def _write_large(self, x, y, string, *args):
         """Utility function: write a string to a given location as a bitmap.

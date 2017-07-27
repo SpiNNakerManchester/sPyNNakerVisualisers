@@ -132,6 +132,30 @@ class SudokuPlot(GlutFramework):
             self._draw_cell_contents(values, valid, probs, start_tick,
                                      x_spacing, cell_width, cell_height)
 
+    @overrides(super_class_method=GlutFramework.reshape)
+    def reshape(self, width, height):
+        sys.stderr.write("Reshape to %d, %d\n" % (width, height))
+        self.window_width = width
+        self.window_height = height
+        # Viewport dimensions
+        glViewport(0, 0, width, height)
+        glMatrixMode(GL_PROJECTION)
+        glLoadIdentity()
+        # An orthographic projection. Should probably look into OpenGL
+        # perspective projections for 3D if that's your thing
+        glOrtho(0.0, width, 0.0, height, -50.0, 50.0)
+        glMatrixMode(GL_MODELVIEW)
+        glLoadIdentity()
+
+    @overrides(super_class_method=GlutFramework.keyboardUp)
+    def keyboardUp(self, key, x, y):  # @UnusedVariable
+        if key == 32:
+            with self.start_condition:
+                if not self.user_pressed_start:
+                    print "Starting the simulation"
+                    self.user_pressed_start = True
+                    self.start_condition.notify_all()
+
     def _find_cell_values(self, start_tick):
         cell_value = [0 for _ in repeat(None, 81)]
         cell_prob = [0.0 for _ in repeat(None, 81)]
