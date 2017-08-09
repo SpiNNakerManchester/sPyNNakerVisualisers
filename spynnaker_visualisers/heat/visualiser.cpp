@@ -160,47 +160,69 @@ static inline void sleeplet(void)
     }
 }
 
+static inline int all_desired_chips(void)
+{
+    // if messages need to go to all chips, flip the #def below
+#ifndef SEND_TO_ALL_CHIPS
+    return 1;
+#else
+    return (XDIMENSIONS * YDIMENSIONS) / (EACHCHIPX * EACHCHIPY);
+#endif // SEND_TO_ALL_CHIPS
+}
+
+template<typename T>
+static inline T clamp(T low, T value, T high)
+{
+    if (value < low) {
+	return low;
+    }
+    if (value > high) {
+	return high;
+    }
+    return value;
+}
+
+//-------------------------------------------------------------------
+
 void readmappings(char* filenamea, char* filenameb)
 {
+    size_t i, j, k;
+    char buffer[BUFSIZ], *ptr;
+
     FILE *filea = fopen(filenamea, "r");
-    if (filea) {
-	size_t i, j, k;
-	char buffer[BUFSIZ], *ptr;
-	for (i = 0; fgets(buffer, sizeof buffer, filea) ; ++i) {
-	    for (j = 0, ptr = buffer;
-		    j < sizeof *maplocaltoglobal / sizeof **maplocaltoglobal ;
-		    ++j, ++ptr) {
-		if (i < XDIMENSIONS * YDIMENSIONS) {
-		    maplocaltoglobal[i][j] = (int) strtol(ptr, &ptr, 10);
-		    maplocaltoglobalsize = i;
-		}
+    if (!filea) {
+	perror(filenamea);
+	exit(1);
+    }
+    for (i = 0; fgets(buffer, sizeof buffer, filea) ; ++i) {
+	for (j = 0, ptr = buffer;
+		j < sizeof *maplocaltoglobal / sizeof **maplocaltoglobal ;
+		++j, ++ptr) {
+	    if (i < XDIMENSIONS * YDIMENSIONS) {
+		maplocaltoglobal[i][j] = (int) strtol(ptr, &ptr, 10);
+		maplocaltoglobalsize = i;
 	    }
 	}
-    } else {
-	perror(filenamea);
     }
     fclose(filea);
 
     FILE *fileb = fopen(filenameb, "r");
-    if (fileb) {
-	size_t i, j, k;
-	char buffer[BUFSIZ], *ptr;
-	for (i = 0; fgets(buffer, sizeof buffer, fileb) ; ++i) {
-	    for (j = 0, ptr = buffer;
-		    j < sizeof *mapglobaltolocal / sizeof **mapglobaltolocal ;
-		    ++j, ++ptr) {
-		if (i < XDIMENSIONS * YDIMENSIONS) {
-		    mapglobaltolocal[i][j] = (int) strtol(ptr, &ptr, 10);
-		    mapglobaltolocalsize = i;
-		}
+    if (!fileb) {
+	perror(filenameb);
+	exit(1);
+    }
+    for (i = 0; fgets(buffer, sizeof buffer, fileb) ; ++i) {
+	for (j = 0, ptr = buffer;
+		j < sizeof *mapglobaltolocal / sizeof **mapglobaltolocal ;
+		++j, ++ptr) {
+	    if (i < XDIMENSIONS * YDIMENSIONS) {
+		mapglobaltolocal[i][j] = (int) strtol(ptr, &ptr, 10);
+		mapglobaltolocalsize = i;
 	    }
 	}
-    } else {
-	perror(filenameb);
     }
     fclose(fileb);
 
-    size_t i, j, k;
     for (j = 0; j <= mapglobaltolocalsize ; ++j) {
 	printf("mapglobaltolocal[%lu]: ", (long unsigned) j);
 	for (k = 0; k < sizeof *mapglobaltolocal / sizeof **mapglobaltolocal ;
@@ -330,7 +352,7 @@ void error(char *msg)
 
 void cleardown(void)
 {
-    for (int i = 0 ; i < (xdim * ydim) ; i++) {
+    for (int i = 0 ; i < xdim * ydim ; i++) {
 	immediate_data[i] = INITZERO ? 0.0 : NOTDEFINEDFLOAT;
     }
     highwatermark = HIWATER; // reset for auto-scaling of plot colours, can dynamically alter this value (255.0 = top of the shop)
@@ -403,15 +425,15 @@ void printglstroke(
 
 void convert_index_to_coord(int index, int *x, int *y)
 {
-    int elementid = (index % (EACHCHIPX * EACHCHIPY));
+    int elementid = index % (EACHCHIPX * EACHCHIPY);
     int elementx = elementid / EACHCHIPY;
     int elementy = elementid % EACHCHIPY;
-    int tileid = (index / (EACHCHIPX * EACHCHIPY));
+    int tileid = index / (EACHCHIPX * EACHCHIPY);
     int tilex = tileid / (YDIMENSIONS / EACHCHIPY);
     int tiley = tileid % (YDIMENSIONS / EACHCHIPY);
 
-    int xcord = (tilex * EACHCHIPX) + elementx;
-    int ycord = (tiley * EACHCHIPY) + elementy;
+    int xcord = tilex * EACHCHIPX + elementx;
+    int ycord = tiley * EACHCHIPY + elementy;
 
     *x = xcord;
     *y = ycord;
@@ -425,8 +447,8 @@ int convert_coord_to_index(int x, int y)
     int tilex = x / EACHCHIPX;		// x tile
     int tiley = y / EACHCHIPY;		// y tile
 
-    int elementid = (elementx * EACHCHIPY) + elementy;
-    int index = (EACHCHIPX * EACHCHIPY) * ((tilex * YCHIPS) + tiley)
+    int elementid = elementx * EACHCHIPY + elementy;
+    int index = (EACHCHIPX * EACHCHIPY) * (tilex * YCHIPS + tiley)
 	    + elementid; // CP 16thJan to support #chips rather than calculated
 
     return index;
@@ -446,17 +468,17 @@ int coordinate_manipulate(int ii)
 	int tilex = tileid / (YDIMENSIONS / EACHCHIPY);
 	int tiley = tileid % (YDIMENSIONS / EACHCHIPY);
 	if (yflip) {
-	    elementy = (EACHCHIPY - 1) - elementy;        // flip ycords
-	    tiley = ((YDIMENSIONS / EACHCHIPY) - 1) - tiley;
+	    elementy = EACHCHIPY - 1 - elementy;	// flip ycords
+	    tiley = YDIMENSIONS / EACHCHIPY - 1 - tiley;
 	}
 	if (xflip) {
-	    elementx = (EACHCHIPX - 1) - elementx;        // flip xcoords
-	    tilex = ((XDIMENSIONS / EACHCHIPX) - 1) - tilex;
+	    elementx = EACHCHIPX - 1 - elementx;	// flip xcoords
+	    tilex = XDIMENSIONS / EACHCHIPX - 1 - tilex;
 	}
 
-	elementid = (elementx * EACHCHIPY) + elementy;
+	elementid = elementx * EACHCHIPY + elementy;
 	i = (EACHCHIPX * EACHCHIPY)
-		* ((tilex * (XDIMENSIONS / EACHCHIPX)) + tiley) + elementid;
+		* (tilex * (XDIMENSIONS / EACHCHIPX) + tiley) + elementid;
 
 	if (vectorflip) {
 	    i = (YDIMENSIONS * XDIMENSIONS) - 1 - i; // go back to front (cumulative)
@@ -468,18 +490,6 @@ int coordinate_manipulate(int ii)
 	}
     }
     return i;                            // return cumulative reorientation
-}
-
-template<typename T>
-static inline T clamp(T low, T value, T high)
-{
-    if (value < low) {
-	return low;
-    }
-    if (value > high) {
-	return high;
-    }
-    return value;
 }
 
 float colour_calculator(float inputty, float hiwater, float lowater)
@@ -495,7 +505,7 @@ float colour_calculator(float inputty, float hiwater, float lowater)
 	fillcolour = 1.0; // if in error, or close to a divide by zero (no intensity plotted)
     } else {
 	scalingfactor = 1 / diff; // work out how to scale the input data depending on low and highwater values
-	fillcolour = (scalingfactor * (inputty - lowater)); // calculate the colour to plot
+	fillcolour = scalingfactor * (inputty - lowater); // calculate the colour to plot
     }
     fillcolour = clamp(0.0F, fillcolour, 1.0F);
     // must always range between 0 and 1 floating point
@@ -576,7 +586,6 @@ void displayb(void)			// not currently used
 // display function, called whenever the display window needs redrawing
 void display(void)
 {
-
     int64_t nowtime;
     float timeperindex = displayWindow / (float) plotWidth; // time in seconds per history index in use
 
@@ -608,11 +617,11 @@ void display(void)
     glColor4f(0.0, 0.0, 0.0, 1.0);                    // Black Text for Labels
 
     if (printlabels && !fullscreen) { // titles and labels are only printed if border is big enough
-	printgl((windowWidth / 2) - 200, windowHeight - 50,
+	printgl(windowWidth / 2 - 200, windowHeight - 50,
 		GLUT_BITMAP_TIMES_ROMAN_24, (char*) TITLE); // Print Title of Graph
 	char stringy3[] =
 		"Colour Map (1,2,3..), Mode: (t)iled, (h)istogram, (i)nterpolation, (l)ines, (r)aster, Menu: right click.";
-	printgl((windowWidth / 2) - 250, windowHeight - 80,
+	printgl(windowWidth / 2 - 250, windowHeight - 80,
 		GLUT_BITMAP_HELVETICA_12, stringy3); // Print subtitle of Graph
 	// Graph Title
 
@@ -622,28 +631,29 @@ void display(void)
 	if (DISPLAYXLABELS) {
 	    if (displaymode == HISTOGRAM) {
 		char stringy1[] = "Tile (X,Y) Coords";
-		printglstroke((windowWidth / 2) - 40, 20, 0.12, 0, stringy1);
+		printglstroke(windowWidth / 2 - 40, 20, 0.12, 0, stringy1);
 	    } else if (displaymode == LINES || displaymode == RASTER
 		    || displaymode == EEGSTYLE) {
 		char stringy1[] =
 			"Simulation Time. Window Width=%3.1f secs ('<' '>')";
-		printglstroke((windowWidth / 2) - 200, 20, 0.12, 0, stringy1,
+		printglstroke(windowWidth / 2 - 200, 20, 0.12, 0, stringy1,
 			displayWindow * playbackmultiplier);
 	    } else {
 		char stringy1[] = "X Coord";
-		printglstroke((windowWidth / 2) - 25, 20, 0.12, 0, stringy1);
+		printglstroke(windowWidth / 2 - 25, 20, 0.12, 0, stringy1);
 		int xlabels = xdim;
-		float xspacing = ((float) (plotWidth) / xdim);
+		float xspacing = plotWidth / (float) xdim;
 		if (LABELBYCHIP) {
 		    xlabels = xdim / EACHCHIPX;
 		    xspacing *= EACHCHIPX;
 		}
 		int xplotted, spacing = 24, lastxplotted = -100;
 		for (int i = 0 ; i < xlabels ; i++) {                // X-Axis
-		    if (i > 100)
+		    if (i > 100) {
 			spacing = 32;
-		    xplotted = (i * xspacing) + windowBorder
-			    + ((xspacing - 8) / 2) - 3;	// what will be the next x coordinate
+		    }
+		    xplotted = i * xspacing + windowBorder
+			    + (xspacing - 8) / 2 - 3;	// what will be the next x coordinate
 		    if (xplotted > lastxplotted + spacing) { // plot if enough space to not overlap labels.
 			printgl(xplotted, 60, GLUT_BITMAP_HELVETICA_18,
 				stringy4, i);		// Print X Axis Labels at required intervals
@@ -689,13 +699,11 @@ void display(void)
 		    }
 		}
 		int multipleprinted = 1;
-		float linechunkiness = (float) (windowHeight
-			- (2 * windowBorder))
+		float linechunkiness = (windowHeight - 2 * windowBorder)
 			/ (float) (highwatermark - lowwatermark);
-		for (int i = 0 ; i < windowHeight - (2 * windowBorder) ;
+		for (int i = 0 ; i < windowHeight - 2 * windowBorder ;
 			i++) {
-		    float temperaturehere = ((float) i / linechunkiness)
-			    + lowwatermark;
+		    float temperaturehere = i / linechunkiness + lowwatermark;
 		    float positiveoffset = temperaturehere - lowwatermark;
 		    if (PERCENTAGESCALE)
 			positiveoffset = (positiveoffset / difference)
@@ -703,11 +711,13 @@ void display(void)
 		    if (positiveoffset >= (interval * multipleprinted)) {
 			glColor4f(0.6, 0.6, 0.6, 1.0);
 			glLineWidth(1.0);
+
 			glBegin(GL_LINES);
 			glVertex2f(windowWidth - windowBorder - keyWidth + 10,
 				i + windowBorder); // rhs
 			glVertex2f(windowBorder - 10, i + windowBorder); // inside
 			glEnd();
+
 			glColor4f(0.0, 0.0, 0.0, 1.0);
 			printgl(55, i + windowBorder - 5,
 				GLUT_BITMAP_HELVETICA_12, stringy8,
@@ -719,19 +729,20 @@ void display(void)
 		// plotted sequentially up and down
 		if (displaymode == RASTER) {
 		    char stringy5[] = "Raster Activity Plot";
-		    printglstroke(25, (windowHeight / 2) - 70, 0.12, 90,
+		    printglstroke(25, windowHeight / 2 - 70, 0.12, 90,
 			    stringy5);         // Print Y-Axis label for Graph
 		} else {
 		    char stringy5[] = "Data Value";
-		    printglstroke(25, (windowHeight / 2) - 50, 0.12, 90,
+		    printglstroke(25, windowHeight / 2 - 50, 0.12, 90,
 			    stringy5);         // Print Y-Axis label for Graph
 		}
 
 		int numberofrasterplots = xdim * ydim;
-		if (windowToUpdate == win2)
+		if (windowToUpdate == win2) {
 		    numberofrasterplots = maxneuridrx; // bespoke for Discovery demo
-		float yspacing = (float) (windowHeight - (2 * windowBorder))
-			/ (float) (numberofrasterplots); // how many pixels per neuron ID
+		}
+		float yspacing = (windowHeight - 2 * windowBorder)
+			/ (float) numberofrasterplots; // how many pixels per neuron ID
 
 		int lastyplotted = -100;
 		for (int i = 0 ; i < numberofrasterplots ; i++) { // for all plottable items
@@ -743,7 +754,7 @@ void display(void)
 			ycord = i;
 		    }
 		    int yplotted = (i * yspacing) + windowBorder
-			    + ((yspacing - 18) / 2) + 6; // what will be the next y coordinate
+			    + (yspacing - 18) / 2 + 6; // what will be the next y coordinate
 		    if (yplotted > lastyplotted + 12) { // plot only if enough space to not overlap labels.
 			lastyplotted = yplotted; // we were the last one plotted
 			if (windowToUpdate == win2) {
@@ -757,23 +768,23 @@ void display(void)
 		}
 	    } else {
 		char stringy5[] = "Y Coord";
-		printglstroke(25, (windowHeight / 2) - 50, 0.12, 90,
+		printglstroke(25, windowHeight / 2 - 50, 0.12, 90,
 			stringy5);             // Print Y-Axis label for Graph
 		int ylabels = ydim;
-		float yspacing = ((float) (windowHeight - (2 * windowBorder))
-			/ ydim);
+		float yspacing = (windowHeight - 2 * windowBorder)
+			/ (float) ydim;
 		if (LABELBYCHIP) {
 		    ylabels = ydim / EACHCHIPY;
 		    yspacing *= EACHCHIPY;
 		}
 		int yplotted, lastyplotted = -100;
 		for (int i = 0 ; i < ylabels ; i++) {                // Y-Axis
-		    yplotted = (i * yspacing) + windowBorder
-			    + ((yspacing - 18) / 2) + 2; // what will be the next y coordinate
-		    if (yplotted > (lastyplotted + 16)) { // plot only if enough space to not overlap labels.
+		    yplotted = i * yspacing + windowBorder
+			    + (yspacing - 18) / 2 + 2; // what will be the next y coordinate
+		    if (yplotted > lastyplotted + 16) { // plot only if enough space to not overlap labels.
 			printgl(60,
-				(i * yspacing) + windowBorder
-					+ ((yspacing - 18) / 2) + 2,
+				i * yspacing + windowBorder
+					+ (yspacing - 18) / 2 + 2,
 				GLUT_BITMAP_HELVETICA_18, stringy4, i); // Print Y Axis Label
 			lastyplotted = yplotted; // record where last label plotted on the Y axis
 		    }
@@ -783,17 +794,21 @@ void display(void)
 	// Y Axis
     }   // titles and labels are only printed if border is big enough
 
-    for (int i = 0 ; i < (xdim * ydim) ; i++) {
-	if (immediate_data[i] > (NOTDEFINEDFLOAT + 1)) {    // is valid
-	    if (immediate_data[i] > MAXDATAFLOAT)
+    for (int i = 0 ; i < xdim * ydim ; i++) {
+	if (immediate_data[i] > NOTDEFINEDFLOAT + 1) {    // is valid
+	    if (immediate_data[i] > MAXDATAFLOAT) {
 		immediate_data[i] = MAXDATAFLOAT; // check: can't increment above saturation level
-	    if (immediate_data[i] < MINDATAFLOAT)
+	    }
+	    if (immediate_data[i] < MINDATAFLOAT) {
 		immediate_data[i] = MINDATAFLOAT; // check: can't decrement below saturation level
+	    }
 	    if (DYNAMICSCALE) {
-		if (immediate_data[i] > highwatermark && spinnakerboardipset)
+		if (immediate_data[i] > highwatermark && spinnakerboardipset) {
 		    highwatermark = immediate_data[i]; // only alter the high water mark when using dynamic scaling & data received
-		if (immediate_data[i] < lowwatermark && spinnakerboardipset)
+		}
+		if (immediate_data[i] < lowwatermark && spinnakerboardipset) {
 		    lowwatermark = immediate_data[i]; // only alter the low water mark when using dynamic scaling & data received
+		}
 	    }
 	}
     }  // scale all the values to plottable range
@@ -802,7 +817,7 @@ void display(void)
     if (xsize < 1.0) {
 	xsize = 1.0;
     }
-    float ysize = ((float) (windowHeight - (2 * windowBorder)) / ydim); // changed for dynamic reshaping
+    float ysize = (windowHeight - 2 * windowBorder) / (float) ydim; // changed for dynamic reshaping
     float tileratio = xsize / ysize;
 
     for (int i = 0 ; i < xdim * ydim ; i++) {                  //
@@ -814,67 +829,65 @@ void display(void)
 		lowwatermark); // work out what colour we should plot - sets 'ink' plotting colour
 
 	// if required, plot tiled mini version in bottom left
-	if (DISPLAYMINIPLOT) {
-	    if (fullscreen == 0) {
-		float ysize = max((float) 1.0,
-			(float) (windowBorder - (6 * gap)) / (float) ydim);
-		float xsize = max((float) 1.0, ysize * tileratio); // draw little / mini tiled version in btm left - pixel size
-		if (immediate_data[ii] > (NOTDEFINEDFLOAT + 1)) { // only plot if data is valid
-		    glBegin (GL_QUADS); // draw little tiled version in btm left
-		    glVertex2f((2 * gap) + (xcord * xsize),
-			    (2 * gap) + (ycord * ysize));          //btm left
-		    glVertex2f((2 * gap) + ((xcord + 1) * xsize),
-			    (2 * gap) + (ycord * ysize));     //btm right
-		    glVertex2f((2 * gap) + ((xcord + 1) * xsize),
-			    (2 * gap) + ((ycord + 1) * ysize));   // top right
-		    glVertex2f((2 * gap) + (xcord * xsize),
-			    (2 * gap) + ((ycord + 1) * ysize));    // top left
-		    glEnd(); // this plots the basic quad box filled as per colour above
-		}
+	if (DISPLAYMINIPLOT && !fullscreen) {
+	    float ysize = max((float) 1.0,
+		    (windowBorder - 6 * gap) / (float) ydim);
+	    float xsize = max((float) 1.0, ysize * tileratio); // draw little / mini tiled version in btm left - pixel size
+	    if (immediate_data[ii] > NOTDEFINEDFLOAT + 1) { // only plot if data is valid
+		glBegin (GL_QUADS); // draw little tiled version in btm left
+		glVertex2f((2 * gap) + (xcord * xsize),
+			(2 * gap) + (ycord * ysize));          //btm left
+		glVertex2f((2 * gap) + ((xcord + 1) * xsize),
+			(2 * gap) + (ycord * ysize));     //btm right
+		glVertex2f((2 * gap) + ((xcord + 1) * xsize),
+			(2 * gap) + ((ycord + 1) * ysize));   // top right
+		glVertex2f((2 * gap) + (xcord * xsize),
+			(2 * gap) + ((ycord + 1) * ysize));    // top left
+		glEnd(); // this plots the basic quad box filled as per colour above
+	    }
 
-		if (livebox == i) { // draw outlines for selected box in little / mini version
-		    glLineWidth(1.0);
+	    if (livebox == i) { // draw outlines for selected box in little / mini version
+		glLineWidth(1.0);
+		glColor4f(0.0, 0.0, 0.0, 1.0);
+
+		glBegin (GL_LINE_LOOP);
+		glVertex2f((2 * gap) + (xcord * xsize),
+			(2 * gap) + (ycord * ysize));          //btm left
+		glVertex2f((2 * gap) + ((xcord + 1) * xsize),
+			(2 * gap) + (ycord * ysize));         //btm right
+		glVertex2f((2 * gap) + ((xcord + 1) * xsize),
+			(2 * gap) + ((ycord + 1) * ysize));   // top right
+		glVertex2f((2 * gap) + (xcord * xsize),
+			(2 * gap) + ((ycord + 1) * ysize));    // top left
+		glEnd(); // this plots the external black outline of the selected tile
+
+		glColor4f(1.0, 1.0, 1.0, 1.0);
+
+		glBegin(GL_LINE_LOOP);
+		glVertex2f(1 + (2 * gap) + (xcord * xsize),
+			1 + (2 * gap) + (ycord * ysize));       //btm left
+		glVertex2f((2 * gap) + ((xcord + 1) * xsize) - 1,
+			1 + (2 * gap) + (ycord * ysize));     //btm right
+		glVertex2f((2 * gap) + ((xcord + 1) * xsize) - 1,
+			(2 * gap) + ((ycord + 1) * ysize) - 1); // top right
+		glVertex2f(1 + (2 * gap) + (xcord * xsize),
+			(2 * gap) + ((ycord + 1) * ysize) - 1); // top left
+		glEnd(); // this plots the internal white outline of the selected tile
+
+		glLineWidth(1.0);
+	    }
+	    if ((SIMULATION == RATEPLOT || SIMULATION == RATEPLOTLEGACY)
+		    && INTERACTION && rasterpopulation == i) {
+		if (magnitude > 0.6) {
 		    glColor4f(0.0, 0.0, 0.0, 1.0);
-
-		    glBegin (GL_LINE_LOOP);
-		    glVertex2f((2 * gap) + (xcord * xsize),
-			    (2 * gap) + (ycord * ysize));          //btm left
-		    glVertex2f((2 * gap) + ((xcord + 1) * xsize),
-			    (2 * gap) + (ycord * ysize));         //btm right
-		    glVertex2f((2 * gap) + ((xcord + 1) * xsize),
-			    (2 * gap) + ((ycord + 1) * ysize));   // top right
-		    glVertex2f((2 * gap) + (xcord * xsize),
-			    (2 * gap) + ((ycord + 1) * ysize));    // top left
-		    glEnd(); // this plots the external black outline of the selected tile
-
+		} else {
 		    glColor4f(1.0, 1.0, 1.0, 1.0);
-
-		    glBegin(GL_LINE_LOOP);
-		    glVertex2f(1 + (2 * gap) + (xcord * xsize),
-			    1 + (2 * gap) + (ycord * ysize));       //btm left
-		    glVertex2f((2 * gap) + ((xcord + 1) * xsize) - 1,
-			    1 + (2 * gap) + (ycord * ysize));     //btm right
-		    glVertex2f((2 * gap) + ((xcord + 1) * xsize) - 1,
-			    (2 * gap) + ((ycord + 1) * ysize) - 1); // top right
-		    glVertex2f(1 + (2 * gap) + (xcord * xsize),
-			    (2 * gap) + ((ycord + 1) * ysize) - 1); // top left
-		    glEnd(); // this plots the internal white outline of the selected tile
-
-		    glLineWidth(1.0);
 		}
-		if ((SIMULATION == RATEPLOT || SIMULATION == RATEPLOTLEGACY)
-			&& INTERACTION && rasterpopulation == i) {
-		    if (magnitude > 0.6) {
-			glColor4f(0.0, 0.0, 0.0, 1.0);
-		    } else {
-			glColor4f(1.0, 1.0, 1.0, 1.0);
-		    }
-		    //print R
-		    char stringR[] = "R";
-		    printgl(2 * gap + xcord * xsize + (xsize - 8) / 2,
-			    2 * gap + ycord * ysize + (ysize - 10) / 2,
-			    GLUT_BITMAP_HELVETICA_12, stringR); // print an R in the box to indicate this is box that's raster plotting
-		}
+		//print R
+		char stringR[] = "R";
+		printgl(2 * gap + xcord * xsize + (xsize - 8) / 2,
+			2 * gap + ycord * ysize + (ysize - 10) / 2,
+			GLUT_BITMAP_HELVETICA_12, stringR); // print an R in the box to indicate this is box that's raster plotting
 	    }
 	}
 
@@ -897,16 +910,16 @@ void display(void)
 
 	if (displaymode == HISTOGRAM || displaymode == TILED) { // basic plot if not using triangular interpolation
 	    char stringnums[] = "%3.2f";
-	    if (immediate_data[ii] > (NOTDEFINEDFLOAT + 1)) {
+	    if (immediate_data[ii] > NOTDEFINEDFLOAT + 1) {
 		glBegin (GL_QUADS);
-		glVertex2f(windowBorder + (xcord * xsize),
-			windowBorder + (ycord * ysize));  //btm left
-		glVertex2f(windowBorder + ((xcord + 1) * xsize),
+		glVertex2f(windowBorder + xcord * xsize,
+			windowBorder + ycord * ysize);  //btm left
+		glVertex2f(windowBorder + (xcord + 1) * xsize,
 			windowBorder + (ycord * ysize)); //btm right
-		glVertex2f(windowBorder + ((xcord + 1) * xsize),
-			windowBorder + ((ycord + 1) * ysize));  // top right
-		glVertex2f(windowBorder + (xcord * xsize),
-			windowBorder + ((ycord + 1) * ysize)); // top left
+		glVertex2f(windowBorder + (xcord + 1) * xsize,
+			windowBorder + (ycord + 1) * ysize);  // top right
+		glVertex2f(windowBorder + xcord * xsize,
+			windowBorder + (ycord + 1) * ysize); // top left
 		glEnd(); // this plots the basic quad box filled as per colour above
 	    }
 
@@ -917,27 +930,27 @@ void display(void)
 		glColor4f(1.0, 1.0, 1.0, 1.0);
 
 		glBegin (GL_LINE_LOOP);
-		glVertex2f((gap * 1.5) + windowBorder + (xcord * xsize),
-			(gap * 1.5) + windowBorder + (ycord * ysize)); //btm left
-		glVertex2f(windowBorder + ((xcord + 1) * xsize) - (gap * 1.5),
-			(gap * 1.5) + windowBorder + (ycord * ysize)); //btm right
-		glVertex2f(windowBorder + ((xcord + 1) * xsize) - (gap * 1.5),
-			windowBorder + ((ycord + 1) * ysize) - (gap * 1.5)); // top right
-		glVertex2f((gap * 1.5) + windowBorder + (xcord * xsize),
-			windowBorder + ((ycord + 1) * ysize) - (gap * 1.5)); // top left
+		glVertex2f(gap * 1.5 + windowBorder + xcord * xsize,
+			gap * 1.5 + windowBorder + ycord * ysize); //btm left
+		glVertex2f(windowBorder + (xcord + 1) * xsize - gap * 1.5,
+			gap * 1.5 + windowBorder + ycord * ysize); //btm right
+		glVertex2f(windowBorder + (xcord + 1) * xsize - gap * 1.5,
+			windowBorder + (ycord + 1) * ysize - gap * 1.5); // top right
+		glVertex2f(gap * 1.5 + windowBorder + xcord * xsize,
+			windowBorder + (ycord + 1) * ysize - gap * 1.5); // top left
 		glEnd(); // this plots the internal white outline of the selected tile
 
 		glColor4f(0.0, 0.0, 0.0, 1.0);
 
 		glBegin(GL_LINE_LOOP);
-		glVertex2f((gap * 0.5) + windowBorder + (xcord * xsize),
-			(gap * 0.5) + windowBorder + (ycord * ysize)); //btm left
-		glVertex2f(windowBorder + ((xcord + 1) * xsize) - (gap * 0.5),
-			(gap * 0.5) + windowBorder + (ycord * ysize)); //btm right
-		glVertex2f(windowBorder + ((xcord + 1) * xsize) - (gap * 0.5),
-			windowBorder + ((ycord + 1) * ysize) - (gap * 0.5)); // top right
-		glVertex2f((gap * 0.5) + windowBorder + (xcord * xsize),
-			windowBorder + ((ycord + 1) * ysize) - (gap * 0.5)); // top left
+		glVertex2f(gap * 0.5 + windowBorder + xcord * xsize,
+			gap * 0.5 + windowBorder + ycord * ysize); //btm left
+		glVertex2f(windowBorder + (xcord + 1) * xsize - gap * 0.5,
+			gap * 0.5 + windowBorder + ycord * ysize); //btm right
+		glVertex2f(windowBorder + (xcord + 1) * xsize - gap * 0.5,
+			windowBorder + (ycord + 1) * ysize - gap * 0.5); // top right
+		glVertex2f(gap * 0.5 + windowBorder + xcord * xsize,
+			windowBorder + (ycord + 1) * ysize - gap * 0.5); // top left
 		glEnd(); // this plots the external black outline of the selected tile
 
 		glLineWidth(1.0);
@@ -1025,8 +1038,10 @@ void display(void)
 	}
     }
 
-    // this (below) plots the triangular interpolated view. Each point smoothly blends fill between 3 vertex values 2 are real points (edges),
-    // and the third a pseudo vertex in the centre of a block (average between 4 surrounding real vertices).
+    // this (below) plots the triangular interpolated view. Each point
+    // smoothly blends fill between 3 vertex values 2 are real points
+    // (edges),  and the third a pseudo vertex in the centre of a block
+    // (average between 4 surrounding real vertices).
     if (displaymode == INTERPOLATED) {
 	for (int i = 0 ; i < ydim - 1 ; i++) {                    // (y coord)
 	    int yc = ydim - 2 - i;
@@ -1075,8 +1090,8 @@ void display(void)
 	} // we build pseudo points between each 4 points (xsize-1*ysize-1) - average out the values and use this when drawing our triangles
     }
 
-    if ((displaymode == TILED || displaymode == HISTOGRAM)
-	    && gridlines != 0) { // scrolling modes x scale and labels and gridlines
+    // scrolling modes x scale and labels and gridlines
+    if ((displaymode == TILED || displaymode == HISTOGRAM) && gridlines) {
 	uint xsteps = xdim, ysteps = ydim;
 	glColor4f(0.8, 0.8, 0.8, 1.0);            // Grey Colour for Gridlines
 	if (displaymode == HISTOGRAM) {
@@ -1110,7 +1125,7 @@ void display(void)
 		    || displaymode == EEGSTYLE)) {
 	nowtime = timestamp();		// get time now in us
 
-	if (freezedisplay == 1) {
+	if (freezedisplay) {
 	    nowtime = freezetime;
 	}
 
@@ -1188,16 +1203,16 @@ void display(void)
     if (DISPLAYKEY && !fullscreen) {
 	// only print if not in fullscreen mode
 	glColor4f(0.0, 0.0, 0.0, 1.0);            // Black Text for Labels
-	int keybase = windowBorder + (0.20 * (windowHeight - windowBorder)); // bottom of the key
+	int keybase = windowBorder + 0.20 * (windowHeight - windowBorder); // bottom of the key
 	char stringy8[] = "%.2f";
 	if (PERCENTAGESCALE) {
 	    char stringy8[] = "%.2f%%";
-	    printgl(windowWidth - 55, windowHeight - (1 * windowBorder) - 5,
+	    printgl(windowWidth - 55, windowHeight - windowBorder - 5,
 		    GLUT_BITMAP_HELVETICA_12, stringy8, 100.0); // Print HighWaterMark Value
 	    printgl(windowWidth - 55, keybase - 5, GLUT_BITMAP_HELVETICA_12,
 		    stringy8, 0.0); // which for percentages is 0-100%
 	} else {
-	    printgl(windowWidth - 55, windowHeight - (1 * windowBorder) - 5,
+	    printgl(windowWidth - 55, windowHeight - windowBorder - 5,
 		    GLUT_BITMAP_HELVETICA_12, stringy8, highwatermark); // Print HighWaterMark Value
 	    printgl(windowWidth - 55, keybase - 5, GLUT_BITMAP_HELVETICA_12,
 		    stringy8, lowwatermark); // Print LowWaterMark Value
@@ -1205,14 +1220,14 @@ void display(void)
 	float interval, difference = highwatermark - lowwatermark;
 	for (float i = 10000 ; i >= 0.1 ; i /= 10.0) {
 	    if (difference < i) {
-		interval = i / ((difference < i / 2) ? 20.0 : 10.0);
+		interval = i / (difference < i / 2 ? 20.0 : 10.0);
 	    }
 	}
 	if (PERCENTAGESCALE) {
 	    interval = 10;  // fixed for percentage viewing
 	}
 	int multipleprinted = 1;
-	float linechunkiness = (windowHeight - (windowBorder + keybase))
+	float linechunkiness = (windowHeight - windowBorder - keybase)
 		/ (float) (highwatermark - lowwatermark);
 	if (windowHeight - windowBorder - keybase > 0) { // too small to print
 	    for (uint i = 0 ; i < windowHeight - windowBorder - keybase ;
@@ -1234,7 +1249,7 @@ void display(void)
 		if (PERCENTAGESCALE) {
 		    positiveoffset = positiveoffset / difference * 100.0; // scale it to a range of 0-100
 		}
-		if (positiveoffset >= (interval * multipleprinted)) {
+		if (positiveoffset >= interval * multipleprinted) {
 		    glColor4f(0.0, 0.0, 0.0, 1.0);
 		    glLineWidth(4.0);
 
@@ -1283,12 +1298,12 @@ void display(void)
 		glColor4f(0.0, 0.0, 0.0, 1.0);   // black is the new black
 
 		glBegin (GL_QUADS);
-		glVertex2f(xorigin + (boxer * (boxsize + gap)), yorigin); //btm left
-		glVertex2f(xorigin + (boxer * (boxsize + gap)) + boxsize,
+		glVertex2f(xorigin + boxer * (boxsize + gap), yorigin); //btm left
+		glVertex2f(xorigin + boxer * (boxsize + gap) + boxsize,
 			yorigin); //btm right
-		glVertex2f(xorigin + (boxer * (boxsize + gap)) + boxsize,
+		glVertex2f(xorigin + boxer * (boxsize + gap) + boxsize,
 			yorigin + boxsize); // top right
-		glVertex2f(xorigin + (boxer * (boxsize + gap)),
+		glVertex2f(xorigin + boxer * (boxsize + gap),
 			yorigin + boxsize); // top left
 		glEnd();
 
@@ -1367,7 +1382,7 @@ void display(void)
     }
 
     // only print if not in fullscreen mode
-    if (SIMULATION == HEATMAP && INTERACTION && fullscreen == 0) {
+    if (SIMULATION == HEATMAP && INTERACTION && !fullscreen) {
 	// for Heat Map work
 	for (int boxer = 0 ; boxer < controlboxes * controlboxes ; boxer++) {
 	    int boxx = boxer / controlboxes, boxy = boxer % controlboxes;
@@ -1452,17 +1467,16 @@ void display(void)
 	    || displaymode == EEGSTYLE) {
 	nowtime = timestamp();			// get time now in us
 
-	if (freezedisplay == 1) {
+	if (freezedisplay) {
 	    nowtime = freezetime;
 	}
 
 	float x_scaling_factor = 1;
-	float y_scaling_factor = (((float) windowHeight
-		- (2.0 * (float) windowBorder))
-		/ (highwatermark - lowwatermark)); // value rise per pixel of display
+	float y_scaling_factor = (float) (windowHeight - 2.0 * windowBorder)
+		/ (highwatermark - lowwatermark); // value rise per pixel of display
 
 	int updateline = ((nowtime - starttimez)
-		/ (int64_t)(timeperindex * 1000000)) % (HISTORYSIZE); // which index is being plotted now (on the right hand side)
+		/ (int64_t)(timeperindex * 1000000)) % HISTORYSIZE; // which index is being plotted now (on the right hand side)
 
 	if (updateline < 0 || updateline > HISTORYSIZE) {
 	    printf(
@@ -1538,13 +1552,12 @@ void display(void)
 			workingwithdata = history_data_set2[i][jj]; // bespoke for Discovery demo
 		    }
 		    if (workingwithdata > (NOTDEFINEDFLOAT + 1)) {
-			y_scaling_factor = (float) (windowHeight
-				- (2 * windowBorder))
-				/ (float) (numberofrasterplots); // how many pixels per neuron ID
-			int y = (int) ((float) (j + 0.5)
-				* (float) y_scaling_factor) + windowBorder;
+			y_scaling_factor = (windowHeight - 2 * windowBorder)
+				/ (float) numberofrasterplots; // how many pixels per neuron ID
+			int y = (int) ((j + 0.5) * y_scaling_factor)
+				+ windowBorder;
 			int x = (windowWidth - windowBorder - keyWidth)
-				- ((updateline - i) * x_scaling_factor);
+				- (updateline - i) * x_scaling_factor;
 			glVertex2f(x, y); // TODO change to lines for low counts? 1 of 2 (targetdotsize).
 			// start at y-(targetdotsize/2) end at y+(targetdotsize/2)
 			spikesperxcoord[x - windowBorder]++;
@@ -1555,15 +1568,14 @@ void display(void)
 		    if (windowToUpdate == win2) {
 			workingwithdata = history_data_set2[i][jj]; // bespoke for Discovery demo
 		    }
-		    if (workingwithdata > (NOTDEFINEDFLOAT + 1)) {
-			y_scaling_factor = (float) (windowHeight
-				- (2 * windowBorder))
-				/ (float) (numberofrasterplots); // how many pixels per neuron ID
-			int y = (int) ((float) (j + 0.5)
-				* (float) y_scaling_factor) + windowBorder;
+		    if (workingwithdata > NOTDEFINEDFLOAT + 1) {
+			y_scaling_factor = (windowHeight - 2 * windowBorder)
+				/ (float) numberofrasterplots; // how many pixels per neuron ID
+			int y = (int) ((j + 0.5) * y_scaling_factor)
+				+ windowBorder;
 			int x = (windowWidth - windowBorder - keyWidth)
-				- ((updateline + ((HISTORYSIZE) - i))
-					* x_scaling_factor);
+				- (updateline + HISTORYSIZE - i)
+					* x_scaling_factor;
 			glVertex2f(x, y); // TODO change to lines for low counts? 2 of 2. (targetdotsize)
 			// start at y-(targetdotsize/2) end at y+(targetdotsize/2)
 			spikesperxcoord[x - windowBorder]++;
@@ -1583,9 +1595,10 @@ void display(void)
 		glBegin (GL_LINE_STRIP);
 		for (int i = updateline ; i >= itop1 ; i--) { // For each column of elements to the right / newer than the current line
 		    workingwithdata = INITZERO ? 0.0 : NOTDEFINEDFLOAT; // default to invalid
-		    if (history_data[i][jj] > (NOTDEFINEDFLOAT + 1))
+		    if (history_data[i][jj] > NOTDEFINEDFLOAT + 1) {
 			workingwithdata = history_data[i][jj];
-		    if (workingwithdata > (NOTDEFINEDFLOAT + 1)) {
+		    }
+		    if (workingwithdata > NOTDEFINEDFLOAT + 1) {
 			int y = (int) (windowBorder
 				+ y_scaling_factor
 					* (workingwithdata - lowwatermark));
@@ -1596,14 +1609,15 @@ void display(void)
 					windowHeight - windowBorder));
 		    }
 		}
-		for (int i = (HISTORYSIZE - 1) ; i > itop2 ; i--) { // For each column of elements to the right / newer than the current line
+		for (int i = HISTORYSIZE - 1 ; i > itop2 ; i--) { // For each column of elements to the right / newer than the current line
 		    workingwithdata = INITZERO ? 0.0 : NOTDEFINEDFLOAT; // default to invalid
-		    if (history_data[i][jj] > (NOTDEFINEDFLOAT + 1))
+		    if (history_data[i][jj] > NOTDEFINEDFLOAT + 1) {
 			workingwithdata = history_data[i][jj];
-		    if (workingwithdata > (NOTDEFINEDFLOAT + 1)) {
-			int y = (int) (((float) windowBorder
-				+ ((workingwithdata - lowwatermark)
-					* y_scaling_factor)));
+		    }
+		    if (workingwithdata > NOTDEFINEDFLOAT + 1) {
+			int y = (int) (windowBorder
+				+ (workingwithdata - lowwatermark)
+					* y_scaling_factor);
 			glVertex2f(
 				windowWidth - windowBorder - keyWidth
 					- (updateline + HISTORYSIZE - i)
@@ -1625,15 +1639,18 @@ void display(void)
 		int jj = coordinate_manipulate(j); // if any manipulation of how the data is to be plotted is required, do it
 		glColor4f(0.7, 0.7, 0.7, 1.0);
 		glLineWidth(1.0);
+
 		glBegin (GL_LINE_STRIP);
 		glVertex2f(windowBorder - 10,
-			windowBorder + ((int) (eegrowheight * (float) j)));
+			windowBorder + eegrowheight * j);
 		glVertex2f(windowBorder + plotWidth + 10,
-			windowBorder + ((int) (eegrowheight * (float) j)));
+			windowBorder + eegrowheight * j);
 		glEnd();
+
 		glLineWidth(2.0);
 		float magnitude = colour_calculator(immediate_data[jj],
 			highwatermark, lowwatermark);
+
 		glBegin(GL_LINE_STRIP);
 		for (int i = updateline ; i >= itop1 ; i--) { // For each column of elements to the right / newer than the current line
 		    workingwithdata = INITZERO ? 0.0 : NOTDEFINEDFLOAT; // default to invalid
@@ -1644,7 +1661,7 @@ void display(void)
 			int y = (int) (windowBorder
 				+ (workingwithdata - lowwatermark)
 					* y_scaling_factor);
-			y += (int) (eegrowheight * (float) j); // EEGSTYLE difference to LINES: add on row offset up screen
+			y += (int) (eegrowheight * j); // EEGSTYLE difference to LINES: add on row offset up screen
 			glVertex2f(
 				windowWidth - windowBorder - keyWidth
 					- (updateline - i) * x_scaling_factor,
@@ -1661,7 +1678,7 @@ void display(void)
 			int y = (int) (windowBorder
 				+ (workingwithdata - lowwatermark)
 					* y_scaling_factor);
-			y += (int) (eegrowheight * (float) j); // EEGSTYLE difference to LINES: add on row offset up screen
+			y += (int) (eegrowheight * j); // EEGSTYLE difference to LINES: add on row offset up screen
 			glVertex2f(
 				windowWidth - windowBorder - keyWidth
 					- (updateline + HISTORYSIZE - i)
@@ -1674,6 +1691,7 @@ void display(void)
 	    }
 	    glColor4f(0.7, 0.7, 0.7, 1.0);
 	    glLineWidth(1.0);
+
 	    glBegin (GL_LINE_STRIP);
 	    glVertex2f(windowBorder - 10,
 		    windowBorder
@@ -1688,7 +1706,7 @@ void display(void)
     }
 
     if (DECAYPROPORTION > 0.0 && !freezedisplay) { // CP - if used!
-	for (int i = 0 ; i < (xdim * ydim) ; i++) {
+	for (int i = 0 ; i < xdim * ydim ; i++) {
 	    if (immediate_data[i] > NOTDEFINEDFLOAT + 1) {
 		immediate_data[i] *= DECAYPROPORTION; // puts a decay on the data per frame plotted
 	    }
@@ -1704,13 +1722,13 @@ void reshape(int width, int height)
 {
     if (glutGetWindow() == 1) {
 	windowWidth = width;
-	plotWidth = windowWidth - (2 * windowBorder) - keyWidth;
-	if (fullscreen == 1) {
+	plotWidth = windowWidth - 2 * windowBorder - keyWidth;
+	if (fullscreen) {
 	    windowWidth += keyWidth;
 	    plotWidth = windowWidth - keyWidth;
 	}
-	if (windowWidth < (2 * windowBorder) + keyWidth) {
-	    windowWidth = (2 * windowBorder) + keyWidth; // stop the plotting area becoming -ve and crashing
+	if (windowWidth < 2 * windowBorder + keyWidth) {
+	    windowWidth = 2 * windowBorder + keyWidth; // stop the plotting area becoming -ve and crashing
 	    plotWidth = 0;
 	}
 	windowHeight = height;
@@ -1818,7 +1836,7 @@ void specialDown(int key, int x, int y)
 	    }
 	    break;
 	}
-	if (livebox < 0 || livebox >= (xdim * ydim)) {
+	if (livebox < 0 || livebox >= xdim * ydim) {
 	    livebox = -1;
 	}
 	if (livebox != -1) {
@@ -1831,19 +1849,6 @@ void specialDown(int key, int x, int y)
 // Called when arrow keys (and some others) are released
 void specialUp(int key, int x, int y)
 {
-    if ((SIMULATION == RATEPLOT || SIMULATION == RATEPLOTLEGACY)
-	    && INTERACTION) {
-	switch (key) {
-	case GLUT_KEY_UP:
-	    break;
-	case GLUT_KEY_DOWN:
-	    break;
-	case GLUT_KEY_RIGHT:
-	    break;
-	case GLUT_KEY_LEFT:
-	    break;
-	}
-    }
 }
 
 // Called when keys are pressed
@@ -1854,7 +1859,7 @@ void keyDown(unsigned char key, int x, int y)
 	if (fullscreen) {
 	    windowBorder = oldwindowBorder;	// restore old bordersize
 	    windowWidth -= keyWidth;		// recover the key area
-	    plotWidth = windowWidth - (2 * windowBorder) - keyWidth;
+	    plotWidth = windowWidth - 2 * windowBorder - keyWidth;
 	} else {
 	    oldwindowBorder = windowBorder;	// used as border disappears when going full-screen
 	    windowBorder = 0;			// no borders around the plots
@@ -1870,28 +1875,28 @@ void keyDown(unsigned char key, int x, int y)
 
 	// number keys used to select colour maps
     case '1':
-	colourused = 1;
+	colourused = MULTI;
 	break;
     case '2':
-	colourused = 2;
+	colourused = GREYS;
 	break;
     case '3':
-	colourused = 3;
+	colourused = REDS;
 	break;
     case '4':
-	colourused = 4;
+	colourused = GREENS;
 	break;
     case '5':
-	colourused = 5;
+	colourused = BLUES;
 	break;
     case '6':
-	colourused = 6;
+	colourused = THERMAL;
 	break;
     case '7':
-	colourused = 7;
+	colourused = RED;
 	break;
     case '8':
-	colourused = 8;
+	colourused = BLUE;
 	break;
 
     case 'c':
@@ -1925,20 +1930,20 @@ void keyDown(unsigned char key, int x, int y)
 	safelyshut();
 	break;
     case '"': {
-	int i = 0; // only sending to 0,0  - if needs to go to all chips, uncomment line below. PAUSE
-	//for (i=0;i<((XDIMENSIONS*YDIMENSIONS)/(EACHCHIPX*EACHCHIPY));i++)
-	send_to_chip(i, 0x21, 2, 0, 0, 0, 4, 0, 0, 0, 0);
 	// send pause packet out
+	for (int i = 0 ; i < all_desired_chips() ; i++) {
+	    send_to_chip(i, 0x21, 2, 0, 0, 0, 4, 0, 0, 0, 0);
+	}
 	freezedisplay = 1;
 	freezetime = timestamp();	// get time now in us
 	needtorebuildmenu = 1;
 	break;
     }
     case 'p': {
-	int i = 0; // only sending to 0,0  - if needs to go to all chips, uncomment line below. RESUME
-	//for (i=0;i<((XDIMENSIONS*YDIMENSIONS)/(EACHCHIPX*EACHCHIPY));i++)
-	send_to_chip(i, 0x21, 3, 0, 0, 0, 4, 0, 0, 0, 0);
 	// send resume/restart packet out
+	for (int i = 0 ; i < all_desired_chips() ; i++) {
+	    send_to_chip(i, 0x21, 3, 0, 0, 0, 4, 0, 0, 0, 0);
+	}
 	freezedisplay = 0;
 	needtorebuildmenu = 1;
 	break;
@@ -2095,7 +2100,7 @@ void keyDown(unsigned char key, int x, int y)
 		    && (rasterpopulation == -1 || livebox != rasterpopulation)) {
 		printf("Just called up for a raster from population: %d\n",
 			livebox + 1);
-		for (int i = 0 ; i < (xdim * ydim) ; i++) {
+		for (int i = 0 ; i < xdim * ydim ; i++) {
 		    sdp_sender(0, 0x80 + i + 1, 258, 0, 4, 0, 0); // turn off raster on all populations
 		    sleeplet();
 		    printf("%d: ", i);
@@ -2131,38 +2136,22 @@ void keyDown(unsigned char key, int x, int y)
 	// for Heat Map work
     case 'n':
 	if (SIMULATION == HEATMAP && INTERACTION && editmode) {
-	    if (livebox == NORTH) {
-		livebox = -1;
-	    } else {
-		livebox = NORTH;
-	    }
+	    livebox = (livebox == NORTH ? -1 : NORTH);
 	}
 	break;
     case 'e':
 	if (SIMULATION == HEATMAP && INTERACTION && editmode) {
-	    if (livebox == EAST) {
-		livebox = -1;
-	    } else {
-		livebox = EAST;
-	    }
+	    livebox = (livebox == EAST ? -1 : EAST);
 	}
 	break;
     case 's':
 	if (SIMULATION == HEATMAP && INTERACTION && editmode) {
-	    if (livebox == SOUTH) {
-		livebox = -1;
-	    } else {
-		livebox = SOUTH;
-	    }
+	    livebox = (livebox == SOUTH ? -1 : SOUTH);
 	}
 	break;
     case 'w':
 	if (SIMULATION == HEATMAP && INTERACTION && editmode) {
-	    if (livebox == WEST) {
-		livebox = -1;
-	    } else {
-		livebox = WEST;
-	    }
+	    livebox = (livebox == WEST ? -1 : WEST);
 	}
 	break;
     case 'a':
@@ -2177,54 +2166,62 @@ void keyDown(unsigned char key, int x, int y)
 	    editmode=0; // set to 0 for locking sends
 #endif
 	    livebox = -1;
-	    int i = 0; // only sending to 0,0  - if needs to go to all chips, uncomment line below.
-	    //for (i=0;i<(XDIMENSIONS*YDIMENSIONS)/(EACHCHIPX*EACHCHIPY);i++)
-	    send_to_chip(i, 0x21, 1, 0, 0, 0, 4, (int) (alternorth * 65536),
-		    (int) (altereast * 65536), (int) (altersouth * 65536),
-		    (int) (alterwest * 65536)); // send temperature packet out
+	    // send temperature packet out
+	    for (int i = 0 ; i < all_desired_chips() ; i++) {
+		send_to_chip(i, 0x21, 1, 0, 0, 0, 4,
+			(int) (alternorth * 65536), (int) (altereast * 65536),
+			(int) (altersouth * 65536),
+			(int) (alterwest * 65536));
+	    }
 	}
 	break;
     case '9':
 	if (SIMULATION == HEATMAP && INTERACTION) {
 	    // special case to randomise the heatmap
-	    int i = 0; // only sending to 0,0  - if needs to go to all chips, uncomment line below.
-	    //for (i=0;i<(XDIMENSIONS*YDIMENSIONS)/(EACHCHIPX*EACHCHIPY);i++)
-	    alternorth = (rand() % (int) (highwatermark - lowwatermark))
-		    + lowwatermark;
-	    altereast = (rand() % (int) (highwatermark - lowwatermark))
-		    + lowwatermark;
-	    altersouth = (rand() % (int) (highwatermark - lowwatermark))
-		    + lowwatermark;
-	    alterwest = (rand() % (int) (highwatermark - lowwatermark))
-		    + lowwatermark;
-	    send_to_chip(i, 0x21, 1, 0, 0, 0, 4, (int) (alternorth * 65536),
-		    (int) (altereast * 65536), (int) (altersouth * 65536),
-		    (int) (alterwest * 65536)); // send temperature packet out (reset to zero).
+	    // send temperature packet out (reset to zero).
+	    for (int i = 0 ; i < all_desired_chips() ; i++) {
+		alternorth = (rand() % (int) (highwatermark - lowwatermark))
+			+ lowwatermark;
+		altereast = (rand() % (int) (highwatermark - lowwatermark))
+			+ lowwatermark;
+		altersouth = (rand() % (int) (highwatermark - lowwatermark))
+			+ lowwatermark;
+		alterwest = (rand() % (int) (highwatermark - lowwatermark))
+			+ lowwatermark;
+		send_to_chip(i, 0x21, 1, 0, 0, 0, 4,
+			(int) (alternorth * 65536), (int) (altereast * 65536),
+			(int) (altersouth * 65536),
+			(int) (alterwest * 65536));
+	    }
 	}
 	break;
     case '0':
 	if (SIMULATION == HEATMAP && INTERACTION) {
 	    // special case to zero the heatmap
 	    livebox = -1;
-	    int i = 0; // only sending to 0,0  - if needs to go to all chips, uncomment line below.
-	    //for (i=0;i<((XDIMENSIONS*YDIMENSIONS)/(EACHCHIPX*EACHCHIPY));i++)
-	    if (alternorth < 1.0 && altereast < 1.0 && altersouth < 1.0
-		    && alterwest < 1.0) {     // if very low -reinitialise
-		alternorth = 40.0;
-		altereast = 10.0;
-		altersouth = 10.0;
-		alterwest = 40.0;
-		send_to_chip(i, 0x21, 1, 0, 0, 0, 4,
-			(int) (alternorth * 65536), (int) (altereast * 65536),
-			(int) (altersouth * 65536),
-			(int) (alterwest * 65536)); // send temperature packet out (reset to zero).
-	    } else {                                 // else reset to zero
-		alternorth = 0.0;
-		altereast = 0.0;
-		altersouth = 0.0;
-		alterwest = 0.0;
-		send_to_chip(i, 0x21, 1, 0, 0, 0, 4, (int) (0), (int) (0),
-			(int) (0), (int) (0)); // send temperature packet out (reset to zero).
+	    // send temperature packet out (reset to zero).
+	    for (int i = 0 ; i < all_desired_chips() ; i++) {
+		if (alternorth < 1.0 && altereast < 1.0 && altersouth < 1.0
+			&& alterwest < 1.0) {
+		    // if very low -reinitialise
+		    alternorth = 40.0;
+		    altereast = 10.0;
+		    altersouth = 10.0;
+		    alterwest = 40.0;
+		    send_to_chip(i, 0x21, 1, 0, 0, 0, 4,
+			    (int) (alternorth * 65536),
+			    (int) (altereast * 65536),
+			    (int) (altersouth * 65536),
+			    (int) (alterwest * 65536));
+		} else {
+		    // else reset to zero
+		    alternorth = 0.0;
+		    altereast = 0.0;
+		    altersouth = 0.0;
+		    alterwest = 0.0;
+		    send_to_chip(i, 0x21, 1, 0, 0, 0, 4, (int) (0), (int) (0),
+			    (int) (0), (int) (0));
+		}
 	    }
 	}
 	break;
@@ -2240,6 +2237,219 @@ void keyUp(unsigned char key, int x, int y)
     // Does nothing
 }
 
+// These two constants ought to be defined by GLUT, but aren't
+#define SCROLL_UP	3
+#define SCROLL_DOWN	4
+
+static inline void heatmap_mousehandler(int button, int state, int x, int y)
+{
+    if (state != GLUT_DOWN) {
+	return;
+    }
+    if (button == GLUT_LEFT_BUTTON) {
+	for (int boxer = 0 ; boxer < controlboxes * controlboxes ; boxer++) {
+	    int boxx = boxer % controlboxes;
+	    int boxy = boxer / controlboxes;
+	    if (x >= windowWidth - (boxx + 1) * (boxsize + gap)
+		    && windowHeight - y >= yorigin + boxy * (boxsize + gap)
+		    && x
+			    < windowWidth - (boxx + 1) * (boxsize + gap)
+				    + boxsize
+		    && windowHeight - y
+			    < yorigin + boxsize + boxy * (boxsize + gap)) {
+		int selectedbox = boxx * controlboxes + boxy;
+		if (!editmode) {
+		    if (selectedbox == CENTRE) {
+			// if editmode==0 then if box ==4 editmode=1, livebox =0, calculate side values to edit;
+			editmode = 1;
+			livebox = -1;
+			somethingtoplot = 1; // indicate we will need to refresh the screen
+		    }
+		} else if (selectedbox == CENTRE) {
+		    // if editmode==1 then if box ==4 editmode=0, send command;
+#ifdef LOCKINGSEND
+		    editmode = 0;
+#endif
+		    livebox = -1;
+		    for (int i = 0 ; i < all_desired_chips() ; i++) {
+			send_to_chip(i, 0x21, 1, 0, 0, 0, 4,
+				(int) (alternorth * 65536),
+				(int) (altereast * 65536),
+				(int) (altersouth * 65536),
+				(int) (alterwest * 65536)); // send temp pack
+		    }
+		    somethingtoplot = 1; // indicate we will need to refresh the screen
+		} else if (selectedbox == WEST || selectedbox == SOUTH
+			|| selectedbox == NORTH || selectedbox == EAST) { //NESW
+		    if (selectedbox == livebox) {
+			// if editmode==1 and box==livebox livebox=0
+			livebox = -1;
+		    } else {
+			// if editmode==1 and box!=livebox livebox=box
+			livebox = selectedbox;
+		    }
+		    somethingtoplot = 1; // indicate we will need to refresh the screen
+		}
+	    }
+	}
+
+	// now check for play, pause and exit buttons.
+	// if freezedisplay==0 then display pause button, else display play button.
+
+    } else if (button == SCROLL_UP) {
+	switch (livebox) {
+	case NORTH:
+	    alternorth += ALTERSTEPSIZE;
+	    somethingtoplot = 1;
+	    break;
+	case EAST:
+	    altereast += ALTERSTEPSIZE;
+	    somethingtoplot = 1;
+	    break;
+	case SOUTH:
+	    altersouth += ALTERSTEPSIZE;
+	    somethingtoplot = 1;
+	    break;
+	case WEST:
+	    alterwest += ALTERSTEPSIZE;
+	    somethingtoplot = 1;
+	    break;
+	}
+    } else if (button == SCROLL_DOWN) {
+	// if scroll down, decrement variable
+	switch (livebox) {
+	case NORTH:
+	    alternorth -= ALTERSTEPSIZE;
+	    somethingtoplot = 1;
+	    break;
+	case EAST:
+	    altereast -= ALTERSTEPSIZE;
+	    somethingtoplot = 1;
+	    break;
+	case SOUTH:
+	    altersouth -= ALTERSTEPSIZE;
+	    somethingtoplot = 1;
+	    break;
+	case WEST:
+	    alterwest -= ALTERSTEPSIZE;
+	    somethingtoplot = 1;
+	    break;
+	}
+    }
+}
+
+static inline void rateplot_mousehandler(int button, int state, int x, int y)
+{
+    float xsize = plotWidth / (float) xdim; // size of the tiles in the x dimension
+    float ysize = (windowHeight - 2 * windowBorder) / (float) ydim; // size of the tiles in the y dimension
+    // section for mini display selection detection (on all display options)
+    if (state == GLUT_DOWN && button == GLUT_LEFT_BUTTON && !fullscreen) { // print mini version unless fullscreen
+	if (xsize < 1.0) {
+	    xsize = 1.0; // small pixels can't be less than a pixel wide or they're invisible
+	}
+	float tileratio = xsize / ysize; // the aspect ratio of the mini plot changes with the aspect ratio of the main screen
+
+	for (int i = 0 ; i < (xdim * ydim) ; i++) {
+	    int xcord, ycord;
+	    convert_index_to_coord(i, &xcord, &ycord); // (where xcoordinate and ycoordinate are ints)
+
+	    float ysize = max((float) 1.0,
+		    (float) (windowBorder - (6 * gap)) / (float) ydim); // minplot is the height of the border - 6*gapsizes. Plit between the # of y coords
+	    float xsize = max((float) 1.0, ysize * tileratio); // draw little tiled version in btm left - pixel size (can't be smaller than zero).
+	    int xmin = (int) (2 * gap + (float) xcord * xsize);
+	    int xmax = (int) (2 * gap + ((float) xcord + 1) * xsize);
+	    int ymax = windowHeight - (int) (2 * gap + (float) ycord * ysize); // y coords for screen and mouse are inverted
+	    int ymin = windowHeight
+		    - (int) (2 * gap + ((float) ycord + 1) * ysize);
+	    if (x >= xmin && x < xmax && y >= ymin && y < ymax) {
+		livebox = ((livebox == i) ? -1 : i); // toggle on off same box
+		biasediting = biascurrent[coordinate_manipulate(i)]; // **swopxy** the value we are going to be altering
+		somethingtoplot = 1;     // need to refresh the screen
+		needtorebuildmenu = 1; // context has changed so the menu probably will change and needs rebuilding
+	    }
+	}
+    }
+
+    xsize = plotWidth / (float) xdim; // reset size of the tiles in the x dimension
+    ysize = (windowHeight - 2 * windowBorder) / (float) ydim; // reset size of the tiles in the y dimension
+
+    if (state == GLUT_DOWN && button == GLUT_LEFT_BUTTON
+	    && (displaymode == TILED || displaymode == HISTOGRAM)) { // if we are in a tiled mode we can make a selection
+	if (displaymode == HISTOGRAM) {
+	    xsize = plotWidth / (float) (xdim * ydim); // Histogram means all tiles are across X axis
+	    ysize = (float) (windowHeight - 2 * windowBorder); // Histogram means height of block adjusts is height of the plottable area
+	}
+	for (int i = 0 ; i < (xdim * ydim) ; i++) {
+	    int match = 0;
+	    int xcord, ycord;
+	    convert_index_to_coord(i, &xcord, &ycord); // (where xcoordinate and ycoordinate are ints)
+
+	    if (displaymode == HISTOGRAM) {
+		xcord = i; // for histogram is just the data index, reorder into btmleft, btmright, ... topleft, topright coords
+		ycord = 0;           // for histogram always at origin
+	    }
+	    if (x >= windowBorder + xcord * xsize
+		    && windowHeight - y >= windowBorder + ycord * ysize
+		    && x < windowBorder + (xcord + 1) * xsize
+		    && windowHeight - y
+			    < windowBorder + (ycord + 1) * ysize) {
+		match = 1; // in this box, mark it so
+	    }
+
+	    if (match == 1) {
+		livebox = ((livebox == i) ? -1 : i);
+		biasediting = biascurrent[coordinate_manipulate(i)]; // **swopxy**
+		somethingtoplot = 1;                 // refresh screen
+		needtorebuildmenu = 1;
+	    }
+	}
+    } else if (state == GLUT_DOWN && button == SCROLL_UP && livebox != -1) {
+	// if scroll up, and box is selected, increment variable
+	biasediting += ALTERSTEPSIZE;
+	if (biasediting > 100.0) {
+	    biasediting = 10.0;
+	}
+	int popid = (coordinate_manipulate(livebox) % (EACHCHIPY * EACHCHIPX))
+		+ 1;
+	int chipx =
+		((coordinate_manipulate(livebox) / (EACHCHIPY * EACHCHIPX))
+			/ (XDIMENSIONS / EACHCHIPX)) * 256;
+	int chipy = (coordinate_manipulate(livebox) / (EACHCHIPY * EACHCHIPX))
+		% (XDIMENSIONS / EACHCHIPX);
+	short subcorepopid = 0;
+	short coreid = popid;
+	if (BITSOFPOPID > 0) {
+	    subcorepopid = (popid - 1) & (int) (pow(2, BITSOFPOPID) - 1); // work out the proto population.
+	    coreid = 1 + ((popid - 1) >> BITSOFPOPID); // work out the coreID that this population is on.
+	}
+	sdp_sender(chipx + chipy, 0x80 + coreid, 259, subcorepopid, 0,
+		(int) (biasediting * 256.0), 0); // send message to alter bias current (arg3) (+0x80 = port 4)
+	somethingtoplot = 1;                     // refresh screen
+    } else if (state == GLUT_DOWN && button == SCROLL_DOWN && livebox != -1) {
+	// if scroll down, and box is selected, decrement variable
+	short subcorepopid = 0;
+	biasediting -= ALTERSTEPSIZE;
+	if (biasediting < -10.0) {
+	    biasediting = -10.0;
+	}
+	int popid = (coordinate_manipulate(livebox) % (EACHCHIPY * EACHCHIPX))
+		+ 1;
+	short coreid = popid;
+	int chipx =
+		((coordinate_manipulate(livebox) / (EACHCHIPY * EACHCHIPX))
+			/ (XDIMENSIONS / EACHCHIPX)) * 256;
+	int chipy = (coordinate_manipulate(livebox) / (EACHCHIPY * EACHCHIPX))
+		% (XDIMENSIONS / EACHCHIPX);
+	if (BITSOFPOPID > 0) {
+	    subcorepopid = (popid - 1) & (int) (pow(2, BITSOFPOPID) - 1); // work out the proto population.
+	    coreid = 1 + ((popid - 1) >> BITSOFPOPID); // work out the coreID that this population is on.
+	}
+	sdp_sender(chipx + chipy, 0x80 + coreid, 259, subcorepopid, 0,
+		(int) (biasediting * 256.0), 0); // send message to alter bias current (arg3) (+0x80 = port 4)
+	somethingtoplot = 1;
+    }
+}
+
 // called when something happs with the moosie
 void mousehandler(int button, int state, int x, int y)
 {
@@ -2249,292 +2459,81 @@ void mousehandler(int button, int state, int x, int y)
 	    int xorigin = windowWidth - 3 * (boxsize + gap), yorigin =
 		    windowHeight - gap - boxsize;
 	    // local to this scope
-
-	    if ((freezedisplay == 0 && boxer == 0)
-		    || (freezedisplay != 0 && boxer == 1) || boxer == 2) {
-		int match = 0;
-		// look to see which box we are in,
-
-		if (x >= xorigin + boxer * (boxsize + gap)
-			&& x < xorigin + boxer * (boxsize + gap) + boxsize
-			&& windowHeight - y < yorigin + boxsize
-			&& windowHeight - y >= yorigin) {
-		    match = 1; // in this box, mark it so
-		    if (boxer == 2) {
-			safelyshut();
-		    } else if (boxer == 0) {
-			int i = 0; // only sending to 0,0  - if all chips, uncomment line below.
-			//for (int i=0;i<((XDIMENSIONS*YDIMENSIONS)/(EACHCHIPX*EACHCHIPY));i++)
-			send_to_chip(i, 0x21, 2, 0, 0, 0, 4, 0, 0, 0, 0);
-			// send pause packet out
+	    if (x >= xorigin + boxer * (boxsize + gap)
+		    && x < xorigin + boxer * (boxsize + gap) + boxsize
+		    && windowHeight - y < yorigin + boxsize
+		    && windowHeight - y >= yorigin) {
+		switch (boxer) {
+		case 0:
+		    // send pause packet out
+		    if (!freezedisplay) {
+			for (int i = 0 ; i < all_desired_chips() ; i++) {
+			    send_to_chip(i, 0x21, 2, 0, 0, 0, 4, 0, 0, 0, 0);
+			}
 			freezedisplay = 1;
 			freezetime = timestamp(); // get time now in us
 			somethingtoplot = 1; // indicate we will need to refresh the screen
 			needtorebuildmenu = 1;
-		    } else if (boxer == 1) {
-			int i = 0; // only sending to 0,0  - if all chips, uncomment line below.
-			//for (int i=0;i<((XDIMENSIONS*YDIMENSIONS)/(EACHCHIPX*EACHCHIPY));i++)
-			send_to_chip(i, 0x21, 3, 0, 0, 0, 4, 0, 0, 0, 0);
-			// send resume/restart packet out
+		    }
+		    break;
+		case 1:
+		    // send resume/restart packet out
+		    if (freezedisplay) {
+			for (int i = 0 ; i < all_desired_chips() ; i++) {
+			    send_to_chip(i, 0x21, 3, 0, 0, 0, 4, 0, 0, 0, 0);
+			}
 			freezedisplay = 0;
 			somethingtoplot = 1; // indicate we will need to refresh the screen
 			needtorebuildmenu = 1;
 		    }
+		    break;
+		case 2:
+		    safelyshut();
+		    break;
 		}
 	    }
 	}
     }
 
-    if ((SIMULATION == RATEPLOT || SIMULATION == RATEPLOTLEGACY)
-	    && INTERACTION) {
-	float xsize = ((float) (plotWidth) / xdim); // size of the tiles in the x dimension
-	float ysize = ((float) (windowHeight - (2 * windowBorder)) / ydim); // size of the tiles in the y dimension
-	// section for mini display selection detection (on all display options)
-	if (state == GLUT_DOWN && button == GLUT_LEFT_BUTTON
-		&& fullscreen == 0) { // print mini version unless fullscreen
-	    if (xsize < 1.0)
-		xsize = 1.0; // small pixels can't be less than a pixel wide or they're invisible
-	    float tileratio = xsize / ysize; // the aspect ratio of the mini plot changes with the aspect ratio of the main screen
-
-	    for (int i = 0 ; i < (xdim * ydim) ; i++) {
-		int xcord, ycord;
-		convert_index_to_coord(i, &xcord, &ycord); // (where xcoordinate and ycoordinate are ints)
-
-		float ysize = max((float) 1.0,
-			(float) (windowBorder - (6 * gap)) / (float) ydim); // minplot is the height of the border - 6*gapsizes. Plit between the # of y coords
-		float xsize = max((float) 1.0, ysize * tileratio); // draw little tiled version in btm left - pixel size (can't be smaller than zero).
-		int xmin = (int) (2 * gap + (float) xcord * xsize);
-		int xmax = (int) (2 * gap + ((float) xcord + 1) * xsize);
-		int ymax = windowHeight
-			- (int) (2 * gap + (float) ycord * ysize); // y coords for screen and mouse are inverted
-		int ymin = windowHeight
-			- (int) (2 * gap + ((float) ycord + 1) * ysize);
-		if (x >= xmin && x < xmax && y >= ymin && y < ymax) {
-		    livebox = ((livebox == i) ? -1 : i); // toggle on off same box
-		    biasediting = biascurrent[coordinate_manipulate(i)]; // **swopxy** the value we are going to be altering
-		    somethingtoplot = 1;     // need to refresh the screen
-		    needtorebuildmenu = 1; // context has changed so the menu probably will change and needs rebuilding
-		}
-	    }
-	}
-
-	xsize = ((float) (plotWidth) / xdim); // reset size of the tiles in the x dimension
-	ysize = ((float) (windowHeight - (2 * windowBorder)) / ydim); // reset size of the tiles in the y dimension
-
-	if (state == GLUT_DOWN && button == GLUT_LEFT_BUTTON
-		&& (displaymode == TILED || displaymode == HISTOGRAM)) { // if we are in a tiled mode we can make a selection
-	    if (displaymode == HISTOGRAM) {
-		xsize = ((float) (plotWidth) / (xdim * ydim)); // Histogram means all tiles are across X axis
-		ysize = ((float) (windowHeight - (2 * windowBorder))); // Histogram means height of block adjusts is height of the plottable area
-	    }
-	    for (int i = 0 ; i < (xdim * ydim) ; i++) {
-		int match = 0;
-		int xcord, ycord;
-		convert_index_to_coord(i, &xcord, &ycord); // (where xcoordinate and ycoordinate are ints)
-
-		if (displaymode == HISTOGRAM) {
-		    xcord = i; // for histogram is just the data index, reorder into btmleft, btmright, ... topleft, topright coords
-		    ycord = 0;           // for histogram always at origin
-		}
-		if (x >= windowBorder + xcord * xsize
-			&& windowHeight - y >= windowBorder + ycord * ysize
-			&& x < windowBorder + (xcord + 1) * xsize
-			&& windowHeight - y
-				< windowBorder + (ycord + 1) * ysize) {
-		    match = 1; // in this box, mark it so
-		}
-
-		if (match == 1) {
-		    livebox = ((livebox == i) ? -1 : i);
-		    biasediting = biascurrent[coordinate_manipulate(i)]; // **swopxy**
-		    somethingtoplot = 1;                 // refresh screen
-		    needtorebuildmenu = 1;
-		}
-	    }
-	} else if (state == GLUT_DOWN && button == 3 && livebox != -1) {
-	    // if scroll up, and box is selected, increment variable
-	    if (livebox != -1) {
-		short subcorepopid = 0;
-		biasediting += ALTERSTEPSIZE;
-		if (biasediting > 100.0) {
-		    biasediting = 10.0;
-		}
-		int popid = (coordinate_manipulate(livebox)
-			% (EACHCHIPY * EACHCHIPX)) + 1;
-		short coreid = popid;
-		int chipx =
-			((coordinate_manipulate(livebox)
-				/ (EACHCHIPY * EACHCHIPX))
-				/ (XDIMENSIONS / EACHCHIPX)) * 256;
-		int chipy = (coordinate_manipulate(livebox)
-			/ (EACHCHIPY * EACHCHIPX))
-			% (XDIMENSIONS / EACHCHIPX);
-		if (BITSOFPOPID > 0) {
-		    subcorepopid = (popid - 1)
-			    & (int) (pow(2, BITSOFPOPID) - 1); // work out the proto population.
-		    coreid = 1 + ((popid - 1) >> BITSOFPOPID); // work out the coreID that this population is on.
-		}
-		sdp_sender(chipx + chipy, 0x80 + coreid, 259, subcorepopid, 0,
-			(int) (biasediting * 256.0), 0); // send message to alter bias current (arg3) (+0x80 = port 4)
-		somethingtoplot = 1;                     // refresh screen
-	    }
-	} else if (state == GLUT_DOWN && button == 4 && livebox != -1) {
-	    // if scroll down, and box is selected, decrement variable
-	    if (livebox != -1) {
-		short subcorepopid = 0;
-		biasediting -= ALTERSTEPSIZE;
-		if (biasediting < -10.0) {
-		    biasediting = -10.0;
-		}
-		int popid = (coordinate_manipulate(livebox)
-			% (EACHCHIPY * EACHCHIPX)) + 1;
-		short coreid = popid;
-		int chipx =
-			((coordinate_manipulate(livebox)
-				/ (EACHCHIPY * EACHCHIPX))
-				/ (XDIMENSIONS / EACHCHIPX)) * 256;
-		int chipy = (coordinate_manipulate(livebox)
-			/ (EACHCHIPY * EACHCHIPX))
-			% (XDIMENSIONS / EACHCHIPX);
-		if (BITSOFPOPID > 0) {
-		    subcorepopid = (popid - 1)
-			    & (int) (pow(2, BITSOFPOPID) - 1); // work out the proto population.
-		    coreid = 1 + ((popid - 1) >> BITSOFPOPID); // work out the coreID that this population is on.
-		}
-		sdp_sender(chipx + chipy, 0x80 + coreid, 259, subcorepopid, 0,
-			(int) (biasediting * 256.0), 0); // send message to alter bias current (arg3) (+0x80 = port 4)
-		somethingtoplot = 1;
-	    }
-	}
-    }
-
-    if (SIMULATION == HEATMAP && INTERACTION) {
-	if (state == GLUT_DOWN && button == GLUT_LEFT_BUTTON) {
-	    for (int boxer = 0 ; boxer < (controlboxes * controlboxes) ;
-		    boxer++) {
-		int boxx = boxer % controlboxes;
-		int boxy = boxer / controlboxes;
-		if (x >= windowWidth - (boxx + 1) * (boxsize + gap)
-			&& windowHeight - y
-				>= yorigin + boxy * (boxsize + gap)
-			&& x
-				< windowWidth - (boxx + 1) * (boxsize + gap)
-					+ boxsize
-			&& windowHeight - y
-				< yorigin + boxsize
-					+ boxy * (boxsize + gap)) {
-		    int selectedbox = (boxx * controlboxes) + boxy;
-		    if (editmode == 0) {
-			if (selectedbox == CENTRE) {
-			    // if editmode==0 then if box ==4 editmode=1, livebox =0, calculate side values to edit;
-			    editmode = 1;
-			    livebox = -1;
-			    somethingtoplot = 1; // indicate we will need to refresh the screen
-			}
-		    } else if (selectedbox == CENTRE) {
-			// if editmode==1 then if box ==4 editmode=0, send command;
-#ifdef LOCKINGSEND
-			editmode = 0;
-#endif
-			livebox = -1;
-			int i = 0; // only sending to 0,0  - if all chips, uncomment line below.
-			//for (int i=0;i<((XDIMENSIONS*YDIMENSIONS)/(EACHCHIPX*EACHCHIPY));i++)
-			send_to_chip(i, 0x21, 1, 0, 0, 0, 4,
-				(int) (alternorth * 65536),
-				(int) (altereast * 65536),
-				(int) (altersouth * 65536),
-				(int) (alterwest * 65536)); // send temp pack
-			somethingtoplot = 1; // indicate we will need to refresh the screen
-		    } else if (selectedbox == WEST || selectedbox == SOUTH
-			    || selectedbox == NORTH || selectedbox == EAST) { //NESW
-			if (selectedbox == livebox) {
-			    // if editmode==1 and box==livebox livebox=0
-			    livebox = -1;
-			    somethingtoplot = 1; // indicate we will need to refresh the screen
-
-			} else {
-			    // if editmode==1 and box!=livebox livebox=box
-			    livebox = selectedbox;
-			    somethingtoplot = 1; // indicate we will need to refresh the screen
-			}
-		    }
-		}
-	    }
-
-	    // now check for play, pause and exit buttons.
-	    // if freezedisplay==0 then display pause button, else display play button.
-
-	} else if (state == GLUT_DOWN && button == 3 && livebox != -1) {
-	    // if scroll up, and livebox!=0, increment variable
-	    if (livebox == NORTH) {
-		alternorth += ALTERSTEPSIZE;
-	    }
-	    if (livebox == EAST) {
-		altereast += ALTERSTEPSIZE;
-	    }
-	    if (livebox == SOUTH) {
-		altersouth += ALTERSTEPSIZE;
-	    }
-	    if (livebox == WEST) {
-		alterwest += ALTERSTEPSIZE;
-	    }
-	    somethingtoplot = 1; // indicate we will need to refresh the screen
-
-	} else if (state == GLUT_DOWN && button == 4 && livebox != -1) {
-	    // if scroll down, and livebox!=0, decrement variable
-	    if (livebox == NORTH) {
-		alternorth -= ALTERSTEPSIZE;
-	    }
-	    if (livebox == EAST) {
-		altereast -= ALTERSTEPSIZE;
-	    }
-	    if (livebox == SOUTH) {
-		altersouth -= ALTERSTEPSIZE;
-	    }
-	    if (livebox == WEST) {
-		alterwest -= ALTERSTEPSIZE;
-	    }
-	    somethingtoplot = 1; // indicate we will need to refresh the screen
-
-	} else {
-	    //anything else you fancy
+    if (INTERACTION) {
+	if (SIMULATION == RATEPLOT || SIMULATION == RATEPLOTLEGACY) {
+	    rateplot_mousehandler(button, state, x, y);
+	} else if (SIMULATION == HEATMAP) {
+	    heatmap_mousehandler(button, state, x, y);
 	}
     }
 
     if (state == GLUT_DOWN && button == GLUT_LEFT_BUTTON
-	    && somethingtoplot == 0) {
-	livebox = -1; // if you didn't manage to do something useful, then likely greyspace around the figure was clicked (should now deselect any selection)
+	    && !somethingtoplot) {
+	// if you didn't manage to do something useful, then likely greyspace
+	// around the figure was clicked (should now deselect any selection)
+	livebox = -1;
 	somethingtoplot = 1;
 	rebuildmenu();
     }
-
 }
 
 // Called repeatedly, once per OpenGL loop
 void idleFunction()
 {
-    if (needtorebuildmenu == 1 && menuopen == 0) {
+    if (needtorebuildmenu && !menuopen) {
 	filemenu();
 	rebuildmenu();    // if menu is not open we can make changes
 	needtorebuildmenu = 0;
     }
 
     int usecperframe = (1000000 / MAXFRAMERATE);        // us target per frame
-    struct timeval stopwatchus, deltateeus;        // declare timing variables
     struct timespec ts; // used for calculating how long to wait for next frame
     int64_t nowtime, howlongrunning, howlongtowait;            // for timings
 
-    if (plotWidth != windowWidth - (2 * windowBorder) - keyWidth) {
+    if (plotWidth != windowWidth - 2 * windowBorder - keyWidth) {
 	printf(
 		"NOT SAME: windowWidth-(2*windowBorder)-keyWidth=%d, plotWidth=%d.\n",
-		windowWidth - (2 * windowBorder) - keyWidth, plotWidth);
+		windowWidth - 2 * windowBorder - keyWidth, plotWidth);
     }
 
-    gettimeofday(&stopwatchus, NULL);                // grab current time
-    howlongtowait = ((int64_t) starttimez
-	    + ((int64_t) counter * (int64_t) usecperframe))
-	    - (((int64_t) stopwatchus.tv_sec * (int64_t) 1000000)
-		    + (int64_t) stopwatchus.tv_usec); // how long in us until we need to draw the next frame
+    howlongtowait = starttimez + counter * (int64_t) usecperframe
+	    - timestamp(); // how long in us until we need to draw the next frame
 
     if (howlongtowait > 0) {
 	ts.tv_sec = howlongtowait / 1000000; // # seconds (very unlikely to be in the seconds!)
@@ -2548,32 +2547,30 @@ void idleFunction()
     // Upon Plot screen. All between lastrowupdated and currenttimerow will be nothing - clear between last and to now.
     // If lastrowupdated = currenttimerow, nothing to nullify.
 
-    gettimeofday(&stopwatchus, NULL);                // grab current time
-    nowtime = (((int64_t) stopwatchus.tv_sec * (int64_t) 1000000)
-	    + (int64_t) stopwatchus.tv_usec);    // get time now in us
+    nowtime = timestamp();    // get time now in us
     howlongrunning = nowtime - starttimez; // how long in us since visualation started running.
     // idle until the next frame/s interval is due
 
-    if (printpktgone != 0 && nowtime > (printpktgone + 1000000)) {
+    if (printpktgone && nowtime > printpktgone + 1000000) {
 	printpktgone = 0; // if packet send message has been displayed for more than 1s, stop its display
 	somethingtoplot = 1;                    // force refresh screen
     }
 
-    if (PLOTONLYONDEMAND == 0)
+    if (!PLOTONLYONDEMAND) {
 	somethingtoplot = 1; // force the refresh for this frame timing (even if nothing has changed!)
+    }
 
-    if (somethingtoplot != 0) {
+    if (somethingtoplot) {
 	windowToUpdate = win1;                // update the main master window
 	display(); // update the display - will be timered inside this function to get desired FPS
 	if (win2) {
 	    int mainwindowmode = displaymode;
+
 	    displaymode = RASTER;
 	    windowToUpdate = win2;                // do the 2nd window too
 	    display(); // update the display - will be timered inside this function to get desired FPS
 	    displaymode = mainwindowmode;
 	}
-    } else {
-	// do we actually want to update a bare min number of times - e.g. once per sec?
     }
 }
 
@@ -2589,32 +2586,36 @@ void myinit(void)
     rebuildmenu();
 }
 
+enum filemenuentries_t {
+    FILE_SAVE_SPINN,
+    FILE_SAVE_NEURO,
+    FILE_RESUME,
+    FILE_PAUSE,
+    FILE_END
+};
+
 void myfilemenu(int value)
 {
-    int menuitem = 1;
-    if (outputfileformat == 0) {                    // no savefile open
-	if (value == menuitem++) {
-	    outputfileformat = 1;
-	    open_or_close_output_file();    // start saving data in spinn
-	}
-	if (value == menuitem++) {
-	    outputfileformat = 2;
-	    open_or_close_output_file();    //  or neurotools format
-	}
-    } else {                                    // savefile open
-	if (writingtofile == 2) {
-	    if (value == menuitem++) {
-		writingtofile = 0;                             //   and paused
-		printf("Recording resumed...  ");
-	    }
-	} else {
-	    if (value == menuitem++) {
-		writingtofile = 2;                             //   or running
-		printf("Recording paused...  ");
-	    }
-	}
-	if (value == menuitem++)
-	    open_or_close_output_file();                // closefile out
+    switch (value) {
+    case FILE_SAVE_SPINN:
+	outputfileformat = 1;
+	open_or_close_output_file();	// start saving data in spinn
+	break;
+    case FILE_SAVE_NEURO:
+	outputfileformat = 2;
+	open_or_close_output_file();	// start saving data in neurotools format
+	break;
+    case FILE_RESUME:
+	writingtofile = 0;		// savefile open and paused
+	printf("Recording resumed...  ");
+	break;
+    case FILE_PAUSE:
+	writingtofile = 2;		// savefile open and running
+	printf("Recording paused...  ");
+	break;
+    case FILE_END:
+	open_or_close_output_file();	// closefile out
+	break;
     }
     needtorebuildmenu = 1;
     //rebuildmenu(); // rebuild menu with state modified by this work
@@ -2622,150 +2623,118 @@ void myfilemenu(int value)
 
 void filemenu(void)
 {
-    int menuitem = 1;
     glutDestroyMenu(filesubmenu);
     filesubmenu = glutCreateMenu(myfilemenu);
     if (outputfileformat == 0) {                    // no savefile open
 	glutAddMenuEntry("Save Input Data in .spinn format (replayable)",
-		menuitem++);        // start saving data in spinn
+		FILE_SAVE_SPINN);        // start saving data in spinn
 	glutAddMenuEntry(
 		"Save Input Spike Data as write-only .neuro Neurotools format",
-		menuitem++);        //  or neurotools format
+		FILE_SAVE_NEURO);        //  or neurotools format
     } else {                                        // savefile open
 	if (writingtofile == 2) {
-	    glutAddMenuEntry("Resume Saving Data to file", menuitem++); //   and paused
+	    glutAddMenuEntry("Resume Saving Data to file", FILE_RESUME); //   and paused
 	} else {
-	    glutAddMenuEntry("Pause Saving Data to file", menuitem++); //   or running
+	    glutAddMenuEntry("Pause Saving Data to file", FILE_PAUSE); //   or running
 	}
-	glutAddMenuEntry("End saving Data to file", menuitem++); // closefile out
+	glutAddMenuEntry("End saving Data to file", FILE_END); // closefile out
     }
 }
+
+enum transformmenuentries_t {
+    XFORM_XFLIP,
+    XFORM_YFLIP,
+    XFORM_VECTORFLIP,
+    XFORM_ROTATEFLIP,
+    XFORM_REVERT
+};
 
 void mytransformmenu(int value)
 {
     switch (value) {
-    case 1:
+    case XFORM_XFLIP:
 	xflip = !xflip;
 	break;
-    case 2:
+    case XFORM_YFLIP:
 	yflip = !yflip;
 	break;
-    case 3:
+    case XFORM_VECTORFLIP:
 	vectorflip = !vectorflip;
 	break;
-    case 4:
+    case XFORM_ROTATEFLIP:
 	rotateflip = !rotateflip;
 	break;
-    case 5:
+    case XFORM_REVERT:
 	cleardown();
 	break;
     }
     needtorebuildmenu = 1;
-    //rebuildmenu(); // rebuild menu with state modified by this work
 }
 
 void transformmenu(void)
 {
-    int menuitem = 1;
     glutDestroyMenu(transformsubmenu);
     transformsubmenu = glutCreateMenu(mytransformmenu);
-    glutAddMenuEntry("(X) Mirror (left to right swop)", menuitem++);
-    glutAddMenuEntry("(Y) Reflect (top to bottom swop)", menuitem++);
-    glutAddMenuEntry("(V) Vector Swop (Full X+Y Reversal)", menuitem++);
-    glutAddMenuEntry("90 (D)egree Rotate Toggle", menuitem++);
-    glutAddMenuEntry("(C) Revert changes back to default", menuitem++);
+    glutAddMenuEntry("(X) Mirror (left to right swop)", XFORM_XFLIP);
+    glutAddMenuEntry("(Y) Reflect (top to bottom swop)", XFORM_YFLIP);
+    glutAddMenuEntry("(V) Vector Swop (Full X+Y Reversal)", XFORM_VECTORFLIP);
+    glutAddMenuEntry("90 (D)egree Rotate Toggle", XFORM_ROTATEFLIP);
+    glutAddMenuEntry("(C) Revert changes back to default", XFORM_REVERT);
 }
 
 void mycolmenu(int value)
 {
-    switch (value) {
-    case 1:
-	colourused = MULTI;
-	break;
-    case 2:
-	colourused = GREYS;
-	break;
-    case 3:
-	colourused = REDS;
-	break;
-    case 4:
-	colourused = GREENS;
-	break;
-    case 5:
-	colourused = BLUES;
-	break;
-    case 6:
-	colourused = THERMAL;
-	break;
-    case 7:
-	colourused = RED;
-	break;
-    case 8:
-	colourused = BLUE;
-	break;
-    }
+    colourused = value;
     needtorebuildmenu = 1;
-    //rebuildmenu(); // rebuild menu with state modified by this work
 }
 
 void colmenu(void)
 {
-    int menuitem = 1;
     glutDestroyMenu(coloursubmenu);
     coloursubmenu = glutCreateMenu(mycolmenu);
-    glutAddMenuEntry("(1) MultiColoured", menuitem++);
-    glutAddMenuEntry("(2) Greys", menuitem++);
-    glutAddMenuEntry("(3) Reds", menuitem++);
-    glutAddMenuEntry("(4) Greens", menuitem++);
-    glutAddMenuEntry("(5) Blues", menuitem++);
-    glutAddMenuEntry("(6) Thermal Imaging", menuitem++);
-    glutAddMenuEntry("(7) ON/OFF Red Only", menuitem++);
-    glutAddMenuEntry("(8) ON/OFF Blue Only", menuitem++);
-
+    glutAddMenuEntry("(1) MultiColoured", MULTI);
+    glutAddMenuEntry("(2) Greys", GREYS);
+    glutAddMenuEntry("(3) Reds", REDS);
+    glutAddMenuEntry("(4) Greens", GREENS);
+    glutAddMenuEntry("(5) Blues", BLUES);
+    glutAddMenuEntry("(6) Thermal Imaging", THERMAL);
+    glutAddMenuEntry("(7) ON/OFF Red Only", RED);
+    glutAddMenuEntry("(8) ON/OFF Blue Only", BLUE);
 }
 
 void mymodemenu(int value)
 {
-    switch (value) {
-    case 1:
-	displaymode = TILED;
-	break;
-    case 2:
-	displaymode = HISTOGRAM;
-	break;
-    case 3:
-	displaymode = INTERPOLATED;
-	break;
-    case 4:
-	displaymode = LINES;
-	break;
-    case 5:
-	displaymode = RASTER;
-	break;
-    case 6:
-	displaymode = EEGSTYLE;
-	break;
-    }
+    displaymode = value;
     needtorebuildmenu = 1;
-    //rebuildmenu(); // rebuild menu with state modified by this work
 }
 
 void modemenu(void)
 {
-    int menuitem = 1;
     glutDestroyMenu(modesubmenu);
     modesubmenu = glutCreateMenu(mymodemenu);
-    glutAddMenuEntry("(T)iled", menuitem++);
-    glutAddMenuEntry("(H)istogram", menuitem++);
-    glutAddMenuEntry("(I)nterpolated", menuitem++);
-    glutAddMenuEntry("(L)ines", menuitem++);
-    glutAddMenuEntry("(R)aster", menuitem++);
-    glutAddMenuEntry("(M)ultichannel EEG Style", menuitem++);
+    glutAddMenuEntry("(T)iled", TILED);
+    glutAddMenuEntry("(H)istogram", HISTOGRAM);
+    glutAddMenuEntry("(I)nterpolated", INTERPOLATED);
+    glutAddMenuEntry("(L)ines", LINES);
+    glutAddMenuEntry("(R)aster", RASTER);
+    glutAddMenuEntry("(M)ultichannel EEG Style", EEGSTYLE);
 }
+
+enum mymenuentries_t {
+    MENU_SEPARATOR,
+    MENU_RASTER_OFF,
+    MENU_RASTER_ON,
+    MENU_RASTER_OFF_ALL,
+    MENU_BORDER_TOGGLE,
+    MENU_NUMBER_TOGGLE,
+    MENU_FULLSCREEN_TOGGLE,
+    MENU_PAUSE,
+    MENU_RESUME,
+    MENU_QUIT
+};
 
 void rebuildmenu(void)
 {
-    int menuitem = 1;
     glutDestroyMenu(RHMouseMenu);
     RHMouseMenu = glutCreateMenu(mymenu);
 
@@ -2773,124 +2742,107 @@ void rebuildmenu(void)
 	if (livebox >= 0) {
 	    if (rasterpopulation == livebox) {
 		glutAddMenuEntry("(Z) Turn OFF this population's Raster Plot",
-			menuitem++); // if box not selected offer to turn raster plots off all
+			MENU_RASTER_OFF); // if box not selected offer to turn raster plots off all
 		// if off then turn on
 	    } else {
 		glutAddMenuEntry(
 			"(Z) Turn Raster Plot ON for this population",
-			menuitem++); // if box not selected offer to turn raster plots off all
+			MENU_RASTER_ON); // if box not selected offer to turn raster plots off all
 	    }
 	}
-	glutAddMenuEntry("Turn OFF ALL population Raster Plots", menuitem++); // if mode unavailable to deselect box then offer to turn it all off!
-	glutAddMenuEntry("-----", menuitem++);  // segmenter
+	glutAddMenuEntry("Turn OFF ALL population Raster Plots", MENU_RASTER_OFF_ALL); // if mode unavailable to deselect box then offer to turn it all off!
+	glutAddMenuEntry("-----", MENU_SEPARATOR);
     }
     glutAddSubMenu("Plot Mode", modesubmenu);
     glutAddSubMenu("Transform Plot", transformsubmenu);
     glutAddSubMenu("Colours", coloursubmenu);
     glutAddSubMenu("Save Data Operations", filesubmenu);
 
-    glutAddMenuEntry("-----", menuitem++); // segmenter
+    glutAddMenuEntry("-----", MENU_SEPARATOR);
     if (displaymode == HISTOGRAM || displaymode == TILED) {
-	if (gridlines == 1) {
-	    glutAddMenuEntry("Grid (B)orders off", menuitem++);
+	if (gridlines) {
+	    glutAddMenuEntry("Grid (B)orders off", MENU_BORDER_TOGGLE);
 	} else {
-	    glutAddMenuEntry("Grid (B)orders on", menuitem++);
+	    glutAddMenuEntry("Grid (B)orders on", MENU_BORDER_TOGGLE);
 	}
-	if (plotvaluesinblocks == 1) {
-	    glutAddMenuEntry("Numbers (#) off", menuitem++);
+	if (plotvaluesinblocks) {
+	    glutAddMenuEntry("Numbers (#) off", MENU_NUMBER_TOGGLE);
 	} else {
-	    glutAddMenuEntry("Numbers (#) on", menuitem++);
+	    glutAddMenuEntry("Numbers (#) on", MENU_NUMBER_TOGGLE);
 	}
     }
-    if (fullscreen == 1) {
-	glutAddMenuEntry("(F)ull Screen off", menuitem++);
+    if (fullscreen) {
+	glutAddMenuEntry("(F)ull Screen off", MENU_FULLSCREEN_TOGGLE);
     } else {
-	glutAddMenuEntry("(F)ull Screen on", menuitem++);
+	glutAddMenuEntry("(F)ull Screen on", MENU_FULLSCREEN_TOGGLE);
     }
 
-    glutAddMenuEntry("-----", menuitem++); // segmenter
+    glutAddMenuEntry("-----", MENU_SEPARATOR);
 
-    if (freezedisplay == 0) {
-	glutAddMenuEntry("(\") Pause Plot", menuitem++);
+    if (!freezedisplay) {
+	glutAddMenuEntry("(\") Pause Plot", MENU_PAUSE);
     } else {
-	glutAddMenuEntry("(P)lay / Restart Plot", menuitem++);
+	glutAddMenuEntry("(P)lay / Restart Plot", MENU_RESUME);
     }
-    glutAddMenuEntry("(Q)uit", menuitem++);
+    glutAddMenuEntry("(Q)uit", MENU_QUIT);
     glutAttachMenu (GLUT_RIGHT_BUTTON);
 }
 
 void mymenu(int value)
 {
-    int menuitem = 1;
-
-    if (SIMULATION == RATEPLOT || SIMULATION == RATEPLOTLEGACY) {
-	if (livebox >= 0) {    // we have a box selected
-	    if (rasterpopulation == livebox) {
-		if (value == menuitem++) {
-		    for (int i = 0 ; i < (xdim * ydim) ; i++) {
-			sdp_sender(0, 0x80 + i + 1, 258, 0, 4, 0, 0); // turn off raster on all populations
-			sleeplet();
-			printf("%d: ", i);
-		    }
-		    printf("\n");
-		    if (win2 != 0) {
-			destroy_new_window(); // if spawned window does exist then close it
-		    }
-		    rasterpopulation = -1;
-		    somethingtoplot = 1;
-		}
-	    } else {
-		if (value == menuitem++) {
-		    for (int i = 0 ; i < (xdim * ydim) ; i++) {
-			sdp_sender(0, 0x80 + i + 1, 258, 0, 4, 0, 0); // turn off raster for all populations
-			sleeplet();
-			printf("%d, ", i);
-		    }
-		    printf("\n");
-		    if (win2 == 0) {
-			create_new_window(); // if window doesn't already exist then create it on demand
-		    }
-		    sdp_sender(0, 0x80 + livebox + 1, 258, 1, 4, 0, 0); // send message to turn on bit 4 (raster on)
-		    rasterpopulation = livebox;
-		    somethingtoplot = 1;
-		}
-	    }
+    switch (value) {
+    case MENU_RASTER_OFF:
+	for (int i = 0 ; i < xdim * ydim ; i++) {
+	    sdp_sender(0, 0x80 + i + 1, 258, 0, 4, 0, 0); // turn off raster on all populations
+	    sleeplet();
+	    printf("%d: ", i);
 	}
-	if (value == menuitem++) {
-	    rasterpopulation = -1;
-	    for (int i = 0 ; i < (xdim * ydim) ; i++) {
-		sdp_sender(0, 0x80 + i + 1, 258, 0, 4, 0, 0); // turn off raster on all populations
-		sleeplet();
-		printf("%d, ", i);
-	    }
-	    printf("\n");
-	    if (win2 != 0)
-		destroy_new_window(); // if spawned window does exist then close it
-	    livebox = -1;
-	    somethingtoplot = 1;
+	printf("\n");
+	if (win2 != 0) {
+	    destroy_new_window();		// if spawned window does exist then close it
 	}
-	if (value == menuitem++) {
-	    //do nothing - segmenter
+	rasterpopulation = -1;
+	somethingtoplot = 1;
+	break;
+    case MENU_RASTER_ON:
+	for (int i = 0 ; i < xdim * ydim ; i++) {
+	    sdp_sender(0, 0x80 + i + 1, 258, 0, 4, 0, 0); // turn off raster for all populations
+	    sleeplet();
+	    printf("%d, ", i);
 	}
-    }
-
-    if (value == menuitem++) {
-	//do nothing - segmenter
-    }
-
-    if (displaymode == HISTOGRAM || displaymode == TILED) {
-	if (value == menuitem++) {
-	    gridlines = !gridlines;
+	printf("\n");
+	if (win2 == 0) {
+	    create_new_window();		// if window doesn't already exist then create it on demand
 	}
-	if (value == menuitem++) {
-	    plotvaluesinblocks = !plotvaluesinblocks;
+	sdp_sender(0, 0x80 + livebox + 1, 258, 1, 4, 0, 0); // send message to turn on bit 4 (raster on)
+	rasterpopulation = livebox;
+	somethingtoplot = 1;
+	break;
+    case MENU_RASTER_OFF_ALL:
+	rasterpopulation = -1;
+	for (int i = 0 ; i < xdim * ydim ; i++) {
+	    sdp_sender(0, 0x80 + i + 1, 258, 0, 4, 0, 0); // turn off raster on all populations
+	    sleeplet();
+	    printf("%d, ", i);
 	}
-    }
-    if (value == menuitem++) {
-	if (fullscreen == 1) {
+	printf("\n");
+	if (win2 != 0) {
+	    destroy_new_window();		// if spawned window does exist then close it
+	}
+	livebox = -1;
+	somethingtoplot = 1;
+	break;
+    case MENU_BORDER_TOGGLE:
+	gridlines = !gridlines;
+	break;
+    case MENU_NUMBER_TOGGLE:
+	plotvaluesinblocks = !plotvaluesinblocks;
+	break
+	case MENU_FULLSCREEN_TOGGLE:
+	if (fullscreen) {
 	    windowBorder = oldwindowBorder;	// restore old bordersize
 	    windowWidth -= keyWidth;		// recover the key area
-	    plotWidth = windowWidth - (2 * windowBorder) - keyWidth;
+	    plotWidth = windowWidth - 2 * windowBorder - keyWidth;
 	} else {
 	    oldwindowBorder = windowBorder;	// used as border disappears when going full-screen
 	    windowBorder = 0;			// no borders around the plots
@@ -2898,30 +2850,27 @@ void mymenu(int value)
 	    plotWidth = windowWidth - keyWidth;
 	}
 	fullscreen = !fullscreen;
-    }
-
-    if (value == menuitem++) {
-	//do nothing - segmenter;
-    }
-
-    if (value == menuitem++) {
-	if (!freezedisplay) {
-	    int i = 0; // only sending to 0,0  - if needs to go to all chips, uncomment line below. PAUSE
-	    //for (i=0;i<((XDIMENSIONS*YDIMENSIONS)/(EACHCHIPX*EACHCHIPY));i++)
+	break;
+    case MENU_PAUSE: {
+	// send pause packet out
+	for (int i = 0 ; i < all_desired_chips() ; i++) {
 	    send_to_chip(i, 0x21, 2, 0, 0, 0, 4, 0, 0, 0, 0);
-	    // send pause packet out
-	    freezedisplay = 1;
-	    freezetime = timestamp();		// get time now in us
-	} else {
-	    int i = 0; // only sending to 0,0  - if needs to go to all chips, uncomment line below. RESUME
-	    //for (i=0;i<((XDIMENSIONS*YDIMENSIONS)/(EACHCHIPX*EACHCHIPY));i++)
-	    send_to_chip(i, 0x21, 3, 0, 0, 0, 4, 0, 0, 0, 0);
-	    // send resume/restart packet out
-	    freezedisplay = 0;
 	}
+	freezedisplay = 1;
+	freezetime = timestamp();		// get time now in us
+	break;
     }
-    if (value == menuitem++) {
+    case MENU_RESUME: {
+	// send resume/restart packet out
+	for (int i = 0 ; i < all_desired_chips() ; i++) {
+	    send_to_chip(i, 0x21, 3, 0, 0, 0, 4, 0, 0, 0, 0);
+	}
+	freezedisplay = 0;
+	break;
+    }
+    case MENU_QUIT:
 	safelyshut();
+	break;
     }
 
     needtorebuildmenu = 1;
@@ -2943,14 +2892,14 @@ void logifmenuopen(int status, int x, int y)
 
 void safelyshut(void)
 {
-    // in some circumstances this gets run twice, therefore we check for this (partic the frees!)
+    // in some circumstances this gets run twice, therefore we check for
+    // this (particularly the frees!)
     if (safelyshutcalls == 0) {
-	int ii;         // used for freeing loops
-	int i = 0; // only sending to 0,0  - if all chips, uncomment line below.
-	//for (int i=0;i<((XDIMENSIONS*YDIMENSIONS)/(EACHCHIPX*EACHCHIPY));i++)
 	if (spinnakerboardport != 0) {
-	    // send exit packet out if we are interacting
-	    send_to_chip(i, 0x21, 0, 0, 0, 0, 4, 0, 0, 0, 0);
+	    for (int i = 0 ; i < all_desired_chips() ; i++) {
+		// send exit packet out if we are interacting
+		send_to_chip(i, 0x21, 0, 0, 0, 0, 4, 0, 0, 0, 0);
+	    }
 	}
 
 	open_or_close_output_file();	// Close down any open output file
@@ -2963,29 +2912,29 @@ void safelyshut(void)
 	    free(biascurrent);
 	}
 
-	for (ii = 0; ii < HISTORYSIZE ; ii++) {
-	    free(history_data[ii]);
+	for (int i = 0; i < HISTORYSIZE ; i++) {
+	    free(history_data[i]);
 	}
 	free(history_data);
-	for (ii = 0; ii < HISTORYSIZE ; ii++) {
-	    free(history_data_set2[ii]);
+	for (int i = 0; i < HISTORYSIZE ; ii++) {
+	    free(history_data_set2[i]);
 	}
 	free(history_data_set2);
 
 	free(immediate_data);
 
-	for (ii = 0; ii < XDIMENSIONS * YDIMENSIONS ; ii++) {
-	    free(maplocaltoglobal[ii]);
+	for (int i = 0; i < XDIMENSIONS * YDIMENSIONS ; i++) {
+	    free(maplocaltoglobal[i]);
 	}
 	free(maplocaltoglobal);
-	for (ii = 0; ii < XDIMENSIONS * YDIMENSIONS ; ii++) {
-	    free(mapglobaltolocal[ii]);
+	for (int i = 0; i < XDIMENSIONS * YDIMENSIONS ; i++) {
+	    free(mapglobaltolocal[i]);
 	}
 	free(mapglobaltolocal);
 
-	safelyshutcalls++;		// note that this routine has been run before
+	safelyshutcalls++;	// note that this routine has been run before
     }
-    exit(0);				// kill program dead
+    exit(0);			// kill program dead
 }
 
 void display_win2(void)
@@ -3002,12 +2951,14 @@ void display_win2(void)
     printglstroke(25 + (rand() % 50), 20, 0.12, 0, stringy);
     printgl(250, 300, GLUT_BITMAP_TIMES_ROMAN_24, stringy);
     glColor4f(1.0, 0.0, 0.0, 1.0);
+
     glBegin (GL_QUADS);
     glVertex2f(100, 100);
     glVertex2f(200, 100);
     glVertex2f(200, 800);
     glVertex2f(100, 800);
     glEnd();    // draw centre window
+
     glFlush();
     glutSwapBuffers();
 }
@@ -3022,19 +2973,21 @@ void destroy_new_window(void)
 
 void create_new_window(void)
 {
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB); /* Set the display mode */
-    glutInitWindowSize(windowWidth, windowHeight); /* Set the window size */
-    glutInitWindowPosition(800, 100); /* Set the window position */
-    win2 = glutCreateWindow("Spawned window"); /* Create the window */
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);	// Set the display mode
+    glutInitWindowSize(windowWidth, windowHeight);	// Set the window size
+    glutInitWindowPosition(800, 100);			// Set the window position
+    win2 = glutCreateWindow("Spawned window");		// Create the window
+
     myinit();
-    glutDisplayFunc(display); /* Register the "display" function */
-    glutReshapeFunc(reshape); /* Register the "reshape" function */
-    glutIdleFunc(idleFunction); /* Register the idle function */
-    glutSpecialFunc(specialDown); /* Register the special key press function  */
-    glutSpecialUpFunc(specialUp); /* Register the special key release function */
-    glutKeyboardFunc(keyDown); /* Register the key press function */
-    glutKeyboardUpFunc(keyUp); /* Register the key release function */
-    glutMouseFunc(mousehandler); /* Register the mouse handling function */
+
+    glutDisplayFunc(display);		// Register the "display" function
+    glutReshapeFunc(reshape);		// Register the "reshape" function
+    glutIdleFunc(idleFunction);		// Register the idle function
+    glutSpecialFunc(specialDown);	// Register the special key press function
+    glutSpecialUpFunc(specialUp);	// Register the special key release function
+    glutKeyboardFunc(keyDown);		// Register the key press function
+    glutKeyboardUpFunc(keyUp);		// Register the key release function
+    glutMouseFunc(mousehandler);	// Register the mouse handling function
 }
 
 void open_or_close_output_file(void)
@@ -3130,8 +3083,8 @@ int main(int argc, char **argv)
     }
 
     if (replayfn == nullptr) {
-	fprintf(stderr,
-		"No Input File provided.   Using Ethernet Frames Only\n");
+	fprintf(stderr, "No Input File provided. "
+		"Using Ethernet Frames Only\n");
     } else {
 	playbackmultiplier = replayspeed;
 	if (playbackmultiplier == 0.0) {
@@ -3152,7 +3105,7 @@ int main(int argc, char **argv)
 	}  // check if file is readable
 
 	// setup with target 127.0.0.1 on right port if not already set
-	if (spinnakerboardipset == 0) {
+	if (!spinnakerboardipset) {
 	    inet_aton("127.0.0.1", &spinnakerboardip);
 	}
 	spinnakerboardport = SDPPORT; // SDPPORT is used for outgoing cnnx
@@ -3186,9 +3139,6 @@ int main(int argc, char **argv)
     glutKeyboardFunc(keyDown); /* Register the key press function */
     glutKeyboardUpFunc(keyUp); /* Register the key release function */
     glutMouseFunc(mousehandler); /* Register the mouse handling function */
-#ifdef TESTING
-    glutMotionFunc (MouseMotion); /* Register the mouse handling function when a button depressed */
-#endif
 
     glutCloseFunc(safelyshut); // register what to do when the use kills the window via the frame object
     glutMenuStatusFunc(logifmenuopen); // this keeps an eye on whether a window is open (as can't alter when open!)
