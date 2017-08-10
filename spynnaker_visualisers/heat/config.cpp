@@ -26,6 +26,13 @@ static inline void get_setting(
 
 #define GET_SETTING(var) get_setting(setting, #var, var)
 
+static inline int streq(const char *str1, const char *str2)
+{
+    return strcmp(str1, str2) == 0;
+}
+
+// --------------------------------------------------------------------
+
 int paramload(char* config_file_name)
 {
     // check if visparam exists
@@ -59,7 +66,7 @@ int paramload(char* config_file_name)
     }
 
     if (setting != NULL) {
-	if (!(config_setting_lookup_string(setting, "TITLE", &titletemp))) {
+	if (!config_setting_lookup_string(setting, "TITLE", &titletemp)) {
 	    titletemp = "NO SIMULATION TITLE SUPPLIED";
 	}
 
@@ -121,7 +128,7 @@ int paramload(char* config_file_name)
     windowBorder = WINBORDER;
     windowHeight = WINHEIGHT;
     keyWidth = KEYWIDTH;
-    if (DISPLAYKEY == 0) {
+    if (!DISPLAYKEY) {
 	keyWidth = 0;
     }
     windowWidth = WINWIDTH + keyWidth; // startup for window sizing
@@ -196,7 +203,7 @@ void parse_arguments(
 
     // go through all the arguments
     for (int i = 1; i < argc ; i++) {
-	if (strcmp(argv[i], "-c") == 0 || strcmp(argv[i], "-config") == 0) {
+	if (streq(argv[i], "-c") || streq(argv[i], "-config")) {
 	    if (i + 1 >= argc) {
 		errfound++;
 		printf("*No local config filename provided. Error.\n");
@@ -205,8 +212,7 @@ void parse_arguments(
 	    // TODO: check if filename begins with - and give error if this is the case?
 	    configfn = argv[++i];
 	    printf("Attempting to load configuration file: %s.\n", configfn);
-	} else if (strcmp(argv[i], "-r") == 0
-		|| strcmp(argv[i], "-replay") == 0) {
+	} else if (streq(argv[i], "-r") || streq(argv[i], "-replay")) {
 	    if (i + 1 >= argc) {
 		errfound++;
 		printf("** No replay filename provided. Error.\n");
@@ -222,7 +228,7 @@ void parse_arguments(
 	    } else {
 		printf("** Note: no multiplier option supplied.\n");
 	    }
-	} else if (strcmp(argv[i], "-l2g") == 0) {
+	} else if (streq(argv[i], "-l2g")) {
 	    if (i + 1 >= argc) {
 		errfound++;
 		printf("*** No L to G filename provided. Error.\n");
@@ -231,7 +237,7 @@ void parse_arguments(
 	    gotl2gfn = 1;
 	    l2gfn = argv[++i];
 	    printf("Attempting to load Local to Global file: %s.\n", l2gfn);
-	} else if (strcmp(argv[i], "-g2l") == 0) {
+	} else if (streq(argv[i], "-g2l")) {
 	    if (i + 1 >= argc) {
 		errfound++;
 		printf("**** No G to L filename provided. Error.\n");
@@ -240,7 +246,7 @@ void parse_arguments(
 	    gotg2lfn = 1;
 	    g2lfn = argv[++i];
 	    printf("Attempting to load Global to Local file: %s.\n", g2lfn);
-	} else if (strcmp(argv[i], "-ip") == 0) {
+	} else if (streq(argv[i], "-ip")) {
 	    // spinnakerboardip is set
 	    if (i + 1 >= argc) { // check to see if a 2nd argument provided
 		errfound++;
@@ -269,16 +275,16 @@ void parse_arguments(
 	}
     }
 
-    if (gotl2gfn == 1 && gotg2lfn == 0) {
+    if (gotl2gfn && !gotg2lfn) {
 	printf("L to G filename specified, but G to L is not. Error.\n");
 	errfound = 1;
     }
-    if (gotl2gfn == 0 && gotg2lfn == 1) {
+    if (!gotl2gfn && gotg2lfn) {
 	printf("G to L filename specified, but L to G is not. Error.\n");
 	errfound = 1;
     }
 
-    if (errfound > 0) {
+    if (errfound) {
 	printf("\n Unsure of your command line options old chap.\n\n");
 	fprintf(stderr,
 		"usage: %s [-c configfile] [-r savedspinnfile [replaymultiplier(0.1->100)]] [-l2g localtoglobalmapfile] [-g2l globaltolocalmapfile] [-ip boardhostname|ipaddr]\n",
