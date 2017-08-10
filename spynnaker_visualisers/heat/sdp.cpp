@@ -102,12 +102,10 @@ static inline void process_seville_retina_packet(int numAdditionalBytes)
 	short datain2 = (scanptr->data[i] >> 16) & 0xFFFF;	// 2nd of the pair
 	uint pixelid = columnnum * numofrows + (i * 2);		// 1st pixel ID
 
-	immediate_data[pixelid] = datain1;	// store 1st pixel ID
-	history_data[updateline][pixelid] =
-		immediate_data[pixelid];	// replace any data here already
-	immediate_data[pixelid + 1] = datain2;	// store 2nd pixel ID
-	history_data[updateline][pixelid + 1] =
-		immediate_data[pixelid + 1];	// replace any data here already
+	immediate_data[pixelid] = datain1;			// store 1st pixel ID
+	history_data[updateline][pixelid] = immediate_data[pixelid];// replace any data here already
+	immediate_data[pixelid + 1] = datain2;			// store 2nd pixel ID
+	history_data[updateline][pixelid + 1] = immediate_data[pixelid + 1];// replace any data here already
     }
 }
 
@@ -318,7 +316,7 @@ static inline void process_heatmap_packet(int numAdditionalBytes)
     // for all extra data (assuming regular array of 4 byte words)
     for (int i = 0 ; i < numAdditionalBytes / 4 ; i++) {
 	uint arrayindex = (EACHCHIPX * EACHCHIPY)
-		* ((xsrc * (XDIMENSIONS / EACHCHIPX)) + ysrc) + i;
+		* (xsrc * (XDIMENSIONS / EACHCHIPX) + ysrc) + i;
 	if (freezedisplay == 0) {
 	    if (arrayindex < 0 || arrayindex > XDIMENSIONS * YDIMENSIONS) {
 		printf(
@@ -353,10 +351,10 @@ static inline void process_link_check_packet(void)
     unsigned char xsrc = scanptr->srce_addr / 256;
     unsigned char ysrc = scanptr->srce_addr % 256;
 
-    int indexer = (ysrc * (EACHCHIPX * EACHCHIPY)); // give the y offset
-    indexer += (xsrc * (EACHCHIPX * EACHCHIPY) * (YDIMENSIONS / EACHCHIPY));
+    int indexer = ysrc * (EACHCHIPX * EACHCHIPY); // give the y offset
+    indexer += xsrc * (EACHCHIPX * EACHCHIPY) * (YDIMENSIONS / EACHCHIPY);
 
-    for (int i = 0 ; i < (EACHCHIPX * EACHCHIPY) ; i++) {
+    for (int i = 0 ; i < EACHCHIPX * EACHCHIPY ; i++) {
 	immediate_data[indexer + i] = 100;
 	if (i == 5) {
 	    immediate_data[indexer + i] = 20;   // set centre blue
@@ -374,20 +372,25 @@ static inline void process_link_check_packet(void)
     }
     if (!freezedisplay) {
 	for (int i = 0 ; i < 6 ; i++) {
-	    //int arrayindex=(EACHCHIPX*EACHCHIPY)*((xsrc*(XDIMENSIONS/EACHCHIPX))+ysrc);    // base index
+	    //int arrayindex=(EACHCHIPX*EACHCHIPY)*(xsrc*(XDIMENSIONS/EACHCHIPX)+ysrc);    // base index
 	    if (scanptr->arg1 & (0x1 << i)) { // if array entry is set (have received on this port)
 		int arrayindex = indexer;
-		if (i == 0)
-		    arrayindex += 1;         // RX from west
-		//if (i==1) arrayindex += 1; // RX from sw (zero position)
-		if (i == 2)
-		    arrayindex += 4;         // RX from south
-		if (i == 3)
-		    arrayindex += 9;         // RX from east
-		if (i == 4)
-		    arrayindex += 10;         // RX from ne
-		if (i == 5)
-		    arrayindex += 6;         // RX from north
+		if (i == 0) {
+		    arrayindex += 1;		// RX from west
+		}
+		//if (i==1) arrayindex += 1;	// RX from sw (zero position)
+		if (i == 2) {
+		    arrayindex += 4;		// RX from south
+		}
+		if (i == 3) {
+		    arrayindex += 9;		// RX from east
+		}
+		if (i == 4) {
+		    arrayindex += 10;		// RX from ne
+		}
+		if (i == 5) {
+		    arrayindex += 6;		// RX from north
+		}
 		immediate_data[arrayindex] = 60; // update immediate data
 		history_data[updateline][arrayindex] =
 			immediate_data[arrayindex]; // update historical data
@@ -409,7 +412,7 @@ static inline void process_cpu_util_packet(int numAdditionalBytes)
     // for all extra data (assuming regular array of 4 byte words)
     for (int i = 0 ; i < numAdditionalBytes / 4 ; i++) {
 	uint arrayindex = (EACHCHIPX * EACHCHIPY)
-		* ((xsrc * (XDIMENSIONS / EACHCHIPX)) + ysrc) + i;
+		* (xsrc * (XDIMENSIONS / EACHCHIPX) + ysrc) + i;
 	immediate_data[arrayindex] = (float) scanptr->data[i]; // utilisation data
 	history_data[updateline][arrayindex] = immediate_data[arrayindex]; // replace any data already here
 	somethingtoplot = 1; // indicate we will need to refresh the screen
@@ -427,7 +430,7 @@ static inline void process_chip_temperature_packet(void)
     unsigned char xsrc = scanptr->srce_addr / 256;
     unsigned char ysrc = scanptr->srce_addr % 256;
     uint arrayindex = (EACHCHIPX * EACHCHIPY)
-	    * ((xsrc * (XDIMENSIONS / EACHCHIPX)) + ysrc); // no per core element so no +i
+	    * (xsrc * (XDIMENSIONS / EACHCHIPX) + ysrc); // no per core element so no +i
     // immediate_data[arrayindex]=(float)scanptr->cmd_rc/(float)pow(2.0,FIXEDPOINT);     // temperature data using algorithm in report.c (not great)
     // immediate_data[arrayindex]=((float)scanptr->arg1-6300) /15.0;     // temperature 1 sensor data
     // immediate_data[arrayindex]=((float)scanptr->arg2-9300) / 18.0;     // temperature 2 sensor data
@@ -451,7 +454,7 @@ static inline void process_integrator_fg_packet(int numAdditionalBytes)
     xsrc = scanptr->srce_addr / 256; // takes the chip ID and works out the chip X coord
     ysrc = scanptr->srce_addr % 256; // and the chip Y coord
     uint arrayindex = (EACHCHIPX * EACHCHIPY)
-	    * ((xsrc * (XDIMENSIONS / EACHCHIPX)) + ysrc); // no per core element so no +i
+	    * (xsrc * (XDIMENSIONS / EACHCHIPX) + ysrc); // no per core element so no +i
     if (numAdditionalBytes >= 4) {
 	float input = 1.0 + (float) ((int) scanptr->data[0]) / 256.0;
 	input *= 0.001 / 0.03;
@@ -527,13 +530,14 @@ void* input_thread_SDP(void *ptr)
 	    gettimeofday(&stopwatchus, NULL);             // grab current time
 	    nowtime = (((int64_t) stopwatchus.tv_sec * (int64_t) 1000000)
 		    + (int64_t) stopwatchus.tv_usec);    // get time now in us
-	    if (firstreceivetimez == 0)
+	    if (firstreceivetimez == 0) {
 		firstreceivetimez = nowtime; // if 1st packet then note it's arrival
+	    }
 	    sincefirstpacket = (nowtime - firstreceivetimez) / 1000; // how long in ms since visualisation got 1st valid packet.
 
 	    float timeperindex = displayWindow / (float) plotWidth; // time in seconds per history index in use (or pixel displayed)
 	    int updateline = ((nowtime - starttimez)
-		    / (int64_t)(timeperindex * 1000000)) % (HISTORYSIZE); // which index is being updated (on the right hand side)
+		    / (int64_t)(timeperindex * 1000000)) % HISTORYSIZE; // which index is being updated (on the right hand side)
 
 	    if (updateline < 0 || updateline > HISTORYSIZE) {
 		printf("Error line 500: Updateline out of bounds: %d. "
@@ -545,13 +549,13 @@ void* input_thread_SDP(void *ptr)
 		int linestoclear = updateline - lasthistorylineupdated; // work out how many lines have gone past without activity.
 		// when window is reduced updateline reduces. ths causes an underflow construed as a wraparound. TODO.
 		if (linestoclear < 0
-			&& (updateline + 500) > lasthistorylineupdated) {
+			&& updateline + 500 > lasthistorylineupdated) {
 		    // to cover any underflow when resizing plotting window smaller (wrapping difference will be <500)
 		    linestoclear = 0;
 		}
 		if (linestoclear < 0) {
 		    // if has wrapped then work out the true value
-		    linestoclear = (updateline + HISTORYSIZE)
+		    linestoclear = updateline + HISTORYSIZE
 			    - lasthistorylineupdated;
 		}
 		int numberofdatapoints = xdim * ydim;
@@ -559,7 +563,7 @@ void* input_thread_SDP(void *ptr)
 		    for (int j = 0 ; j < numberofdatapoints ; j++) {
 			// nullify data in the quiet period
 			history_data[(1 + i + lasthistorylineupdated)
-				% (HISTORYSIZE)][j] =
+				% HISTORYSIZE][j] =
 				INITZERO ? 0.0 : NOTDEFINEDFLOAT;
 		    }
 		    if (win2) {
@@ -567,7 +571,7 @@ void* input_thread_SDP(void *ptr)
 			for (int j = 0 ; j < numberofdatapoints ; j++) {
 			    // nullify data in the quiet period
 			    history_data_set2[(1 + i + lasthistorylineupdated)
-				    % (HISTORYSIZE)][j] =
+				    % HISTORYSIZE][j] =
 				    INITZERO ? 0.0 : NOTDEFINEDFLOAT;
 			}
 		    }
@@ -694,7 +698,7 @@ void sdp_sender(
     output_packet.arg3 = arg3;		// argument3
 
     for (short i = 0 ; i < extrawords ; i++) {
-	output_packet.data[i]=va_arg(ExtraData,unsigned int);
+	output_packet.data[i] = va_arg(ExtraData, unsigned int);
     }
     va_end(ExtraData);			// de-initialize the list
 
