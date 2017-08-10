@@ -876,19 +876,6 @@ void display(void)
 
 		glLineWidth(1.0);
 	    }
-	    if ((SIMULATION == RATEPLOT || SIMULATION == RATEPLOTLEGACY)
-		    && INTERACTION && rasterpopulation == i) {
-		if (magnitude > 0.6) {
-		    glColor4f(0.0, 0.0, 0.0, 1.0);
-		} else {
-		    glColor4f(1.0, 1.0, 1.0, 1.0);
-		}
-		//print R
-		char stringR[] = "R";
-		printgl(2 * gap + xcord * xsize + (xsize - 8) / 2,
-			2 * gap + ycord * ysize + (ysize - 10) / 2,
-			GLUT_BITMAP_HELVETICA_12, stringR); // print an R in the box to indicate this is box that's raster plotting
-	    }
 	}
 
 	xsize = plotWidth / (float) xdim;
@@ -923,39 +910,6 @@ void display(void)
 		glEnd(); // this plots the basic quad box filled as per colour above
 	    }
 
-	    if ((SIMULATION == RATEPLOT || SIMULATION == RATEPLOTLEGACY)
-		    && INTERACTION && livebox == i) {
-		// draw 2 borders around box
-		glLineWidth((float) gap);
-		glColor4f(1.0, 1.0, 1.0, 1.0);
-
-		glBegin (GL_LINE_LOOP);
-		glVertex2f(gap * 1.5 + windowBorder + xcord * xsize,
-			gap * 1.5 + windowBorder + ycord * ysize); //btm left
-		glVertex2f(windowBorder + (xcord + 1) * xsize - gap * 1.5,
-			gap * 1.5 + windowBorder + ycord * ysize); //btm right
-		glVertex2f(windowBorder + (xcord + 1) * xsize - gap * 1.5,
-			windowBorder + (ycord + 1) * ysize - gap * 1.5); // top right
-		glVertex2f(gap * 1.5 + windowBorder + xcord * xsize,
-			windowBorder + (ycord + 1) * ysize - gap * 1.5); // top left
-		glEnd(); // this plots the internal white outline of the selected tile
-
-		glColor4f(0.0, 0.0, 0.0, 1.0);
-
-		glBegin(GL_LINE_LOOP);
-		glVertex2f(gap * 0.5 + windowBorder + xcord * xsize,
-			gap * 0.5 + windowBorder + ycord * ysize); //btm left
-		glVertex2f(windowBorder + (xcord + 1) * xsize - gap * 0.5,
-			gap * 0.5 + windowBorder + ycord * ysize); //btm right
-		glVertex2f(windowBorder + (xcord + 1) * xsize - gap * 0.5,
-			windowBorder + (ycord + 1) * ysize - gap * 0.5); // top right
-		glVertex2f(gap * 0.5 + windowBorder + xcord * xsize,
-			windowBorder + (ycord + 1) * ysize - gap * 0.5); // top left
-		glEnd(); // this plots the external black outline of the selected tile
-
-		glLineWidth(1.0);
-	    }
-
 	    if (plotvaluesinblocks != 0 && xsize > 8 && // if we want to plot numbers / values in blocks (& blocks big enough)
 		    immediate_data[ii] > NOTDEFINEDFLOAT + 1) {
 		if (magnitude > 0.6) {
@@ -971,45 +925,6 @@ void display(void)
 		    printglstroke(windowBorder - 20 + (xcord + 0.5) * xsize,
 			    windowBorder - 6 + (ycord + 0.5) * ysize, 0.12, 0,
 			    stringnums, immediate_data[ii]); // normal
-		}
-	    }
-	}
-
-	if ((SIMULATION == RATEPLOT || SIMULATION == RATEPLOTLEGACY)
-		&& INTERACTION) {
-	    glColor4f(0.0, 0.0, 0.0, 1.0);
-	    if (livebox == i) {
-		char stringnums[] = "%3.2f";
-		char stringbiascurrent[] = "Bias Curr:";
-
-		printgl(windowWidth - windowBorder, windowBorder,
-			GLUT_BITMAP_HELVETICA_18, stringbiascurrent);
-		printgl(windowWidth - windowBorder, windowBorder - 30,
-			GLUT_BITMAP_HELVETICA_18, stringnums, biasediting);
-		if (!(biasediting - 0.01 < biascurrent[livebox]
-			&& biasediting + 0.01 > biascurrent[livebox])) {
-		    char stringNAK[] = "NAK:(last:%3.2f)";
-		    printgl(windowWidth - windowBorder, windowBorder - 45,
-			    GLUT_BITMAP_HELVETICA_12, stringNAK,
-			    biascurrent[livebox]);
-		    // print 'NAK' if the bias here is different to the last received value
-		}
-	    }
-	    if (rasterpopulation != -1) {
-		if (displaymode == HISTOGRAM) {
-		    char stringraster[] = "'R'aster: (%d)"; // rasterpopulation is the active raster ID.
-		    printgl(windowWidth - windowBorder, windowBorder - 60,
-			    GLUT_BITMAP_HELVETICA_12, stringraster,
-			    rasterpopulation % xdim + xdim * (ydim - 1)
-				    - ydim * (rasterpopulation / xdim));
-		} else {
-		    char stringraster[] = "'R'aster: (%d,%d)"; // rasterpopulation is the active raster ID.
-		    int xcoordinate, ycoordinate;
-		    convert_index_to_coord(rasterpopulation, &xcoordinate,
-			    &ycoordinate); // (where xcoordinate and ycoordinate are ints)
-		    printgl(windowWidth - windowBorder, windowBorder - 60,
-			    GLUT_BITMAP_HELVETICA_12, stringraster,
-			    xcoordinate, ycoordinate);
 		}
 	    }
 	}
@@ -1382,8 +1297,7 @@ void display(void)
     }
 
     // only print if not in fullscreen mode
-    if (SIMULATION == HEATMAP && INTERACTION && !fullscreen) {
-	// for Heat Map work
+    if (!fullscreen) {
 	for (int boxer = 0 ; boxer < controlboxes * controlboxes ; boxer++) {
 	    int boxx = boxer / controlboxes, boxy = boxer % controlboxes;
 	    if (boxx == 1 || boxy == 1) {
@@ -1755,95 +1669,6 @@ void reshape(int width, int height)
 // Called when arrow keys (and some others) are pressed
 void specialDown(int key, int x, int y)
 {
-    if ((SIMULATION == RATEPLOT || SIMULATION == RATEPLOTLEGACY)
-	    && INTERACTION) {
-	int xc, yc;
-	convert_index_to_coord(livebox, &xc, &yc);
-	switch (key) {
-	case GLUT_KEY_UP:
-	    if (displaymode == HISTOGRAM) {
-		if (livebox == -1) {
-		    livebox = convert_coord_to_index(0, 0);
-		} else {
-		    livebox = -1;
-		}
-	    } else {
-		if (livebox == -1) {
-		    livebox = convert_coord_to_index(0, 0);
-		} else {
-		    convert_index_to_coord(livebox, &xc, &yc);
-		    if (yc + 1 >= ydim) {
-			livebox = -1;
-		    } else {
-			livebox = convert_coord_to_index(xc, yc + 1);
-		    }
-		}
-	    }
-	    break;
-	case GLUT_KEY_DOWN:
-	    if (displaymode == HISTOGRAM) {
-		if (livebox == -1) {
-		    livebox = convert_coord_to_index(xdim - 1, ydim - 1);
-		} else {
-		    livebox = -1;
-		}
-	    } else {
-		if (livebox == -1) {
-		    livebox = convert_coord_to_index(0, ydim - 1);
-		} else if (yc - 1 < 0) {
-		    livebox = -1;
-		} else {
-		    livebox = convert_coord_to_index(xc, yc - 1);
-		}
-	    }
-	    break;
-	case GLUT_KEY_RIGHT:
-	    if (displaymode == HISTOGRAM) {
-		if (livebox == -1) {
-		    livebox = convert_coord_to_index(0, 0);
-		} else if (livebox + 1 < xdim * ydim) {
-		    livebox++;
-		} else {
-		    livebox = -1;
-		}
-	    } else {
-		if (livebox == -1) {
-		    livebox = convert_coord_to_index(0, 0);
-		} else if (xc < xdim - 1) {
-		    livebox = convert_coord_to_index(++xc, yc);
-		} else {
-		    livebox = -1;
-		}
-	    }
-	    break;
-	case GLUT_KEY_LEFT:
-	    if (displaymode == HISTOGRAM) {
-		if (livebox == -1) {
-		    livebox = convert_coord_to_index(xdim - 1, ydim - 1);
-		} else if (livebox > 0) {
-		    livebox--;
-		} else {
-		    livebox = -1;
-		}
-	    } else {
-		if (livebox == -1) {
-		    livebox = convert_coord_to_index(xdim - 1, 0);
-		} else if (xc > 0) {
-		    livebox = convert_coord_to_index(--xc, yc);
-		} else {
-		    livebox = -1;
-		}
-	    }
-	    break;
-	}
-	if (livebox < 0 || livebox >= xdim * ydim) {
-	    livebox = -1;
-	}
-	if (livebox != -1) {
-	    biasediting = biascurrent[coordinate_manipulate(livebox)]; // **swopxy**
-	}
-	somethingtoplot = 1; // indicate we will need to refresh the screen
-    }
 }
 
 // Called when arrow keys (and some others) are released
@@ -1968,9 +1793,7 @@ void keyDown(unsigned char key, int x, int y)
 
 	// only if a scrolling mode in operation on the main plot!  (or (surrounded by ifdefs) its a 2ndary rasterised plot)
     case '>':
-	if (displaymode == RASTER || displaymode == LINES
-		|| ((SIMULATION == RATEPLOT || SIMULATION == RATEPLOTLEGACY)
-			&& rasterpopulation != -1)) {
+	if (displaymode == RASTER || displaymode == LINES) {
 	    displayWindow += 0.1;
 	    if (displayWindow > 100) {
 		displayWindow = 100;
@@ -1978,9 +1801,7 @@ void keyDown(unsigned char key, int x, int y)
 	}
 	break;
     case '<':
-	if (displaymode == RASTER || displaymode == LINES
-		|| ((SIMULATION == RATEPLOT || SIMULATION == RATEPLOTLEGACY)
-			&& rasterpopulation != -1)) {
+	if (displaymode == RASTER || displaymode == LINES) {
 	    displayWindow -= 0.1;
 	    if (displayWindow < 0.1) {
 		displayWindow = 0.1;
@@ -1989,182 +1810,66 @@ void keyDown(unsigned char key, int x, int y)
 	break;
 
     case '+':
-	if (INTERACTION) {
-	    if (SIMULATION == CHIPTEMP || SIMULATION == CPUUTIL) {
-		for (int i = 0 ;
-			i
-				< (XDIMENSIONS / EACHCHIPX)
-					* (YDIMENSIONS / EACHCHIPY) ; i++) {
-		    send_to_chip(i, 17 + (3 << 5), 2, 0, 0, 0, 0); // send message to increase (2) CPU utilisation
-		    printf("%d=(%d,%d), ", i, i / (XDIMENSIONS / EACHCHIPX),
-			    i % (YDIMENSIONS / EACHCHIPY));
-		}
-	    } else if (SIMULATION == RATEPLOT || SIMULATION == RATEPLOTLEGACY) {
-		if (livebox != -1) {
-		    short subcorepopid = 0;
-		    biasediting += ALTERSTEPSIZE;
-		    if (biasediting > 100.0) {
-			biasediting = 10.0;
-		    }
-		    int popid = (coordinate_manipulate(livebox)
-			    % (EACHCHIPY * EACHCHIPX)) + 1;
-		    short coreid = popid;
-		    int chipx = ((coordinate_manipulate(livebox)
-			    / (EACHCHIPY * EACHCHIPX))
-			    / (XDIMENSIONS / EACHCHIPX)) * 256;
-		    int chipy = (coordinate_manipulate(livebox)
-			    / (EACHCHIPY * EACHCHIPX))
-			    % (XDIMENSIONS / EACHCHIPX);
-		    if (BITSOFPOPID > 0) {
-			subcorepopid = (popid - 1)
-				& (int) (pow(2, BITSOFPOPID) - 1); // work out the proto population.
-			coreid = 1 + ((popid - 1) >> BITSOFPOPID); // work out the coreID that this population is on.
-		    }
-		    sdp_sender(chipx + chipy, 0x80 + coreid, 259,
-			    subcorepopid, 0, (int) (biasediting * 256.0), 0); // send message to alter bias current (arg3) (+0x80 = port 4)
-		    somethingtoplot = 1;                     // refresh screen
-		}
-	    } else if (SIMULATION == HEATMAP) {
-		if (livebox == NORTH) {
-		    alternorth += ALTERSTEPSIZE;
-		}
-		if (livebox == EAST) {
-		    altereast += ALTERSTEPSIZE;
-		}
-		if (livebox == SOUTH) {
-		    altersouth += ALTERSTEPSIZE;
-		}
-		if (livebox == WEST) {
-		    alterwest += ALTERSTEPSIZE;
-		}
-	    }
+	if (livebox == NORTH) {
+	    alternorth += ALTERSTEPSIZE;
+	}
+	if (livebox == EAST) {
+	    altereast += ALTERSTEPSIZE;
+	}
+	if (livebox == SOUTH) {
+	    altersouth += ALTERSTEPSIZE;
+	}
+	if (livebox == WEST) {
+	    alterwest += ALTERSTEPSIZE;
 	}
 	break;
     case '-':
-	if (INTERACTION) {
-	    if (SIMULATION == CHIPTEMP || SIMULATION == CPUUTIL) {
-		for (int i = 0 ;
-			i
-				< (XDIMENSIONS / EACHCHIPX)
-					* (YDIMENSIONS / EACHCHIPY) ; i++) {
-		    send_to_chip(i, 17 + (3 << 5), 1, 0, 0, 0, 0); // send message to decrease (1) CPU utilisation
-		}
-	    } else if (SIMULATION == RATEPLOT || SIMULATION == RATEPLOTLEGACY) {
-		if (livebox != -1) {
-		    short subcorepopid = 0;
-		    biasediting -= ALTERSTEPSIZE;
-		    if (biasediting < -10.0) {
-			biasediting = -10.0;
-		    }
-		    int popid = (coordinate_manipulate(livebox)
-			    % (EACHCHIPY * EACHCHIPX)) + 1;
-		    short coreid = popid;
-		    int chipx = ((coordinate_manipulate(livebox)
-			    / (EACHCHIPY * EACHCHIPX))
-			    / (XDIMENSIONS / EACHCHIPX)) * 256;
-		    int chipy = (coordinate_manipulate(livebox)
-			    / (EACHCHIPY * EACHCHIPX))
-			    % (XDIMENSIONS / EACHCHIPX);
-		    if (BITSOFPOPID > 0) {
-			subcorepopid = (popid - 1)
-				& (int) (pow(2, BITSOFPOPID) - 1); // work out the proto population.
-			coreid = 1 + ((popid - 1) >> BITSOFPOPID); // work out the coreID that this population is on.
-		    }
-		    sdp_sender(chipx + chipy, 0x80 + coreid, 259,
-			    subcorepopid, 0, (int) (biasediting * 256.0), 0); // send message to alter bias current (arg3) (+0x80 = port 4)
-		    somethingtoplot = 1;                     // refresh screen
-		}
-	    } else if (SIMULATION == HEATMAP) {
-		// if scroll down, and livebox!=0, decrement variable
-		if (livebox == NORTH) {
-		    alternorth -= ALTERSTEPSIZE;
-		}
-		if (livebox == EAST) {
-		    altereast -= ALTERSTEPSIZE;
-		}
-		if (livebox == SOUTH) {
-		    altersouth -= ALTERSTEPSIZE;
-		}
-		if (livebox == WEST) {
-		    alterwest -= ALTERSTEPSIZE;
-		}
-	    }
+	if (livebox == NORTH) {
+	    alternorth -= ALTERSTEPSIZE;
+	}
+	if (livebox == EAST) {
+	    altereast -= ALTERSTEPSIZE;
+	}
+	if (livebox == SOUTH) {
+	    altersouth -= ALTERSTEPSIZE;
+	}
+	if (livebox == WEST) {
+	    alterwest -= ALTERSTEPSIZE;
 	}
 	break;
 
     case 'z':
-	if ((SIMULATION == RATEPLOT || SIMULATION == RATEPLOTLEGACY)
-		&& INTERACTION) {
-	    // Call for Raster Data
-	    if (livebox != -1
-		    && (rasterpopulation == -1 || livebox != rasterpopulation)) {
-		printf("Just called up for a raster from population: %d\n",
-			livebox + 1);
-		for (int i = 0 ; i < xdim * ydim ; i++) {
-		    sdp_sender(0, 0x80 + i + 1, 258, 0, 4, 0, 0); // turn off raster on all populations
-		    sleeplet();
-		    printf("%d: ", i);
-		}
-		if (win2 == 0) {
-		    create_new_window(); // if window doesn't already exist then create it on demand
-		}
-		sdp_sender(0, 0x80 + livebox + 1, 258, 1, 4, 0, 0); // send message to turn on bit 4 (raster on)
-		rasterpopulation = livebox;
-		somethingtoplot = 1;
-		needtorebuildmenu = 1;
-	    } else {
-		printf(
-			"Just sent messages to cancel all rasters, while on box: %d\n",
-			livebox);
-		rasterpopulation = -1;
-		for (int i = 0 ; i < (xdim * ydim) ; i++) {
-		    sdp_sender(0, 0x80 + i + 1, 258, 0, 4, 0, 0); // turn off raster on all populations
-		    sleeplet();
-		    printf("%d, ", i);
-		}
-		printf("\n");
-		if (win2 != 0) {
-		    destroy_new_window(); // if spawned window does exist then close it
-		}
-		somethingtoplot = 1;
-		needtorebuildmenu = 1;
-	    }
-	    needtorebuildmenu = 1;
-	}
 	break;
 
 	// for Heat Map work
     case 'n':
-	if (SIMULATION == HEATMAP && INTERACTION && editmode) {
+	if (editmode) {
 	    livebox = (livebox == NORTH ? -1 : NORTH);
 	}
 	break;
     case 'e':
-	if (SIMULATION == HEATMAP && INTERACTION && editmode) {
+	if (editmode) {
 	    livebox = (livebox == EAST ? -1 : EAST);
 	}
 	break;
     case 's':
-	if (SIMULATION == HEATMAP && INTERACTION && editmode) {
+	if (editmode) {
 	    livebox = (livebox == SOUTH ? -1 : SOUTH);
 	}
 	break;
     case 'w':
-	if (SIMULATION == HEATMAP && INTERACTION && editmode) {
+	if (editmode) {
 	    livebox = (livebox == WEST ? -1 : WEST);
 	}
 	break;
     case 'a':
-	if (SIMULATION == HEATMAP && INTERACTION && !editmode) {
+	if (!editmode) {
 	    editmode = 1;
 	    livebox = -1;
 	}
 	break;
     case 'g':
-	if (SIMULATION == HEATMAP && INTERACTION && editmode) {
-#ifdef LOCKINGSEND
-	    editmode=0; // set to 0 for locking sends
-#endif
+	if (editmode) {
 	    livebox = -1;
 	    // send temperature packet out
 	    for (int i = 0 ; i < all_desired_chips() ; i++) {
@@ -2176,52 +1881,46 @@ void keyDown(unsigned char key, int x, int y)
 	}
 	break;
     case '9':
-	if (SIMULATION == HEATMAP && INTERACTION) {
-	    // special case to randomise the heatmap
-	    // send temperature packet out (reset to zero).
-	    for (int i = 0 ; i < all_desired_chips() ; i++) {
-		alternorth = (rand() % (int) (highwatermark - lowwatermark))
-			+ lowwatermark;
-		altereast = (rand() % (int) (highwatermark - lowwatermark))
-			+ lowwatermark;
-		altersouth = (rand() % (int) (highwatermark - lowwatermark))
-			+ lowwatermark;
-		alterwest = (rand() % (int) (highwatermark - lowwatermark))
-			+ lowwatermark;
+	// special case to randomise the heatmap
+	// send temperature packet out (reset to zero).
+	for (int i = 0 ; i < all_desired_chips() ; i++) {
+	    alternorth = (rand() % (int) (highwatermark - lowwatermark))
+		    + lowwatermark;
+	    altereast = (rand() % (int) (highwatermark - lowwatermark))
+		    + lowwatermark;
+	    altersouth = (rand() % (int) (highwatermark - lowwatermark))
+		    + lowwatermark;
+	    alterwest = (rand() % (int) (highwatermark - lowwatermark))
+		    + lowwatermark;
+	    send_to_chip(i, 0x21, 1, 0, 0, 0, 4, (int) (alternorth * 65536),
+		    (int) (altereast * 65536), (int) (altersouth * 65536),
+		    (int) (alterwest * 65536));
+	}
+	break;
+    case '0':
+	// special case to zero the heatmap
+	livebox = -1;
+	// send temperature packet out (reset to zero).
+	for (int i = 0 ; i < all_desired_chips() ; i++) {
+	    if (alternorth < 1.0 && altereast < 1.0 && altersouth < 1.0
+		    && alterwest < 1.0) {
+		// if very low -reinitialise
+		alternorth = 40.0;
+		altereast = 10.0;
+		altersouth = 10.0;
+		alterwest = 40.0;
 		send_to_chip(i, 0x21, 1, 0, 0, 0, 4,
 			(int) (alternorth * 65536), (int) (altereast * 65536),
 			(int) (altersouth * 65536),
 			(int) (alterwest * 65536));
-	    }
-	}
-	break;
-    case '0':
-	if (SIMULATION == HEATMAP && INTERACTION) {
-	    // special case to zero the heatmap
-	    livebox = -1;
-	    // send temperature packet out (reset to zero).
-	    for (int i = 0 ; i < all_desired_chips() ; i++) {
-		if (alternorth < 1.0 && altereast < 1.0 && altersouth < 1.0
-			&& alterwest < 1.0) {
-		    // if very low -reinitialise
-		    alternorth = 40.0;
-		    altereast = 10.0;
-		    altersouth = 10.0;
-		    alterwest = 40.0;
-		    send_to_chip(i, 0x21, 1, 0, 0, 0, 4,
-			    (int) (alternorth * 65536),
-			    (int) (altereast * 65536),
-			    (int) (altersouth * 65536),
-			    (int) (alterwest * 65536));
-		} else {
-		    // else reset to zero
-		    alternorth = 0.0;
-		    altereast = 0.0;
-		    altersouth = 0.0;
-		    alterwest = 0.0;
-		    send_to_chip(i, 0x21, 1, 0, 0, 0, 4, (int) (0), (int) (0),
-			    (int) (0), (int) (0));
-		}
+	    } else {
+		// else reset to zero
+		alternorth = 0.0;
+		altereast = 0.0;
+		altersouth = 0.0;
+		alterwest = 0.0;
+		send_to_chip(i, 0x21, 1, 0, 0, 0, 4, (int) (0), (int) (0),
+			(int) (0), (int) (0));
 	    }
 	}
 	break;
@@ -2267,9 +1966,6 @@ static inline void heatmap_mousehandler(int button, int state, int x, int y)
 		    }
 		} else if (selectedbox == CENTRE) {
 		    // if editmode==1 then if box ==4 editmode=0, send command;
-#ifdef LOCKINGSEND
-		    editmode = 0;
-#endif
 		    livebox = -1;
 		    for (int i = 0 ; i < all_desired_chips() ; i++) {
 			send_to_chip(i, 0x21, 1, 0, 0, 0, 4,
@@ -2338,118 +2034,6 @@ static inline void heatmap_mousehandler(int button, int state, int x, int y)
     }
 }
 
-static inline void rateplot_mousehandler(int button, int state, int x, int y)
-{
-    float xsize = plotWidth / (float) xdim; // size of the tiles in the x dimension
-    float ysize = (windowHeight - 2 * windowBorder) / (float) ydim; // size of the tiles in the y dimension
-    // section for mini display selection detection (on all display options)
-    if (state == GLUT_DOWN && button == GLUT_LEFT_BUTTON && !fullscreen) { // print mini version unless fullscreen
-	if (xsize < 1.0) {
-	    xsize = 1.0; // small pixels can't be less than a pixel wide or they're invisible
-	}
-	float tileratio = xsize / ysize; // the aspect ratio of the mini plot changes with the aspect ratio of the main screen
-
-	for (int i = 0 ; i < (xdim * ydim) ; i++) {
-	    int xcord, ycord;
-	    convert_index_to_coord(i, &xcord, &ycord); // (where xcoordinate and ycoordinate are ints)
-
-	    float ysize = max((float) 1.0,
-		    (float) (windowBorder - (6 * gap)) / (float) ydim); // minplot is the height of the border - 6*gapsizes. Plit between the # of y coords
-	    float xsize = max((float) 1.0, ysize * tileratio); // draw little tiled version in btm left - pixel size (can't be smaller than zero).
-	    int xmin = (int) (2 * gap + (float) xcord * xsize);
-	    int xmax = (int) (2 * gap + ((float) xcord + 1) * xsize);
-	    int ymax = windowHeight - (int) (2 * gap + (float) ycord * ysize); // y coords for screen and mouse are inverted
-	    int ymin = windowHeight
-		    - (int) (2 * gap + ((float) ycord + 1) * ysize);
-	    if (x >= xmin && x < xmax && y >= ymin && y < ymax) {
-		livebox = ((livebox == i) ? -1 : i); // toggle on off same box
-		biasediting = biascurrent[coordinate_manipulate(i)]; // **swopxy** the value we are going to be altering
-		somethingtoplot = 1;     // need to refresh the screen
-		needtorebuildmenu = 1; // context has changed so the menu probably will change and needs rebuilding
-	    }
-	}
-    }
-
-    xsize = plotWidth / (float) xdim; // reset size of the tiles in the x dimension
-    ysize = (windowHeight - 2 * windowBorder) / (float) ydim; // reset size of the tiles in the y dimension
-
-    if (state == GLUT_DOWN && button == GLUT_LEFT_BUTTON
-	    && (displaymode == TILED || displaymode == HISTOGRAM)) { // if we are in a tiled mode we can make a selection
-	if (displaymode == HISTOGRAM) {
-	    xsize = plotWidth / (float) (xdim * ydim); // Histogram means all tiles are across X axis
-	    ysize = (float) (windowHeight - 2 * windowBorder); // Histogram means height of block adjusts is height of the plottable area
-	}
-	for (int i = 0 ; i < (xdim * ydim) ; i++) {
-	    int match = 0;
-	    int xcord, ycord;
-	    convert_index_to_coord(i, &xcord, &ycord); // (where xcoordinate and ycoordinate are ints)
-
-	    if (displaymode == HISTOGRAM) {
-		xcord = i; // for histogram is just the data index, reorder into btmleft, btmright, ... topleft, topright coords
-		ycord = 0;           // for histogram always at origin
-	    }
-	    if (x >= windowBorder + xcord * xsize
-		    && windowHeight - y >= windowBorder + ycord * ysize
-		    && x < windowBorder + (xcord + 1) * xsize
-		    && windowHeight - y
-			    < windowBorder + (ycord + 1) * ysize) {
-		match = 1; // in this box, mark it so
-	    }
-
-	    if (match == 1) {
-		livebox = ((livebox == i) ? -1 : i);
-		biasediting = biascurrent[coordinate_manipulate(i)]; // **swopxy**
-		somethingtoplot = 1;                 // refresh screen
-		needtorebuildmenu = 1;
-	    }
-	}
-    } else if (state == GLUT_DOWN && button == SCROLL_UP && livebox != -1) {
-	// if scroll up, and box is selected, increment variable
-	biasediting += ALTERSTEPSIZE;
-	if (biasediting > 100.0) {
-	    biasediting = 10.0;
-	}
-	int popid = (coordinate_manipulate(livebox) % (EACHCHIPY * EACHCHIPX))
-		+ 1;
-	int chipx =
-		((coordinate_manipulate(livebox) / (EACHCHIPY * EACHCHIPX))
-			/ (XDIMENSIONS / EACHCHIPX)) * 256;
-	int chipy = (coordinate_manipulate(livebox) / (EACHCHIPY * EACHCHIPX))
-		% (XDIMENSIONS / EACHCHIPX);
-	short subcorepopid = 0;
-	short coreid = popid;
-	if (BITSOFPOPID > 0) {
-	    subcorepopid = (popid - 1) & (int) (pow(2, BITSOFPOPID) - 1); // work out the proto population.
-	    coreid = 1 + ((popid - 1) >> BITSOFPOPID); // work out the coreID that this population is on.
-	}
-	sdp_sender(chipx + chipy, 0x80 + coreid, 259, subcorepopid, 0,
-		(int) (biasediting * 256.0), 0); // send message to alter bias current (arg3) (+0x80 = port 4)
-	somethingtoplot = 1;                     // refresh screen
-    } else if (state == GLUT_DOWN && button == SCROLL_DOWN && livebox != -1) {
-	// if scroll down, and box is selected, decrement variable
-	short subcorepopid = 0;
-	biasediting -= ALTERSTEPSIZE;
-	if (biasediting < -10.0) {
-	    biasediting = -10.0;
-	}
-	int popid = (coordinate_manipulate(livebox) % (EACHCHIPY * EACHCHIPX))
-		+ 1;
-	short coreid = popid;
-	int chipx =
-		((coordinate_manipulate(livebox) / (EACHCHIPY * EACHCHIPX))
-			/ (XDIMENSIONS / EACHCHIPX)) * 256;
-	int chipy = (coordinate_manipulate(livebox) / (EACHCHIPY * EACHCHIPX))
-		% (XDIMENSIONS / EACHCHIPX);
-	if (BITSOFPOPID > 0) {
-	    subcorepopid = (popid - 1) & (int) (pow(2, BITSOFPOPID) - 1); // work out the proto population.
-	    coreid = 1 + ((popid - 1) >> BITSOFPOPID); // work out the coreID that this population is on.
-	}
-	sdp_sender(chipx + chipy, 0x80 + coreid, 259, subcorepopid, 0,
-		(int) (biasediting * 256.0), 0); // send message to alter bias current (arg3) (+0x80 = port 4)
-	somethingtoplot = 1;
-    }
-}
-
 // called when something happs with the moosie
 void mousehandler(int button, int state, int x, int y)
 {
@@ -2495,13 +2079,7 @@ void mousehandler(int button, int state, int x, int y)
 	}
     }
 
-    if (INTERACTION) {
-	if (SIMULATION == RATEPLOT || SIMULATION == RATEPLOTLEGACY) {
-	    rateplot_mousehandler(button, state, x, y);
-	} else if (SIMULATION == HEATMAP) {
-	    heatmap_mousehandler(button, state, x, y);
-	}
-    }
+	heatmap_mousehandler(button, state, x, y);
 
     if (state == GLUT_DOWN && button == GLUT_LEFT_BUTTON
 	    && !somethingtoplot) {
@@ -2738,21 +2316,6 @@ void rebuildmenu(void)
     glutDestroyMenu(RHMouseMenu);
     RHMouseMenu = glutCreateMenu(mymenu);
 
-    if (SIMULATION == RATEPLOT || SIMULATION == RATEPLOTLEGACY) {
-	if (livebox >= 0) {
-	    if (rasterpopulation == livebox) {
-		glutAddMenuEntry("(Z) Turn OFF this population's Raster Plot",
-			MENU_RASTER_OFF); // if box not selected offer to turn raster plots off all
-		// if off then turn on
-	    } else {
-		glutAddMenuEntry(
-			"(Z) Turn Raster Plot ON for this population",
-			MENU_RASTER_ON); // if box not selected offer to turn raster plots off all
-	    }
-	}
-	glutAddMenuEntry("Turn OFF ALL population Raster Plots", MENU_RASTER_OFF_ALL); // if mode unavailable to deselect box then offer to turn it all off!
-	glutAddMenuEntry("-----", MENU_SEPARATOR);
-    }
     glutAddSubMenu("Plot Mode", modesubmenu);
     glutAddSubMenu("Transform Plot", transformsubmenu);
     glutAddSubMenu("Colours", coloursubmenu);
@@ -2908,10 +2471,6 @@ void safelyshut(void)
 	}
 
 	// free up mallocs made for dynamic arrays
-	if (SIMULATION == RATEPLOT || RATEPLOTLEGACY) {
-	    free(biascurrent);
-	}
-
 	for (int i = 0; i < HISTORYSIZE ; i++) {
 	    free(history_data[i]);
 	}

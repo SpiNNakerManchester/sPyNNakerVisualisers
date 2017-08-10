@@ -70,7 +70,6 @@ int paramload(char* config_file_name)
 	    titletemp = "NO SIMULATION TITLE SUPPLIED";
 	}
 
-	GET_SETTING(SIMULATION);
 	GET_SETTING(WINBORDER);
 	GET_SETTING(WINHEIGHT);
 	GET_SETTING(WINWIDTH);
@@ -106,7 +105,6 @@ int paramload(char* config_file_name)
 	GET_SETTING(LABELBYCHIP);
 	GET_SETTING(PLAYPAUSEXIT);
 	GET_SETTING(DISPLAYMINIPLOT);
-	GET_SETTING(INTERACTION);
 	GET_SETTING(MAXFRAMERATE);
 	GET_SETTING(PLOTONLYONDEMAND);
 	GET_SETTING(SDPPORT);
@@ -144,9 +142,7 @@ int paramload(char* config_file_name)
     colourused = STARTCOLOUR;    // start with requested colour scheme
     displaymode = STARTMODE;    // initialise mode variable for the start
 
-    if (SIMULATION == HEATMAP) {
-	xorigin = (windowWidth + keyWidth) - controlboxes * (boxsize + gap); // for the control box
-    }
+    xorigin = (windowWidth + keyWidth) - controlboxes * (boxsize + gap); // for the control box
 
     // malloc appropriate memory
 
@@ -171,11 +167,6 @@ int paramload(char* config_file_name)
     mapglobaltolocal = (int**) malloc(len * sizeof(int*));
     for (int ii = 0; ii < len ; ii++) {
 	mapglobaltolocal[ii] = (int*) malloc(2 * sizeof int);
-    }
-
-    // Per visualiser option
-    if (SIMULATION == RATEPLOT || RATEPLOTLEGACY) {
-	biascurrent = (float*) malloc(len * sizeof float);
     }
 
     config_destroy(&cfg);

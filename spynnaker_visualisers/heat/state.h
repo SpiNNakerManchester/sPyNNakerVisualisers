@@ -80,7 +80,7 @@ int DYNAMICSCALE = 1;				// default to permit dynamic scaling
 int PERCENTAGESCALE = 0;			// set this to 1 if you don't care about values, only relative %ages
 
 int LABELBYCHIP = 0;				// just print one label per chip and not sub-chip/core
-int PLAYPAUSEXIT = 1, DISPLAYMINIPLOT = 1, INTERACTION = 1; // options for screen output
+int PLAYPAUSEXIT = 1, DISPLAYMINIPLOT = 1;	// options for screen output
 
 int MAXFRAMERATE = 25, PLOTONLYONDEMAND = 0;	// graphics frame updates
 
@@ -134,7 +134,6 @@ char editmode = 1, livebox = -1;// for user feedback - box selection and whether
 
 // GLOBAL VARIABLES, per visualiser option
 
-// SIMULATION == HEATMAP
 float alternorth = 40.0, altereast = 10.0, altersouth = 10.0,
 	alterwest = 40.0;	// default starting temperatures, and in-flight editing values for the 4 edges
 int controlboxes = 3;		// grid of control boxes to build (3x3)
@@ -145,18 +144,6 @@ int xorigin;			// for the control box
 //int xorigin=(windowWidth+keyWidth)-(controlboxes*(boxsize+gap));    // for the control box
 // CP made dynamic
 
-
-// SIMULATION == RATEPLOT or RATEPLOTLEGACY
-float biasediting;		// keeps the transient biascurrent as it's edited so it can be sent
-int rasterpopulation = -1;	// keeps the population ID that we're running rasters on (-1 if not in use)
-float* biascurrent;		// array used to know what we're starting from when adjusting
-//float biascurrent[XDIMENSIONS*YDIMENSIONS];    // used to know what we're starting from when adjusting
-//CP made dynamic
-
-
-// SIMULATION == RETINA2
-int N_PER_PROC;
-int ID_OFFSET;
 
 // FILE OPERATIONS
 float playbackmultiplier = 1.0;	// when using a recorded input file, 1=realtime, 0.25=quarter speed, 15=15x speed (specified by optional CLI argument)
