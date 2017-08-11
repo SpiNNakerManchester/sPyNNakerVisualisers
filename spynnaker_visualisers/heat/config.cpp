@@ -8,7 +8,7 @@ static inline void get_setting(
     long long VALUE = 0;
 
     if (config_setting_lookup_int64(setting, name, &VALUE)) {
-	var = (int) VALUE;
+	var = int(VALUE);
     }
 }
 
@@ -49,8 +49,8 @@ int paramload(char* config_file_name)
     config_init(&cfg); /*Initialization */
 
     if (!config_read_file(&cfg, config_file_name)) {
-	printf(
-		"No readable %s in the local directory - configuration defaulted to 48-chip HEATMAP.\n",
+	printf("No readable %s in the local directory - "
+		"configuration defaulted to 48-chip HEATMAP.\n",
 		config_file_name);
 	setting != NULL;
 	//config_destroy(&cfg);
@@ -147,22 +147,22 @@ int paramload(char* config_file_name)
 
     const int len = XDIMENSIONS * YDIMENSIONS;
     history_data = new float*[HISTORYSIZE];
-    for (int ii = 0; ii < HISTORYSIZE ; ii++) {
+    for (int ii = 0 ; ii < HISTORYSIZE ; ii++) {
 	history_data[ii] = new float[len];
     }
     history_data_set2 = new float*[HISTORYSIZE];
-    for (int ii = 0; ii < HISTORYSIZE ; ii++) {
+    for (int ii = 0 ; ii < HISTORYSIZE ; ii++) {
 	history_data_set2[ii] = new float[MAXRASTERISEDNEURONS];
     }
 
     immediate_data = new float[len];
 
     maplocaltoglobal = new int*[len];
-    for (int ii = 0; ii < len ; ii++) {
+    for (int ii = 0 ; ii < len ; ii++) {
 	maplocaltoglobal[ii] = new int[2];
     }
     mapglobaltolocal = new int*[len];
-    for (int ii = 0; ii < len ; ii++) {
+    for (int ii = 0 ; ii < len ; ii++) {
 	mapglobaltolocal[ii] = new int[2];
     }
 
@@ -273,10 +273,10 @@ void parse_arguments(
     }
 
     if (errfound) {
-	printf("\n Unsure of your command line options old chap.\n\n");
-	fprintf(stderr,
-		"usage: %s [-c configfile] [-r savedspinnfile [replaymultiplier(0.1->100)]] [-l2g localtoglobalmapfile] [-g2l globaltolocalmapfile] [-ip boardhostname|ipaddr]\n",
-		argv[0]);
+	fprintf(stderr, "usage: %s [-c configfile] "
+		"[-r savedspinnfile [replaymultiplier(0.1->100)]] "
+		"[-l2g localtoglobalmapfile] [-g2l globaltolocalmapfile] "
+		"[-ip boardhostname|ipaddr]\n", argv[0]);
 	exit(1);
     }
 }

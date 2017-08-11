@@ -69,9 +69,6 @@ using namespace std;
 // select your visualisation via a specific configuration file (-c filename) or the visparam.ini file
 // --------------------------------------------------------------------------------------------------
 
-// MACRO for testing if data is undefined or not
-#define THISISVALIDDATA(value)      (value>(NOTDEFINEDFLOAT+1))
-
 // --------------------------------------------------------------------------------------------------
 // This section checks to see whether the compilation is on a 32- or a 64-bit architecture.
 
@@ -196,6 +193,18 @@ static inline T rand(T low, T high)
     return low + rand(high - low);
 }
 
+static inline void glRectVertices(float x1, float y1, float x2, float y2)
+{
+    glVertex2f(x1, y1);
+    glVertex2f(x1, y2);
+    glVertex2f(x2, y2);
+    glVertex2f(x2, y1);
+}
+
+static inline bool is_defined(float f) {
+    return f > NOTDEFINEDFLOAT + 1;
+}
+
 //-------------------------------------------------------------------
 
 void readmappings(char* filenamea, char* filenameb)
@@ -213,7 +222,7 @@ void readmappings(char* filenamea, char* filenameb)
 		j < sizeof *maplocaltoglobal / sizeof **maplocaltoglobal ;
 		++j, ++ptr) {
 	    if (i < XDIMENSIONS * YDIMENSIONS) {
-		maplocaltoglobal[i][j] = (int) strtol(ptr, &ptr, 10);
+		maplocaltoglobal[i][j] = int(strtol(ptr, &ptr, 10));
 		maplocaltoglobalsize = i;
 	    }
 	}
@@ -230,7 +239,7 @@ void readmappings(char* filenamea, char* filenameb)
 		j < sizeof *mapglobaltolocal / sizeof **mapglobaltolocal ;
 		++j, ++ptr) {
 	    if (i < XDIMENSIONS * YDIMENSIONS) {
-		mapglobaltolocal[i][j] = (int) strtol(ptr, &ptr, 10);
+		mapglobaltolocal[i][j] = int(strtol(ptr, &ptr, 10));
 		mapglobaltolocalsize = i;
 	    }
 	}
@@ -288,7 +297,7 @@ void* load_stimulus_data_from_file(void *ptr)
     fseek(fileinput, 0, SEEK_SET);                    // reset position
     printf(
 	    "Detected: %d packets in input file over %3.1fs. Allocating memory and loading...\n",
-	    numberofpackets - 1, (float) (endtimer - startimer) / 1000000.0);
+	    numberofpackets - 1, float(endtimer - startimer) / 1000000.0);
 
     int buffsize = 100000;          // max number of packets to load each time
     if (numberofpackets < buffsize) {
@@ -313,7 +322,7 @@ void* load_stimulus_data_from_file(void *ptr)
 	for (int i = 0 ; i < chunktosend ; i++) {
 	    short extradata = fromfilelen[i];
 	    int64_t targettime = (int64_t)(
-		    (float) fromfileoffset[i] / (float) playbackmultiplier);
+		    fromfileoffset[i] / float(playbackmultiplier));
 
 	    nowtime = timestamp();				// get time now in us
 
@@ -380,7 +389,7 @@ void cleardown(void)
 //-------------------------------------------------------------------------
 //  Draws a string at the specified coordinates.
 //-------------------------------------------------------------------------
-void printgl(float x, float y, void *font_style, char* format, ...)
+void printgl(float x, float y, void *font_style, const char* format, ...)
 {
     va_list arg_list;
     char str[256];
@@ -409,7 +418,7 @@ void printglstroke(
 	float y,
 	float size,
 	float rotate,
-	char* format,
+	const char* format,
 	...)
 {
     va_list arg_list;
@@ -437,7 +446,7 @@ void printglstroke(
     glPopMatrix();
 }
 
-void convert_index_to_coord(int index, int *x, int *y)
+static inline void convert_index_to_coord(int index, int &x, int &y)
 {
     int elementid = index % (EACHCHIPX * EACHCHIPY);
     int elementx = elementid / EACHCHIPY;
@@ -449,12 +458,11 @@ void convert_index_to_coord(int index, int *x, int *y)
     int xcord = tilex * EACHCHIPX + elementx;
     int ycord = tiley * EACHCHIPY + elementy;
 
-    *x = xcord;
-    *y = ycord;
+    x = xcord;
+    y = ycord;
 }
-// call with: convert_index_to_coord(index, &xcoordinate, &ycoordinate);  // (where xcoordinate and ycoordinate are ints)
 
-int convert_coord_to_index(int x, int y)
+static inline int convert_coord_to_index(int x, int y)
 {
     int elementx = x % EACHCHIPX;	// x position in tile
     int elementy = y % EACHCHIPY;	// y position in tile
@@ -467,7 +475,6 @@ int convert_coord_to_index(int x, int y)
 
     return index;
 }
-// call with: index = convert_coord_to_index(xcoordinate, ycoordinate);
 
 int coordinate_manipulate(int ii)
 {
@@ -498,12 +505,28 @@ int coordinate_manipulate(int ii)
 	    i = (YDIMENSIONS * XDIMENSIONS) - 1 - i; // go back to front (cumulative)
 	}
 	if (rotateflip) {
-	    convert_index_to_coord(i, &xcoordinate, &ycoordinate);   // rotate
+	    convert_index_to_coord(i, xcoordinate, ycoordinate);   // rotate
 	    i = convert_coord_to_index(ycoordinate,
 		    XDIMENSIONS - 1 - xcoordinate);
 	}
     }
     return i;                            // return cumulative reorientation
+}
+
+//Split into n sections. specify colours for each section. how far away from
+//top of section is it. Multiply R,G,B difference by this proportion
+static inline float interpolate(
+	const int gamut[][3],
+	int gamutsize,
+	int rgbindex,
+	float fillcolour)
+{
+    fillcolour = clamp(0.0F, fillcolour, 1.0F);
+    int colourindex = int(fillcolour * (gamutsize - 1));
+    // how far away from higher index (range between 0 and 1).
+    float colouroffset = (colourindex + 1) - fillcolour * (gamutsize - 1);
+    return (1 - colouroffset) * gamut[colourindex + 1][rgbindex]
+	    + colouroffset * gamut[colourindex][rgbindex];
 }
 
 float colour_calculator(float inputty, float hiwater, float lowater)
@@ -521,64 +544,53 @@ float colour_calculator(float inputty, float hiwater, float lowater)
 	scalingfactor = 1 / diff; // work out how to scale the input data depending on low and highwater values
 	fillcolour = scalingfactor * (inputty - lowater); // calculate the colour to plot
     }
-    fillcolour = clamp(0.0F, fillcolour, 1.0F);
     // must always range between 0 and 1 floating point
 
     switch (colourused) {
-    case 1: {			// colours option
-#define COLOURSTEPS 6    // 6 different RGB colours, Black, Blue, Cyan, Green, Yellow, Red
+    case MULTI: {	// colours option
+	// 6 different RGB colours, Black, Blue, Cyan, Green, Yellow, Red
+#define COLOURSTEPS 6
 	int gamut[COLOURSTEPS][3] = { { 0, 0, 0 }, { 0, 0, 1 }, { 0, 1, 1 }, {
 		0, 1, 0 }, { 1, 1, 0 }, { 1, 0, 0 } };
 
-	int colourindex = (float) fillcolour * (float) (COLOURSTEPS - 1);
-	float colouroffset = (float) (colourindex + 1)
-		- (fillcolour * (float) (COLOURSTEPS - 1)); // how far away from higher index (range between 0 and 1).
-	float R = ((1 - colouroffset) * gamut[colourindex + 1][0])
-		+ (colouroffset * gamut[colourindex][0]);
-	float G = ((1 - colouroffset) * gamut[colourindex + 1][1])
-		+ (colouroffset * gamut[colourindex][1]);
-	float B = ((1 - colouroffset) * gamut[colourindex + 1][2])
-		+ (colouroffset * gamut[colourindex][2]);
-	//spilt into n sections. specify colours for each section. how far away from top of section is it
-	//multiply R,G,B difference by this proportion
-
+	float R = interpolate(gamut, COLOURSTEPS, 0, fillcolour);
+	float G = interpolate(gamut, COLOURSTEPS, 1, fillcolour);
+	float B = interpolate(gamut, COLOURSTEPS, 2, fillcolour);
 	glColor4f(R, G, B, 1.0);
 	break;
     }
-    case 2:			// greyscales option
+    case GREYS:		// greyscales option
+	fillcolour = clamp(0.0F, fillcolour, 1.0F);
 	glColor4f(fillcolour, fillcolour, fillcolour, 1.0);
 	break;
-    case 3:			// redscales only
+    case REDS:		// redscales only
+	fillcolour = clamp(0.0F, fillcolour, 1.0F);
 	glColor4f(fillcolour, 0.0, 0.0, 1.0);
 	break;
-    case 4:			// greenscales option
+    case GREENS:	// greenscales option
+	fillcolour = clamp(0.0F, fillcolour, 1.0F);
 	glColor4f(0.0, fillcolour, 0.0, 1.0);
 	break;
-    case 5:			// bluescales option
+    case BLUES:		// bluescales option
+	fillcolour = clamp(0.0F, fillcolour, 1.0F);
 	glColor4f(0.0, 0.0, fillcolour, 1.0);
 	break;
-    case 6: {			// alternate colours option
-#define COLOURSTEPSB 5    //  black, purpleymagenta, red, yellow, white (RGB)
+    case THERMAL: {	// "thermal" colours option
+	//  black, purpley-magenta, red, yellow, white (RGB)
+#define COLOURSTEPSB 5
 	int gamut[COLOURSTEPSB][3] = { { 0, 0, 0 }, { 1, 0, 1 }, { 1, 0, 0 },
 		{ 1, 1, 0 }, { 1, 1, 1 } };
 
-	int colourindex = (float) fillcolour * (float) (COLOURSTEPSB - 1);
-	float colouroffset = (float) (colourindex + 1)
-		- (fillcolour * (float) (COLOURSTEPSB - 1)); // how far away from higher index (range between 0 and 1).
-	float R = ((1 - colouroffset) * gamut[colourindex + 1][0])
-		+ (colouroffset * gamut[colourindex][0]);
-	float G = ((1 - colouroffset) * gamut[colourindex + 1][1])
-		+ (colouroffset * gamut[colourindex][1]);
-	float B = ((1 - colouroffset) * gamut[colourindex + 1][2])
-		+ (colouroffset * gamut[colourindex][2]);
-
+	float R = interpolate(gamut, COLOURSTEPSB, 0, fillcolour);
+	float G = interpolate(gamut, COLOURSTEPSB, 1, fillcolour);
+	float B = interpolate(gamut, COLOURSTEPSB, 2, fillcolour);
 	glColor4f(R, G, B, 1.0);
 	break;
     }
-    case 7:			// everything is red option except v close to 0 (to get rid of flickery colour in line mode) etc.
+    case RED:		// everything is red option except v close to 0 (to get rid of flickery colour in line mode) etc.
 	glColor4f(fillcolour < 0.01 ? 0.0 : 1.0, 0.0, 0.0, 1.0);
 	break;
-    case 8:			// everything is white option except v close to 0 (to get rid of flickery colour in line mode etc.
+    case BLUE:		// everything is white option except v close to 0 (to get rid of flickery colour in line mode etc.
 	glColor4f(0.0, 0.0, fillcolour < 0.01 ? 0.0 : 1.0, 1.0);
 	break;
     }
@@ -601,7 +613,7 @@ void displayb(void)			// not currently used
 void display(void)
 {
     int64_t nowtime;
-    float timeperindex = displayWindow / (float) plotWidth; // time in seconds per history index in use
+    float timeperindex = displayWindow / float(plotWidth); // time in seconds per history index in use
 
     glPointSize(1.0);
 
@@ -621,11 +633,9 @@ void display(void)
 	glColor4f(0.0, 0.0, 0.0, 1.0);	// Black for filling
 
 	glBegin (GL_QUADS);
-	glVertex2f(windowBorder, windowBorder);  //btm left
-	glVertex2f(windowWidth - windowBorder - keyWidth, windowBorder); //btm right
-	glVertex2f(windowWidth - windowBorder - keyWidth,
-		windowHeight - windowBorder);  // top right
-	glVertex2f(windowBorder, windowHeight - windowBorder); // top left
+	glRectVertices(windowBorder, windowBorder,
+		windowWidth - windowBorder - keyWidth,
+		windowHeight - windowBorder);
 	glEnd();
     }
 
@@ -634,13 +644,11 @@ void display(void)
     if (printlabels && !fullscreen) { // titles and labels are only printed if border is big enough
 	printgl(windowWidth / 2 - 200, windowHeight - 50,
 		GLUT_BITMAP_TIMES_ROMAN_24, (char*) TITLE); // Print Title of Graph
-	char stringy3[] =
-		"Colour Map (1,2,3..), Mode: (t)iled, (h)istogram, (i)nterpolation, (l)ines, (r)aster, Menu: right click.";
 	printgl(windowWidth / 2 - 250, windowHeight - 80,
-		GLUT_BITMAP_HELVETICA_12, stringy3); // Print subtitle of Graph
-	// Graph Title
-
-	char stringy4[] = "%d";
+		GLUT_BITMAP_HELVETICA_12,
+		"Colour Map (1,2,3..), Mode: (t)iled, (h)istogram, "
+			"(i)nterpolation, (l)ines, (r)aster, "
+			"Menu: right click."); // Print subtitle of Graph
 
 	// X Axis
 	if (DISPLAYXLABELS) {
@@ -650,10 +658,9 @@ void display(void)
 		printglstroke(windowWidth / 2 - 200, 20, 0.12, 0, stringy1,
 			displayWindow * playbackmultiplier);
 	    } else {
-		char stringy1[] = "X Coord";
-		printglstroke(windowWidth / 2 - 25, 20, 0.12, 0, stringy1);
+		printglstroke(windowWidth / 2 - 25, 20, 0.12, 0, "X Coord");
 		int xlabels = xdim;
-		float xspacing = plotWidth / (float) xdim;
+		float xspacing = plotWidth / float(xdim);
 		if (LABELBYCHIP) {
 		    xlabels = xdim / EACHCHIPX;
 		    xspacing *= EACHCHIPX;
@@ -667,7 +674,7 @@ void display(void)
 			    + (xspacing - 8) / 2 - 3;	// what will be the next x coordinate
 		    if (xplotted > lastxplotted + spacing) { // plot if enough space to not overlap labels.
 			printgl(xplotted, 60, GLUT_BITMAP_HELVETICA_18,
-				stringy4, i);		// Print X Axis Labels at required intervals
+				"%d", i);		// Print X Axis Labels at required intervals
 			lastxplotted = xplotted;	// record last x coordinate plotted to
 		    }
 		}
@@ -686,14 +693,13 @@ void display(void)
 		if (windowToUpdate == win2) {
 		    numberofrasterplots = maxneuridrx; // bespoke for Discovery demo
 		}
-		float yspacing = (windowHeight - 2 * windowBorder)
-			/ (float) numberofrasterplots; // how many pixels per neuron ID
+		float yspacing = float(windowHeight - 2 * windowBorder)
+			/ numberofrasterplots; // how many pixels per neuron ID
 
 		int lastyplotted = -100;
 		for (int i = 0 ; i < numberofrasterplots ; i++) { // for all plottable items
-		    char stringxycoords[] = "(%d,%d)";
 		    int xcord, ycord;
-		    convert_index_to_coord(i, &xcord, &ycord); // (where xcoordinate and ycoordinate are ints)
+		    convert_index_to_coord(i, xcord, ycord); // (where xcoordinate and ycoordinate are ints)
 		    if (windowToUpdate == win2) {
 			xcord = 0;   // bespoke for Discovery demo
 			ycord = i;
@@ -704,20 +710,18 @@ void display(void)
 			lastyplotted = yplotted; // we were the last one plotted
 			if (windowToUpdate == win2) {
 			    printgl(60, yplotted, GLUT_BITMAP_HELVETICA_12,
-				    stringy4, i + 1); // Print Y Axis Labels at required intervals (linear format)
+				    "%d", i + 1); // Print Y Axis Labels at required intervals (linear format)
 			} else {
 			    printgl(60, yplotted, GLUT_BITMAP_HELVETICA_12,
-				    stringxycoords, xcord, ycord); // Print Y Axis Labels at required intervals (X,Y format)
+				    "(%d,%d)", xcord, ycord); // Print Y Axis Labels at required intervals (X,Y format)
 			}
 		    }
 		}
 	    } else {
-		char stringy5[] = "Y Coord";
-		printglstroke(25, windowHeight / 2 - 50, 0.12, 90,
-			stringy5);             // Print Y-Axis label for Graph
+		printglstroke(25, windowHeight / 2 - 50, 0.12, 90, "Y Coord"); // Print Y-Axis label for Graph
 		int ylabels = ydim;
-		float yspacing = (windowHeight - 2 * windowBorder)
-			/ (float) ydim;
+		float yspacing = float(windowHeight - 2 * windowBorder)
+			/ ydim;
 		if (LABELBYCHIP) {
 		    ylabels = ydim / EACHCHIPY;
 		    yspacing *= EACHCHIPY;
@@ -730,7 +734,7 @@ void display(void)
 			printgl(60,
 				i * yspacing + windowBorder
 					+ (yspacing - 18) / 2 + 2,
-				GLUT_BITMAP_HELVETICA_18, stringy4, i); // Print Y Axis Label
+				GLUT_BITMAP_HELVETICA_18, "%d", i); // Print Y Axis Label
 			lastyplotted = yplotted; // record where last label plotted on the Y axis
 		    }
 		}
@@ -740,13 +744,9 @@ void display(void)
     }   // titles and labels are only printed if border is big enough
 
     for (int i = 0 ; i < xdim * ydim ; i++) {
-	if (immediate_data[i] > NOTDEFINEDFLOAT + 1) {    // is valid
-	    if (immediate_data[i] > MAXDATAFLOAT) {
-		immediate_data[i] = MAXDATAFLOAT; // check: can't increment above saturation level
-	    }
-	    if (immediate_data[i] < MINDATAFLOAT) {
-		immediate_data[i] = MINDATAFLOAT; // check: can't decrement below saturation level
-	    }
+	if (is_defined(immediate_data[i])) {    // is valid
+	    immediate_data[i] = clamp(MINDATAFLOAT, immediate_data[i],
+		    MAXDATAFLOAT);
 	    if (DYNAMICSCALE) {
 		if (immediate_data[i] > highwatermark && spinnakerboardipset) {
 		    highwatermark = immediate_data[i]; // only alter the high water mark when using dynamic scaling & data received
@@ -758,36 +758,31 @@ void display(void)
 	}
     }  // scale all the values to plottable range
 
-    float xsize = plotWidth / (float) xdim; // changed for dynamic reshaping
+    float xsize = plotWidth / float(xdim); // changed for dynamic reshaping
     if (xsize < 1.0) {
 	xsize = 1.0;
     }
-    float ysize = (windowHeight - 2 * windowBorder) / (float) ydim; // changed for dynamic reshaping
+    float ysize = float(windowHeight - 2 * windowBorder) / ydim; // changed for dynamic reshaping
     float tileratio = xsize / ysize;
 
     for (int i = 0 ; i < xdim * ydim ; i++) {                  //
 	int ii = coordinate_manipulate(i); // if any manipulation of how the data is to be plotted is required, do it
 	int xcord, ycord;
-	convert_index_to_coord(i, &xcord, &ycord); // find out the (x,y) coordinates of where to plot this data
+	convert_index_to_coord(i, xcord, ycord); // find out the (x,y) coordinates of where to plot this data
 
 	float magnitude = colour_calculator(immediate_data[ii], highwatermark,
 		lowwatermark); // work out what colour we should plot - sets 'ink' plotting colour
 
 	// if required, plot tiled mini version in bottom left
 	if (DISPLAYMINIPLOT && !fullscreen) {
-	    float ysize = max((float) 1.0,
-		    (windowBorder - 6 * gap) / (float) ydim);
-	    float xsize = max((float) 1.0, ysize * tileratio); // draw little / mini tiled version in btm left - pixel size
-	    if (immediate_data[ii] > NOTDEFINEDFLOAT + 1) { // only plot if data is valid
+	    float ysize = max(1.0F, float(windowBorder - 6 * gap) / ydim);
+	    float xsize = max(1.0F, float(ysize * tileratio)); // draw little / mini tiled version in btm left - pixel size
+	    if (is_defined(immediate_data[ii])) { // only plot if data is valid
 		glBegin (GL_QUADS); // draw little tiled version in btm left
-		glVertex2f((2 * gap) + (xcord * xsize),
-			(2 * gap) + (ycord * ysize));          //btm left
-		glVertex2f((2 * gap) + ((xcord + 1) * xsize),
-			(2 * gap) + (ycord * ysize));     //btm right
-		glVertex2f((2 * gap) + ((xcord + 1) * xsize),
-			(2 * gap) + ((ycord + 1) * ysize));   // top right
-		glVertex2f((2 * gap) + (xcord * xsize),
-			(2 * gap) + ((ycord + 1) * ysize));    // top left
+		glRectVertices(2 * gap + xcord * xsize,
+			2 * gap + ycord * ysize,
+			2 * gap + (xcord + 1) * xsize,
+			2 * gap + (ycord + 1) * ysize);
 		glEnd(); // this plots the basic quad box filled as per colour above
 	    }
 
@@ -823,31 +818,27 @@ void display(void)
 	    }
 	}
 
-	xsize = plotWidth / (float) xdim;
+	xsize = plotWidth / float(xdim);
 	if (xsize < 1.0) {
 	    xsize = 1.0;
 	}
-	ysize = (windowHeight - 2 * windowBorder) / (float) ydim; // changed for dynamic reshaping
+	ysize = float(windowHeight - 2 * windowBorder) / ydim; // changed for dynamic reshaping
 
 	magnitude = colour_calculator(immediate_data[ii], highwatermark,
 		lowwatermark); // work out what colour we should plot - sets 'ink' plotting colour
 
 	if (displaymode == TILED) { // basic plot if not using triangular interpolation
-	    if (immediate_data[ii] > NOTDEFINEDFLOAT + 1) {
+	    if (is_defined(immediate_data[ii])) {
 		glBegin (GL_QUADS);
-		glVertex2f(windowBorder + xcord * xsize,
-			windowBorder + ycord * ysize);  //btm left
-		glVertex2f(windowBorder + (xcord + 1) * xsize,
-			windowBorder + (ycord * ysize)); //btm right
-		glVertex2f(windowBorder + (xcord + 1) * xsize,
-			windowBorder + (ycord + 1) * ysize);  // top right
-		glVertex2f(windowBorder + xcord * xsize,
-			windowBorder + (ycord + 1) * ysize); // top left
+		glRectVertices(windowBorder + xcord * xsize,
+			windowBorder + ycord * ysize,
+			windowBorder + (xcord + 1) * xsize,
+			windowBorder + (ycord + 1) * ysize);
 		glEnd(); // this plots the basic quad box filled as per colour above
 	    }
 
 	    if (plotvaluesinblocks != 0 && xsize > 8 && // if we want to plot numbers / values in blocks (& blocks big enough)
-		    immediate_data[ii] > NOTDEFINEDFLOAT + 1) {
+		    is_defined(immediate_data[ii])) {
 		if (magnitude > 0.6) {
 		    glColor4f(0.0, 0.0, 0.0, 1.0);
 		} else {
@@ -872,7 +863,7 @@ void display(void)
 		glBegin(GL_LINES);
 		glVertex2f(windowBorder + xcord * xsize, windowBorder); //bottom
 		glVertex2f(windowBorder + xcord * xsize,
-			windowHeight - windowBorder);     //top
+			windowHeight - windowBorder);			//top
 		glEnd();
 	    }
 	}
@@ -881,7 +872,7 @@ void display(void)
 		glBegin(GL_LINES);
 		glVertex2f(windowBorder, windowBorder + ycord * ysize); //left
 		glVertex2f(windowWidth - windowBorder - keyWidth,
-			windowBorder + ycord * ysize);     //right
+			windowBorder + ycord * ysize);			//right
 		glEnd();
 	    }
 	}
@@ -900,7 +891,7 @@ void display(void)
 	float interval = -1; // number of pixels between each label (interval distance)
 	float i = 0.01; // interval in seconds being tests to see meets the # of labels required
 	float howmanyintervals; // how many labels using this test value would create
-	float maxnumberoflabels = plotWidth / (float) minlabelinterval; // what is the target maximum number of labels that we will print
+	float maxnumberoflabels = plotWidth / float(minlabelinterval); // what is the target maximum number of labels that we will print
 
 	do {
 	    howmanyintervals = displayWindow / i; // how many of the intervals are covered on the screen (eg. 0.01 0.1, 1, 10)
@@ -928,36 +919,33 @@ void display(void)
 	}
 
 	if (plotWidth >= 1) { // No labels to print, will cause an overflow
-	    for (float j = plotWidth ; j >= 0 ; j -= (int) interval) {
+	    for (float j = plotWidth ; j >= 0.0 ; j -= int(interval)) {
 		if (printlabels && fullscreen == 0) { // titles and labels are only printed if border is big enough
-		    int64_t timelabel = ((nowtime - starttimez) / 100000)
-			    - ((plotWidth - (int) j) * (10 * timeperindex)); // work out how long ago
+		    int64_t timelabel = (nowtime - starttimez) / 100000
+			    - (plotWidth - int(j)) * (10 * timeperindex); // work out how long ago
 
 		    glLineWidth(1.0);
 		    glColor4f(0.75, 0.75, 0.75, 1.0); // dull non-distracting grey
 
 		    glBegin (GL_LINES);
-		    glVertex2f(windowBorder + (int) j,
+		    glVertex2f(windowBorder + int(j),
 			    windowHeight + 10 - windowBorder); // top - used xsize from earlier so this is why below the main plot.
-		    glVertex2f(windowBorder + (int) j, windowBorder - 10); // inside
+		    glVertex2f(windowBorder + int(j), windowBorder - 10); // inside
 		    glEnd();
 
 		    glColor4f(0.0, 0.0, 0.0, 1.0);            // black
 		    int64_t decisecs = timelabel
 			    * (int64_t) playbackmultiplier;
 		    if (decisecs < 3600) { // if over 10000 deciseconds (1000secs) don't print the decimal.
-			char stringtime[] = "%3.1f";
-			printgl(windowBorder + (int) j - 18, 60,
-				GLUT_BITMAP_HELVETICA_18, stringtime,
-				((float) timelabel / 10.0)
-					* playbackmultiplier);
+			printgl(windowBorder + int(j) - 18, 60,
+				GLUT_BITMAP_HELVETICA_18, "%3.1f",
+				(timelabel / 10.0) * playbackmultiplier);
 		    } else {
-			char stringtime[] = "%um%u";
 			int64_t mins = decisecs / 600;
 			int64_t secs = (decisecs % 600) / 10;
-			printgl(windowBorder + (int) j - 18, 60,
-				GLUT_BITMAP_HELVETICA_18, stringtime,
-				(int) mins, (int) secs);
+			printgl(windowBorder + int(j) - 18, 60,
+				GLUT_BITMAP_HELVETICA_18, "%um%u", int(mins),
+				int(secs));
 		    }
 		}
 	    }
@@ -967,20 +955,18 @@ void display(void)
 
     if (DISPLAYKEY && !fullscreen) {
 	// only print if not in fullscreen mode
-	glColor4f(0.0, 0.0, 0.0, 1.0);            // Black Text for Labels
+	glColor4f(0.0, 0.0, 0.0, 1.0);		// Black Text for Labels
 	int keybase = windowBorder + 0.20 * (windowHeight - windowBorder); // bottom of the key
-	char stringy8[] = "%.2f";
 	if (PERCENTAGESCALE) {
-	    char stringy8[] = "%.2f%%";
 	    printgl(windowWidth - 55, windowHeight - windowBorder - 5,
-		    GLUT_BITMAP_HELVETICA_12, stringy8, 100.0); // Print HighWaterMark Value
+		    GLUT_BITMAP_HELVETICA_12, "%.2f%%", 100.0); // Print HighWaterMark Value
 	    printgl(windowWidth - 55, keybase - 5, GLUT_BITMAP_HELVETICA_12,
-		    stringy8, 0.0); // which for percentages is 0-100%
+		    "%.2f%%", 0.0); // which for percentages is 0-100%
 	} else {
 	    printgl(windowWidth - 55, windowHeight - windowBorder - 5,
-		    GLUT_BITMAP_HELVETICA_12, stringy8, highwatermark); // Print HighWaterMark Value
+		    GLUT_BITMAP_HELVETICA_12, "%.2f", highwatermark); // Print HighWaterMark Value
 	    printgl(windowWidth - 55, keybase - 5, GLUT_BITMAP_HELVETICA_12,
-		    stringy8, lowwatermark); // Print LowWaterMark Value
+		    "%.2f", lowwatermark); // Print LowWaterMark Value
 	}
 	float interval, difference = highwatermark - lowwatermark;
 	for (float i = 10000 ; i >= 0.1 ; i /= 10.0) {
@@ -993,14 +979,13 @@ void display(void)
 	}
 	int multipleprinted = 1;
 	float linechunkiness = (windowHeight - windowBorder - keybase)
-		/ (float) (highwatermark - lowwatermark);
+		/ float(highwatermark - lowwatermark);
 	if (windowHeight - windowBorder - keybase > 0) { // too small to print
 	    for (uint i = 0 ; i < windowHeight - windowBorder - keybase ;
 		    i++) {
 		float temperaturehere = 1.0;
 		if (linechunkiness > 0.0) {
-		    temperaturehere = i / (float) linechunkiness
-			    + lowwatermark;
+		    temperaturehere = i / linechunkiness + lowwatermark;
 		}
 		float magnitude = colour_calculator(temperaturehere,
 			highwatermark, lowwatermark);
@@ -1027,7 +1012,7 @@ void display(void)
 
 		    glLineWidth(1.0);
 		    printgl(windowWidth - 55, i + keybase - 5,
-			    GLUT_BITMAP_HELVETICA_12, stringy8,
+			    GLUT_BITMAP_HELVETICA_12, "%.2f",
 			    lowwatermark + multipleprinted * interval);
 		    multipleprinted++;
 		}
@@ -1063,13 +1048,9 @@ void display(void)
 		glColor4f(0.0, 0.0, 0.0, 1.0);   // black is the new black
 
 		glBegin (GL_QUADS);
-		glVertex2f(xorigin + boxer * (boxsize + gap), yorigin); //btm left
-		glVertex2f(xorigin + boxer * (boxsize + gap) + boxsize,
-			yorigin); //btm right
-		glVertex2f(xorigin + boxer * (boxsize + gap) + boxsize,
-			yorigin + boxsize); // top right
-		glVertex2f(xorigin + boxer * (boxsize + gap),
-			yorigin + boxsize); // top left
+		glRectVertices(xorigin + boxer * (boxsize + gap),
+			yorigin + boxsize,
+			xorigin + boxer * (boxsize + gap) + boxsize, yorigin);
 		glEnd();
 
 		// now draw shapes on boxes
@@ -1097,19 +1078,12 @@ void display(void)
 		    glLineWidth(15.0);
 
 		    glBegin(GL_QUADS);
-		    glVertex2f(xorigin + gap, yorigin + boxsize - gap); // topleft
-		    glVertex2f(xorigin + gap, yorigin + gap); // bottomleft
-		    glVertex2f(xorigin + (boxsize + gap) / 2 - gap,
-			    yorigin + gap); // bottomright
-		    glVertex2f(xorigin + (boxsize + gap) / 2 - gap,
-			    yorigin + boxsize - gap); // topright
-		    glVertex2f(xorigin + (boxsize - gap) / 2 + gap,
-			    yorigin + boxsize - gap); // topleft
-		    glVertex2f(xorigin + (boxsize - gap) / 2 + gap,
-			    yorigin + gap); // bottomleft
-		    glVertex2f(xorigin + boxsize - gap, yorigin + gap); // bottomright
-		    glVertex2f(xorigin + boxsize - gap,
-			    yorigin + boxsize - gap); // topright
+		    glRectVertices(xorigin + gap, yorigin + boxsize - gap,
+			    xorigin + (boxsize + gap) / 2 - gap,
+			    yorigin + gap);
+		    glRectVertices(xorigin + (boxsize - gap) / 2 + gap,
+			    yorigin + boxsize - gap, xorigin + boxsize - gap,
+			    yorigin + gap);
 		    glEnd();
 
 		    glLineWidth(1.0);
@@ -1133,15 +1107,13 @@ void display(void)
 	if (printpktgone != 0) {
 	    glColor4f(0.0, 0.0, 0.0, 1.0);
 	    if (spinnakerboardipset == 0) {
-		char stringy12[] = "Target Unknown";
-		printgl((windowWidth - 3 * (boxsize + gap)) - 5,
+		printgl(windowWidth - 3 * (boxsize + gap) - 5,
 			windowHeight - gap - boxsize - 25,
-			GLUT_BITMAP_8_BY_13, stringy12);
+			GLUT_BITMAP_8_BY_13, "Target Unknown");
 	    } else {
-		char stringy12[] = "Packet Sent";
-		printgl((windowWidth - 3 * (boxsize + gap)) + 5,
+		printgl(windowWidth - 3 * (boxsize + gap) + 5,
 			windowHeight - gap - boxsize - 25,
-			GLUT_BITMAP_8_BY_13, stringy12);
+			GLUT_BITMAP_8_BY_13, "Packet Sent");
 	    }
 	}
     }
@@ -1150,63 +1122,52 @@ void display(void)
     if (!fullscreen) {
 	for (int boxer = 0 ; boxer < controlboxes * controlboxes ; boxer++) {
 	    int boxx = boxer / controlboxes, boxy = boxer % controlboxes;
-	    if (boxx == 1 || boxy == 1) {
-		glColor4f(0.0, 0.0, 0.0, 1.0);
-		if (boxer == livebox) {
-		    glColor4f(0.0, 1.0, 1.0, 1.0);
+	    if (boxx != 1 && boxy != 1) {
+		continue;
+	    }
+	    //only plot NESW+centre
+	    glColor4f(0.0, 0.0, 0.0, 1.0);
+	    if (boxer == livebox) {
+		glColor4f(0.0, 1.0, 1.0, 1.0);
+	    }
+	    if (editmode || boxer == CENTRE) {
+		if (boxer == CENTRE && editmode) {
+		    glColor4f(0.0, 0.6, 0.0, 1.0); // go button is green!
 		}
-		if (boxer == CENTRE || boxer == WEST || boxer == SOUTH
-			|| boxer == NORTH || boxer == EAST) { //only plot NESW+centre
-		    if (editmode || boxer == CENTRE) {
-			if (boxer == CENTRE && editmode) {
-			    glColor4f(0.0, 0.6, 0.0, 1.0); // go button is green!
-			}
 
-			glBegin (GL_QUADS);
-			glVertex2f(windowWidth - (boxx + 1) * (boxsize + gap),
-				yorigin + boxy * (boxsize + gap)); //btm left
-			glVertex2f(
-				windowWidth - (boxx + 1) * (boxsize + gap)
-					+ boxsize,
-				yorigin + boxy * (boxsize + gap)); //btm right
-			glVertex2f(
-				windowWidth - (boxx + 1) * (boxsize + gap)
-					+ boxsize,
-				yorigin + boxsize + boxy * (boxsize + gap)); // top right
-			glVertex2f(windowWidth - (boxx + 1) * (boxsize + gap),
-				yorigin + boxsize + boxy * (boxsize + gap)); // top left
-			glEnd();  // alter button
-		    }
-		    if (boxer != CENTRE) {
-			glColor4f(0.0, 0.0, 0.0, 1.0);
-			if (editmode && boxer != livebox) {
-			    glColor4f(1.0, 1.0, 1.0, 1.0);
-			}
-			float currentvalue;
-			if (boxer == NORTH) {
-			    currentvalue = alternorth;
-			}
-			if (boxer == EAST) {
-			    currentvalue = altereast;
-			}
-			if (boxer == SOUTH) {
-			    currentvalue = altersouth;
-			}
-			if (boxer == WEST) {
-			    currentvalue = alterwest;
-			}
-			printgl(windowWidth - (boxx + 1) * (boxsize + gap),
-				yorigin + boxy * (boxsize + gap) + boxsize / 2
-					- 5, GLUT_BITMAP_8_BY_13, "%3.1f",
-				currentvalue);
-		    } else {
-			glColor4f(1.0, 1.0, 1.0, 1.0);
-			printgl(windowWidth - (boxx + 1) * (boxsize + gap),
-				yorigin + boxy * (boxsize + gap) + boxsize / 2
-					- 5, GLUT_BITMAP_8_BY_13,
-				editmode ? " Go!" : "Alter");
-		    }
+		glBegin (GL_QUADS);
+		glRectVertices(windowWidth - (boxx + 1) * (boxsize + gap),
+			yorigin + boxy * (boxsize + gap) + boxsize,
+			windowWidth - (boxx + 1) * (boxsize + gap) + boxsize,
+			yorigin + boxy * (boxsize + gap));
+		glEnd();  // alter button
+	    }
+	    if (boxer != CENTRE) {
+		glColor4f(0.0, 0.0, 0.0, 1.0);
+		if (editmode && boxer != livebox) {
+		    glColor4f(1.0, 1.0, 1.0, 1.0);
 		}
+		float currentvalue;
+		if (boxer == NORTH) {
+		    currentvalue = alternorth;
+		}
+		if (boxer == EAST) {
+		    currentvalue = altereast;
+		}
+		if (boxer == SOUTH) {
+		    currentvalue = altersouth;
+		}
+		if (boxer == WEST) {
+		    currentvalue = alterwest;
+		}
+		printgl(windowWidth - (boxx + 1) * (boxsize + gap),
+			yorigin + boxy * (boxsize + gap) + boxsize / 2 - 5,
+			GLUT_BITMAP_8_BY_13, "%3.1f", currentvalue);
+	    } else {
+		glColor4f(1.0, 1.0, 1.0, 1.0);
+		printgl(windowWidth - (boxx + 1) * (boxsize + gap),
+			yorigin + boxy * (boxsize + gap) + boxsize / 2 - 5,
+			GLUT_BITMAP_8_BY_13, editmode ? " Go!" : "Alter");
 	    }
 	}
     }
@@ -1219,17 +1180,16 @@ void display(void)
 	}
 
 	float x_scaling_factor = 1;
-	float y_scaling_factor = (float) (windowHeight - 2.0 * windowBorder)
+	float y_scaling_factor = (windowHeight - 2.0 * windowBorder)
 		/ (highwatermark - lowwatermark); // value rise per pixel of display
 
 	int updateline = ((nowtime - starttimez)
 		/ (int64_t)(timeperindex * 1000000)) % HISTORYSIZE; // which index is being plotted now (on the right hand side)
 
 	if (updateline < 0 || updateline > HISTORYSIZE) {
-	    printf(
-		    "Error line 2093: Updateline out of bounds: %d. Times - Now:%lld  Start:%lld \n",
-		    updateline, (long long int) nowtime,
-		    (long long int) starttimez);        // CPDEBUG
+	    printf("Error: Updateline out of bounds: %d. "
+		    "Times - Now:%lld  Start:%lld \n", updateline,
+		    (long long int) nowtime, (long long int) starttimez); // CPDEBUG
 	} else {
 	    int linestoclear = updateline - lasthistorylineupdated; // work out how many lines have gone past without activity.
 	    if (linestoclear < 0
@@ -1262,26 +1222,26 @@ void display(void)
 	}
 
 	int itop1 = updateline - plotWidth; // final entry to print (needs a max)
-	int itop2 = HISTORYSIZE; // begin with assumption no need for any wraparound
-	if (itop1 < 0) {            // if final entry has wrapped around array
-	    itop2 = HISTORYSIZE + itop1; // 2nd bite adds on extra wraparound data
+	int itop2 = HISTORYSIZE;	// begin with assumption no need for any wraparound
+	if (itop1 < 0) {		// if final entry has wrapped around array
+	    itop2 = HISTORYSIZE + itop1;// 2nd bite adds on extra wraparound data
 	    if (itop2 < 0) {
-		itop2 = 0; // can we go to x scaling here?  This is a bit coarse.
+		itop2 = 0;		// can we go to x scaling here?  This is a bit coarse.
 	    }
-	    itop1 = 0;                   // 1st bite floors at bottom of array
+	    itop1 = 0;			// 1st bite floors at bottom of array
 	}
 
-	glColor4f(0.0, 0.0, 1.0, 1.0);                    // Will plot in blue
+	glColor4f(0.0, 0.0, 1.0, 1.0);	// Will plot in blue
 
 	glPointSize(
 		clamp(1.0F,
-			(float) ((windowHeight - 2.0 * windowBorder)
-				/ maxneuridrx), 4.0F));
+			float(windowHeight - 2.0 * windowBorder)
+				/ maxneuridrx, 4.0F));
 
-	float workingwithdata;         // data value being manipulated/studied
+	float workingwithdata;		// data value being manipulated/studied
 	int numberofrasterplots = xdim * ydim;
 	if (windowToUpdate == win2) {
-	    numberofrasterplots = maxneuridrx;   // bespoke for Discovery demo
+	    numberofrasterplots = maxneuridrx; // bespoke for Discovery demo
 	}
 
 	uint *spikesperxcoord = new uint[plotWidth];
@@ -1298,11 +1258,10 @@ void display(void)
 		if (windowToUpdate == win2) {
 		    workingwithdata = history_data_set2[i][jj]; // bespoke for Discovery demo
 		}
-		if (workingwithdata > NOTDEFINEDFLOAT + 1) {
+		if (is_defined(workingwithdata)) {
 		    y_scaling_factor = (windowHeight - 2 * windowBorder)
-			    / (float) numberofrasterplots; // how many pixels per neuron ID
-		    int y = (int) ((j + 0.5) * y_scaling_factor)
-			    + windowBorder;
+			    / float(numberofrasterplots); // how many pixels per neuron ID
+		    int y = int((j + 0.5) * y_scaling_factor) + windowBorder;
 		    int x = (windowWidth - windowBorder - keyWidth)
 			    - (updateline - i) * x_scaling_factor;
 		    glVertex2f(x, y); // TODO change to lines for low counts? 1 of 2 (targetdotsize).
@@ -1315,11 +1274,10 @@ void display(void)
 		if (windowToUpdate == win2) {
 		    workingwithdata = history_data_set2[i][jj]; // bespoke for Discovery demo
 		}
-		if (workingwithdata > NOTDEFINEDFLOAT + 1) {
-		    y_scaling_factor = (windowHeight - 2 * windowBorder)
-			    / (float) numberofrasterplots; // how many pixels per neuron ID
-		    int y = (int) ((j + 0.5) * y_scaling_factor)
-			    + windowBorder;
+		if (is_defined(workingwithdata)) {
+		    y_scaling_factor = float(windowHeight - 2 * windowBorder)
+			    / numberofrasterplots; // how many pixels per neuron ID
+		    int y = int((j + 0.5) * y_scaling_factor) + windowBorder;
 		    int x = (windowWidth - windowBorder - keyWidth)
 			    - (updateline + HISTORYSIZE - i)
 				    * x_scaling_factor;
@@ -1336,14 +1294,14 @@ void display(void)
 
     if (DECAYPROPORTION > 0.0 && !freezedisplay) { // CP - if used!
 	for (int i = 0 ; i < xdim * ydim ; i++) {
-	    if (immediate_data[i] > NOTDEFINEDFLOAT + 1) {
+	    if (is_defined(immediate_data[i])) {
 		immediate_data[i] *= DECAYPROPORTION; // puts a decay on the data per frame plotted
 	    }
 	}
     }
 
-    glutSwapBuffers();             // no flickery gfx
-    somethingtoplot = 0;            // indicate we have finished plotting
+    glutSwapBuffers();			// no flickery gfx
+    somethingtoplot = 0;		// indicate we have finished plotting
 } // display
 
 // called whenever the display window is resized
@@ -1364,11 +1322,7 @@ void reshape(int width, int height)
     }
 
     // turn off label printing if too small, and on if larger than this threshold.
-    if (plotWidth <= 1 || height - 2 * windowBorder <= 1) {
-	printlabels = 0; // turn off label printing (not much data to plot!)
-    } else {
-	printlabels = 1;
-    }
+    printlabels = !(plotWidth <= 1 || height - 2 * windowBorder <= 1);
 
     glViewport(0, 0, (GLsizei) width, (GLsizei) height); // viewport dimensions
     glMatrixMode (GL_PROJECTION);
@@ -1383,9 +1337,8 @@ void reshape(int width, int height)
 
 static inline void set_heatmap_cell(int id, float north, float east, float south float west)
 {
-    send_to_chip(i, 0x21, 1, 0, 0, 0, 4, (int) (north * 65536),
-	    (int) (east * 65536), (int) (south * 65536),
-	    (int) (west * 65536));
+    send_to_chip(i, 0x21, 1, 0, 0, 0, 4, int(north * 65536),
+	    int(east * 65536), int(south * 65536), int(west * 65536));
 }
 
 // Called when keys are pressed
@@ -1526,10 +1479,6 @@ void keyDown(unsigned char key, int x, int y)
 	}
 	break;
 
-    case 'z':
-	break;
-
-	// for Heat Map work
     case 'n':
 	if (editmode) {
 	    livebox = (livebox == NORTH ? -1 : NORTH);
@@ -1691,6 +1640,7 @@ static inline void handle_main_box_click(int x, int y)
 	    }
 	    somethingtoplot = 1;
 	}
+	break;
     }
 }
 
@@ -1879,20 +1829,10 @@ void display_win2(void)
 
     glClearColor(0.2, 0.2, 0.7, 1.0);   // background colour - random surround
     glClear (GL_COLOR_BUFFER_BIT);
-
-    glColor4f(0.0, 0.0, 0.0, 1.0);                    // Black Text for Labels
-
-    auto stringy = "This is a Test Mssg\n";
-    printgl(250, 500, GLUT_BITMAP_HELVETICA_12, stringy);
-    printglstroke(25 + rand(50), 20, 0.12, 0, stringy);
-    printgl(250, 300, GLUT_BITMAP_TIMES_ROMAN_24, stringy);
     glColor4f(1.0, 0.0, 0.0, 1.0);
 
     glBegin (GL_QUADS);
-    glVertex2f(100, 100);
-    glVertex2f(200, 100);
-    glVertex2f(200, 800);
-    glVertex2f(100, 800);
+    glRectVertices(100, 100, 200, 800);
     glEnd();    // draw centre window
 
     glFlush();
@@ -2002,11 +1942,9 @@ int main(int argc, char **argv)
 
     for (int ii = 0 ; ii < XDIMENSIONS * YDIMENSIONS ; ii++) {
 	int xcoordinate, ycoordinate, index;
-	convert_index_to_coord(ii, &xcoordinate, &ycoordinate);
+	convert_index_to_coord(ii, xcoordinate, ycoordinate);
 	index = convert_coord_to_index(xcoordinate, ycoordinate);
     }
-    //call with: convert_index_to_coord(index, &xcoordinate, &ycoordinate);  // (where xcoordinate and ycoordinate are ints)
-    //convert_coord_to_index(int x, int y)
 
     cleardown(); // reset the plot buffer to something sensible (i.e. 0 to start with)
     starttimez = timestamp();

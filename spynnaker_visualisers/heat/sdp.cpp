@@ -73,7 +73,7 @@ static inline void process_heatmap_packet(int numAdditionalBytes)
 		    arrayindex, xsrc, ysrc);        // CPDEBUG
 	} else {
 	    immediate_data[arrayindex] = scanptr->data[i]
-		    / (float) pow(2.0, FIXEDPOINT);
+		    / float(pow(2.0, FIXEDPOINT));
 	    if (immediate_data[arrayindex] > highwatermark)
 		printf("new hwm [%d, %d, %d] = %f\n", xsrc, ysrc, i,
 			immediate_data[arrayindex]);
@@ -148,7 +148,7 @@ void* input_thread_SDP(void *ptr)
 	    }
 	    sincefirstpacket = (nowtime - firstreceivetimez) / 1000; // how long in ms since visualisation got 1st valid packet.
 
-	    float timeperindex = displayWindow / (float) plotWidth; // time in seconds per history index in use (or pixel displayed)
+	    float timeperindex = displayWindow / float(plotWidth); // time in seconds per history index in use (or pixel displayed)
 	    int updateline = ((nowtime - starttimez)
 		    / (int64_t)(timeperindex * 1000000)) % HISTORYSIZE; // which index is being updated (on the right hand side)
 
