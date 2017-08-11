@@ -140,33 +140,30 @@ int paramload(char* config_file_name)
     ydim = YDIMENSIONS;        // number of items to plot in the y dimension
 
     colourused = STARTCOLOUR;    // start with requested colour scheme
-    displaymode = STARTMODE;    // initialise mode variable for the start
 
     xorigin = (windowWidth + keyWidth) - controlboxes * (boxsize + gap); // for the control box
 
     // malloc appropriate memory
 
-    history_data = (float**) malloc(HISTORYSIZE * sizeof(float*));
-    for (int ii = 0; ii < HISTORYSIZE ; ii++) {
-	history_data[ii] = (float*) malloc(
-		XDIMENSIONS * YDIMENSIONS * sizeof float);
-    }
-    history_data_set2 = (float**) malloc(HISTORYSIZE * sizeof(float*));
-    for (int ii = 0; ii < HISTORYSIZE ; ii++) {
-	history_data_set2[ii] = (float*) malloc(
-		MAXRASTERISEDNEURONS * sizeof float);
-    }
-
     const int len = XDIMENSIONS * YDIMENSIONS;
-    immediate_data = (float*) malloc(len * sizeof float);
-
-    maplocaltoglobal = (int**) malloc(len * sizeof(int*));
-    for (int ii = 0; ii < len ; ii++) {
-	maplocaltoglobal[ii] = (int*) malloc(2 * sizeof int);
+    history_data = new float*[HISTORYSIZE];
+    for (int ii = 0; ii < HISTORYSIZE ; ii++) {
+	history_data[ii] = new float[len];
     }
-    mapglobaltolocal = (int**) malloc(len * sizeof(int*));
+    history_data_set2 = new float*[HISTORYSIZE];
+    for (int ii = 0; ii < HISTORYSIZE ; ii++) {
+	history_data_set2[ii] = new float[MAXRASTERISEDNEURONS];
+    }
+
+    immediate_data = new float[len];
+
+    maplocaltoglobal = new int*[len];
     for (int ii = 0; ii < len ; ii++) {
-	mapglobaltolocal[ii] = (int*) malloc(2 * sizeof int);
+	maplocaltoglobal[ii] = new int[2];
+    }
+    mapglobaltolocal = new int*[len];
+    for (int ii = 0; ii < len ; ii++) {
+	mapglobaltolocal[ii] = new int[2];
     }
 
     config_destroy(&cfg);
