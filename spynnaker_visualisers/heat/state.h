@@ -15,8 +15,6 @@ char TITLE[50];					// title used at the top of the screen
 
 int STARTMODE = TILED, STARTCOLOUR = MULTI;	// start with requested mode (default tiled, multicolour)
 int displaymode = STARTMODE, colourused = STARTCOLOUR;
-int BLACKBACKGROUND = 0;
-int INITZERO = 0;
 int XDIMENSIONS = 32, YDIMENSIONS = 32,
 	EACHCHIPX = 4, EACHCHIPY = 4;		// canvas size defaults
 int XCHIPS = (XDIMENSIONS/EACHCHIPX),
@@ -29,7 +27,6 @@ int HISTORYSIZE = 3500,
 
 int WINBORDER = 110, WINHEIGHT = 700, WINWIDTH = 850; // defaults for window sizing
 int DISPLAYKEY = 1, KEYWIDTH = 50;
-int DISPLAYXLABELS = 1, DISPLAYYLABELS = 1;	// gives options to suspend printing of x and y axis labels if required
 int keyWidth = KEYWIDTH;
 int windowBorder = WINBORDER, windowHeight = WINHEIGHT,
 	windowWidth = WINWIDTH+keyWidth;	// startup for window sizing
@@ -40,12 +37,10 @@ int DYNAMICSCALE = 1;				// default to permit dynamic scaling
 int PERCENTAGESCALE = 0;			// set this to 1 if you don't care about values, only relative %ages
 
 int LABELBYCHIP = 0;				// just print one label per chip and not sub-chip/core
-int PLAYPAUSEXIT = 1, DISPLAYMINIPLOT = 1;	// options for screen output
 
 int MAXFRAMERATE = 25, PLOTONLYONDEMAND = 0;	// graphics frame updates
 
-int XFLIP = 0, YFLIP = 0, VECTORFLIP = 0, ROTATEFLIP = 0; // default to no translations of the data
-int xflip = XFLIP, yflip = YFLIP, vectorflip = VECTORFLIP, rotateflip = ROTATEFLIP;
+int xflip = 0, yflip = 0, vectorflip = 0, rotateflip = 0; // default to no translations of the data
 
 int SDPPORT = 17894;				// which UDP port are we expecting our SDP traffic on
 
@@ -54,7 +49,6 @@ int FIXEDPOINT = 16;				// number of bits in word of data that are to the right 
 long int BITSOFPOPID = 0;			// number of bits of population in each core (pow of 2); 0 for implicit core==popID
 
 double ALTERSTEPSIZE = 1.0;			// the step size used when altering the data to send
-double DECAYPROPORTION = 0.0;			// how quickly does the raster plot diminish
 
 
 //float* immediate_data;	// this stores the value of each plotted point data (time == now)  - superfluous
@@ -72,8 +66,6 @@ char somethingtoplot = 0;	// determines when we should update the screen (no poi
 char freezedisplay = 0;		// whether we should pause the display updates (and send a pause packet to the sim)
 int64_t freezetime;		// when pausing the simulation we hold time at the time of pausing (for screen display purposes)
 int boxsize = 40, gap = 5;	// used for button creation and gaps between these boxes and the edge of the screen
-int win1 = 0;			// the main graphics window used by OpenGL
-int win2 = 0;			// a test for windows spawned from the main window
 int windowToUpdate;		// used to know which window to update
 int xdim;// = XDIMENSIONS;	// number of items to plot in the x dimension
 int ydim;// = YDIMENSIONS;	// number of items to plot in the y dimension

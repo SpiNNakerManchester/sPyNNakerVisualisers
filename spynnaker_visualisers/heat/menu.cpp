@@ -13,9 +13,6 @@ enum menuentries_t {
     XFORM_ROTATEFLIP,
     XFORM_REVERT,
     // Main Menu Items
-    MENU_RASTER_OFF,
-    MENU_RASTER_ON,
-    MENU_RASTER_OFF_ALL,
     MENU_BORDER_TOGGLE,
     MENU_NUMBER_TOGGLE,
     MENU_FULLSCREEN_TOGGLE,
@@ -129,47 +126,6 @@ static void menu_callback(int value)
 	break;
     case XFORM_REVERT:
 	cleardown();
-	break;
-    case MENU_RASTER_OFF:
-	for (int i = 0 ; i < xdim * ydim ; i++) {
-	    sdp_sender(0, 0x80 + i + 1, 258, 0, 4, 0, 0); // turn off raster on all populations
-	    sleeplet();
-	    printf("%d: ", i);
-	}
-	printf("\n");
-	if (win2 != 0) {
-	    destroy_new_window();		// if spawned window does exist then close it
-	}
-	rasterpopulation = -1;
-	somethingtoplot = 1;
-	break;
-    case MENU_RASTER_ON:
-	for (int i = 0 ; i < xdim * ydim ; i++) {
-	    sdp_sender(0, 0x80 + i + 1, 258, 0, 4, 0, 0); // turn off raster for all populations
-	    sleeplet();
-	    printf("%d, ", i);
-	}
-	printf("\n");
-	if (win2 == 0) {
-	    create_new_window();		// if window doesn't already exist then create it on demand
-	}
-	sdp_sender(0, 0x80 + livebox + 1, 258, 1, 4, 0, 0); // send message to turn on bit 4 (raster on)
-	rasterpopulation = livebox;
-	somethingtoplot = 1;
-	break;
-    case MENU_RASTER_OFF_ALL:
-	rasterpopulation = -1;
-	for (int i = 0 ; i < xdim * ydim ; i++) {
-	    sdp_sender(0, 0x80 + i + 1, 258, 0, 4, 0, 0); // turn off raster on all populations
-	    sleeplet();
-	    printf("%d, ", i);
-	}
-	printf("\n");
-	if (win2 != 0) {
-	    destroy_new_window();		// if spawned window does exist then close it
-	}
-	livebox = -1;
-	somethingtoplot = 1;
 	break;
     case MENU_BORDER_TOGGLE:
 	gridlines = !gridlines;

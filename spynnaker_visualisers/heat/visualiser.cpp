@@ -21,25 +21,6 @@
 //
 // --------------------------------------------------------------------------------------------------
 //
-// Full Versioning information found at the tail of the file.
-//
-// Current Version:
-// ----------------
-// 4th Sep 2013-     CP incorporated visualiser for the Cochlea from Qian Lui
-// 2nd Sep 2013-     CP rewrote the cpu temperature routine to calculate locally, tabs replaced by 3 spaces, added INITZERO option for data starting at zero rather than undefined.
-// 29th Aug 2013-    CP immediate_data became a float (for better decay)
-// 28th Aug 2013-    CP made decay proportion independent of visualisation type, comment out debug printf, blackbackground only applied on tiled displays
-// 19th Aug 2013-    CP added BLACKBACKGROUND option (defaults to not used)
-//                     also worked around libconfig issue on Ubuntu12.04 using incorrect long type rather than int
-// 10th May 2013-    CP corrected bug with replay caused by the below, and removed lots of unused comments
-// 4th-7th May 2013- CP added command line options for selective board IP/hostname
-// 22nd April 2013 - CP added command line options [-c,-replay,-l2g,-g2l] described above
-// 19th April 2013 - FG added the retina2 visualisation type
-// 17th April 2013 - freeing of all mallocs now correct, undefined data and ranges now parameterised
-// 16th April 2013 - fix x & y coordinate label overlapping problem in tiled mode
-// 15-16 April 2013- now uses the visparam.ini file in local directory to specify setup
-//                     no longer requiring a recompile (if no file defaults to 48-chip heatdemo)
-//
 // -----------------------------------------------------------------------------------------------------
 //  Select your simulation via a specific or visparam.ini file in the local directory
 // -----------------------------------------------------------------------------------------------------
@@ -134,14 +115,14 @@ enum directionbox_t {		// which box in the grid is used for each edge + middle, 
 // These defines used to represent max/min and invalid data values for checking out of range etc.
 //    as data is typically all floating point, these INT versions are rarely (if ever) used.
 
-#define MAXDATAINT 65535
-#define MAXDATAFLOAT 65535.0
+#define MAXDATAINT	(65535)
+#define MAXDATAFLOAT	(65535.0)
 
-#define MINDATAINT -65535
-#define MINDATAFLOAT -65535.0
+#define MINDATAINT	(-65535)
+#define MINDATAFLOAT	(-65535.0)
 
-#define NOTDEFINEDINT -66666
-#define NOTDEFINEDFLOAT -66666.0
+#define NOTDEFINEDINT	(-66666)
+#define NOTDEFINEDFLOAT	(-66666.0)
 
 #include "state.h"
 
@@ -164,7 +145,6 @@ void sdp_sender(
 	...);
 void create_new_window(void);
 void destroy_new_window(void);
-void display_win2(void);
 void filemenu(void);
 void transformmenu(void);
 void modemenu(void);
@@ -197,14 +177,6 @@ static inline int64_t timestamp(void)
     gettimeofday(&stopwatchus, NULL);			// grab current time
     return (1000000 * (int64_t) stopwatchus.tv_sec)
 	    + (int64_t) stopwatchus.tv_usec;		// get time now in us
-}
-
-static inline void sleeplet(void)
-{
-    int rubbish = 0;
-    for (int j = 0 ; j < 10000000 ; j++) {
-	rubbish++;
-    }
 }
 
 static inline int all_desired_chips(void)
@@ -251,6 +223,14 @@ static inline void glRectVertices(float x1, float y1, float x2, float y2)
     glVertex2f(x2, y1);
 }
 
+static inline void glOpenBoxVertices(float x1, float y1, float x2, float y2)
+{
+    glVertex2f(x1, y1);
+    glVertex2f(x1, y2);
+    glVertex2f(x2, y2);
+    glVertex2f(x2, y1);
+}
+
 static inline bool is_defined(float f) {
     return f > NOTDEFINEDFLOAT + 1;
 }
@@ -266,14 +246,14 @@ void readmappings(char* filenamea, char* filenameb)
     size_t i, j, k;
     char buffer[BUFSIZ], *ptr;
 
+#define ARRAY_LENGTH(ary)	(sizeof(*(ary)) / sizeof(**(ary)))
     FILE *filea = fopen(filenamea, "r");
     if (!filea) {
 	perror(filenamea);
 	exit(1);
     }
     for (i = 0; fgets(buffer, sizeof buffer, filea) ; ++i) {
-	for (j = 0, ptr = buffer;
-		j < sizeof *maplocaltoglobal / sizeof **maplocaltoglobal ;
+	for (j = 0, ptr = buffer; j < ARRAY_LENGTH(maplocaltoglobal) ;
 		++j, ++ptr) {
 	    if (i < XDIMENSIONS * YDIMENSIONS) {
 		maplocaltoglobal[i][j] = int(strtol(ptr, &ptr, 10));
@@ -289,8 +269,7 @@ void readmappings(char* filenamea, char* filenameb)
 	exit(1);
     }
     for (i = 0; fgets(buffer, sizeof buffer, fileb) ; ++i) {
-	for (j = 0, ptr = buffer;
-		j < sizeof *mapglobaltolocal / sizeof **mapglobaltolocal ;
+	for (j = 0, ptr = buffer; j < ARRAY_LENGTH(mapglobaltolocal) ;
 		++j, ++ptr) {
 	    if (i < XDIMENSIONS * YDIMENSIONS) {
 		mapglobaltolocal[i][j] = int(strtol(ptr, &ptr, 10));
@@ -302,20 +281,19 @@ void readmappings(char* filenamea, char* filenameb)
 
     for (j = 0; j <= mapglobaltolocalsize ; ++j) {
 	printf("mapglobaltolocal[%lu]: ", (long unsigned) j);
-	for (k = 0; k < sizeof *mapglobaltolocal / sizeof **mapglobaltolocal ;
-		++k) {
+	for (k = 0; k < ARRAY_LENGTH(mapglobaltolocal) ; ++k) {
 	    printf("%4d ", mapglobaltolocal[j][k]);
 	}
 	putchar('\n');
     }
     for (j = 0; j <= maplocaltoglobalsize ; ++j) {
 	printf("maplocaltoglobal[%lu]: ", (long unsigned) j);
-	for (k = 0; k < sizeof *maplocaltoglobal / sizeof **maplocaltoglobal ;
-		++k) {
+	for (k = 0; k < ARRAY_LENGTH(maplocaltoglobal) ; ++k) {
 	    printf("%4d ", maplocaltoglobal[j][k]);
 	}
 	putchar('\n');
     }
+#undef ARRAY_LENGTH
 }
 
 void* load_stimulus_data_from_file(void *ptr)
@@ -364,7 +342,7 @@ void* load_stimulus_data_from_file(void *ptr)
     printf("Memory Chunk Allocated:..*%d. Now transmitting...\n", buffsize);
 
     int stilltosend = numberofpackets - 1;  // keep a tally of how many to go!
-    int keepyuppyproblemo = 0; // work out if we are keeping up, if we fall 1+ sec behind on playback print an inaccuracy warning.
+    int desync_count = 0; // work out if we are keeping up, if we fall 1+ sec behind on playback print an inaccuracy warning.
     while (stilltosend > 0) {
 	int chunktosend = min(100000, stilltosend);
 	for (int i = 0 ; i < chunktosend ; i++) {
@@ -392,9 +370,10 @@ void* load_stimulus_data_from_file(void *ptr)
 		nanosleep(&ts, NULL); // if we are ahead of schedule sleep for a bit
 	    }
 
-	    if (howlongtowait < -1000000 && keepyuppyproblemo++ == 0) {
-		printf(
-			"\n\n\n***** Warning having trouble keeping up - times may be inaccurate *****\n"); // if we fall more than 1sec behind where we should be
+	    // if we fall more than 1sec behind where we should be
+	    if (howlongtowait < -1000000 && desync_count++ == 0) {
+		printf("\n\n\n***** Warning having trouble keeping up - "
+			"times may be inaccurate *****\n");
 	    }
 
 	    if (spinnakerboardipset != 0) { // if we don't know where to send don't send!
@@ -430,14 +409,14 @@ void error(char *msg)
 void cleardown(void)
 {
     for (int i = 0 ; i < xdim * ydim ; i++) {
-	immediate_data[i] = INITZERO ? 0.0 : NOTDEFINEDFLOAT;
+	immediate_data[i] = NOTDEFINEDFLOAT;
     }
     highwatermark = HIWATER; // reset for auto-scaling of plot colours, can dynamically alter this value (255.0 = top of the shop)
     lowwatermark = LOWATER; // reset for auto-scaling of plot colours, can dynamically alter this value (255.0 = top of the shop)
-    xflip = XFLIP;
-    yflip = YFLIP;
-    vectorflip = VECTORFLIP;
-    rotateflip = ROTATEFLIP;
+    xflip = 0;
+    yflip = 0;
+    vectorflip = 0;
+    rotateflip = 0;
 }
 
 //-------------------------------------------------------------------------
@@ -448,13 +427,6 @@ void printgl(float x, float y, void *font_style, const char* format, ...)
     va_list arg_list;
     char str[256];
     int i;
-
-    /*
-     * font options:  GLUT_BITMAP_8_BY_13 GLUT_BITMAP_9_BY_15
-     * GLUT_BITMAP_TIMES_ROMAN_10 GLUT_BITMAP_HELVETICA_10
-     * GLUT_BITMAP_HELVETICA_12 GLUT_BITMAP_HELVETICA_18
-     * GLUT_BITMAP_TIMES_ROMAN_24
-     */
 
     va_start(arg_list, format);
     vsprintf(str, format, arg_list);
@@ -485,10 +457,10 @@ void printglstroke(
     va_end(arg_list);
 
     glPushMatrix();
-    glEnable (GL_BLEND);   // antialias the font
+    glEnable (GL_BLEND);	// antialias the font
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable (GL_LINE_SMOOTH);
-    glLineWidth(1.5);   // end setup for antialiasing
+    glLineWidth(1.5);		// end setup for antialiasing
     glTranslatef(x, y, 0);
     glScalef(size, size, size);
     glRotatef(rotate, 0.0, 0.0, 1.0);
@@ -536,30 +508,36 @@ int coordinate_manipulate(int ii)
     int xcoordinate, ycoordinate;
 
     if (yflip || xflip || vectorflip || rotateflip) {
+	const int chips_x = XDIMENSIONS / EACHCHIPX;
+	const int chips_y = YDIMENSIONS / EACHCHIPY;
 	int elementid = i % (EACHCHIPX * EACHCHIPY);
 	int elementx = elementid / EACHCHIPY;
 	int elementy = elementid % EACHCHIPY;
-	int tileid = i / (EACHCHIPX * EACHCHIPY);
-	int tilex = tileid / (YDIMENSIONS / EACHCHIPY);
-	int tiley = tileid % (YDIMENSIONS / EACHCHIPY);
+	const int tileid = i / (EACHCHIPX * EACHCHIPY);
+	int tilex = tileid / chips_y;
+	int tiley = tileid % chips_y;
+
+	// flip ycords
 	if (yflip) {
-	    elementy = EACHCHIPY - 1 - elementy;	// flip ycords
+	    elementy = EACHCHIPY - 1 - elementy;
 	    tiley = YDIMENSIONS / EACHCHIPY - 1 - tiley;
 	}
+	// flip xcoords
 	if (xflip) {
-	    elementx = EACHCHIPX - 1 - elementx;	// flip xcoords
-	    tilex = XDIMENSIONS / EACHCHIPX - 1 - tilex;
+	    elementx = EACHCHIPX - 1 - elementx;
+	    tilex = chips_x - 1 - tilex;
 	}
 
 	elementid = elementx * EACHCHIPY + elementy;
-	i = (EACHCHIPX * EACHCHIPY)
-		* (tilex * (XDIMENSIONS / EACHCHIPX) + tiley) + elementid;
+	i = (EACHCHIPX * EACHCHIPY) * (tilex * chips_x + tiley) + elementid;
 
+	// go back to front (cumulative)
 	if (vectorflip) {
-	    i = (YDIMENSIONS * XDIMENSIONS) - 1 - i; // go back to front (cumulative)
+	    i = YDIMENSIONS * XDIMENSIONS - 1 - i;
 	}
+	// rotate
 	if (rotateflip) {
-	    convert_index_to_coord(i, xcoordinate, ycoordinate);   // rotate
+	    convert_index_to_coord(i, xcoordinate, ycoordinate);
 	    i = convert_coord_to_index(ycoordinate,
 		    XDIMENSIONS - 1 - xcoordinate);
 	}
@@ -624,6 +602,316 @@ void displayb(void)			// not currently used
     glutSwapBuffers();			// no flickery gfx
 }
 
+static inline void display_titles_labels(void)
+{
+    printgl(windowWidth / 2 - 200, windowHeight - 50,
+	    GLUT_BITMAP_TIMES_ROMAN_24, (char*) TITLE);
+    printgl(windowWidth / 2 - 250, windowHeight - 80,
+	    GLUT_BITMAP_HELVETICA_12, "Menu: right click.");
+
+    int xlabels = xdim;
+    float xspacing = plotWidth / float(xdim);
+    int xplotted, spacing = 24, lastxplotted = -100;
+
+    printglstroke(windowWidth / 2 - 25, 20, 0.12, 0, "X Coord");
+    for (int i = 0 ; i < xlabels ; i++) {                // X-Axis
+	if (i > 100) {
+	    spacing = 32;
+	}
+	xplotted = i * xspacing + windowBorder + (xspacing - 8) / 2 - 3; // what will be the next x coordinate
+	if (xplotted > lastxplotted + spacing) { // plot if enough space to not overlap labels.
+	    printgl(xplotted, 60, GLUT_BITMAP_HELVETICA_18, "%d", i); // Print X Axis Labels at required intervals
+	    lastxplotted = xplotted; // record last x coordinate plotted to
+	}
+    }
+
+    int ylabels = ydim;
+    float yspacing = float(windowHeight - 2 * windowBorder) / ydim;
+    int yplotted, lastyplotted = -100;
+
+    printglstroke(25, windowHeight / 2 - 50, 0.12, 90, "Y Coord");
+    for (int i = 0 ; i < ylabels ; i++) {                // Y-Axis
+	yplotted = i * yspacing + windowBorder + (yspacing - 18) / 2 + 2; // what will be the next y coordinate
+	if (yplotted > lastyplotted + 16) { // plot only if enough space to not overlap labels.
+	    printgl(60, i * yspacing + windowBorder + (yspacing - 18) / 2 + 2,
+		    GLUT_BITMAP_HELVETICA_18, "%d", i); // Print Y Axis Label
+	    lastyplotted = yplotted; // record where last label plotted on the Y axis
+	}
+    }
+}
+
+static inline void display_key(void)
+{
+    glColor4f(0.0, 0.0, 0.0, 1.0);		// Black Text for Labels
+    int keybase = windowBorder + 0.20 * (windowHeight - windowBorder); // bottom of the key
+    printgl(windowWidth - 55, windowHeight - windowBorder - 5,
+	    GLUT_BITMAP_HELVETICA_12, "%.2f", highwatermark); // Print HighWaterMark Value
+    printgl(windowWidth - 55, keybase - 5, GLUT_BITMAP_HELVETICA_12, "%.2f",
+	    lowwatermark); // Print LowWaterMark Value
+    float interval = 1, difference = highwatermark - lowwatermark;
+    for (float i = 10000 ; i >= 0.1 ; i /= 10.0) {
+	if (difference < i) {
+	    interval = i / (difference < i / 2 ? 20.0 : 10.0);
+	}
+    }
+    int multipleprinted = 1;
+    float linechunkiness = (windowHeight - windowBorder - keybase)
+	    / float(highwatermark - lowwatermark);
+    if (windowHeight - windowBorder - keybase > 0) { // too small to print
+	for (uint i = 0 ; i < windowHeight - windowBorder - keybase ; i++) {
+	    float temperaturehere = 1.0;
+	    if (linechunkiness > 0.0) {
+		temperaturehere = i / linechunkiness + lowwatermark;
+	    }
+	    float magnitude = colour_calculator(temperaturehere,
+		    highwatermark, lowwatermark);
+
+	    glBegin (GL_LINES);
+	    glVertex2f(windowWidth - 65, i + keybase); // rhs
+	    glVertex2f(windowWidth - 65 - keyWidth, i + keybase); // lhs
+	    glEnd();      //draw_line;
+
+	    float positiveoffset = temperaturehere - lowwatermark;
+	    if (positiveoffset >= interval * multipleprinted) {
+		glColor4f(0.0, 0.0, 0.0, 1.0);
+		glLineWidth(4.0);
+
+		glBegin(GL_LINES);
+		glVertex2f(windowWidth - 65, i + keybase); // rhs
+		glVertex2f(windowWidth - 75, i + keybase); // inside
+		glVertex2f(windowWidth - 55 - keyWidth, i + keybase); // inside
+		glVertex2f(windowWidth - 65 - keyWidth, i + keybase); // lhs
+		glEnd();
+
+		glLineWidth(1.0);
+		printgl(windowWidth - 55, i + keybase - 5,
+			GLUT_BITMAP_HELVETICA_12, "%.2f",
+			lowwatermark + multipleprinted * interval);
+		multipleprinted++;
+	    }
+	    // if need to print a tag - do it
+	}
+
+	glColor4f(0.0, 0.0, 0.0, 1.0);
+	glLineWidth(2.0);
+
+	glBegin (GL_LINE_LOOP);
+	glOpenBoxVertices(windowWidth - 65 - keyWidth, keybase,
+		windowWidth - 65, windowHeight - windowBorder);
+	glEnd();      //draw_line loop around the key;
+
+	glLineWidth(1.0);
+    } // key is only printed if big enough to print
+}
+
+static inline void display_controls()
+{
+    const int boxsize = 40, gap = 10;
+
+    for (int boxer = 0 ; boxer < 3 ; boxer++) {
+	int xorigin = windowWidth - 3 * (boxsize + gap), yorigin =
+		windowHeight - gap - boxsize;
+	// local to this scope
+
+	if ((!freezedisplay && boxer == 0) || (freezedisplay && boxer == 1)
+		|| boxer == 2) {
+	    glColor4f(0.0, 0.0, 0.0, 1.0);   // black is the new black
+
+	    glBegin (GL_QUADS);
+	    glRectVertices(xorigin + boxer * (boxsize + gap),
+		    yorigin + boxsize,
+		    xorigin + boxer * (boxsize + gap) + boxsize, yorigin);
+	    glEnd();
+
+	    glColor4f(1.0, 0.0, 0.0, 1.0);
+	    glLineWidth(15.0);
+
+	    // now draw shapes on boxes
+	    if (boxer == 0) {
+		glBegin(GL_QUADS);
+		glRectVertices(xorigin + gap, yorigin + boxsize - gap,
+			xorigin + (boxsize + gap) / 2 - gap, yorigin + gap);
+		glRectVertices(xorigin + (boxsize - gap) / 2 + gap,
+			yorigin + boxsize - gap, xorigin + boxsize - gap,
+			yorigin + gap);
+		glEnd();
+	    } else if (boxer == 1) {
+		glBegin (GL_TRIANGLES);
+		glVertex2f(xorigin + boxsize + 2 * gap,
+			yorigin + boxsize - gap); // topleft
+		glVertex2f(xorigin + 2 * boxsize, yorigin + boxsize / 2); // centreright
+		glVertex2f(xorigin + boxsize + gap * 2, yorigin + gap); // bottomleft
+		glEnd();
+	    } else if (boxer == 2) {
+		glBegin (GL_LINES);
+		glVertex2f(xorigin + boxer * (boxsize + gap) + gap,
+			yorigin + boxsize - gap); // topleft
+		glVertex2f(xorigin + boxer * (boxsize + gap) + boxsize - gap,
+			yorigin + gap); // bottomright
+		glVertex2f(xorigin + boxer * (boxsize + gap) + boxsize - gap,
+			yorigin + boxsize - gap); // topright
+		glVertex2f(xorigin + boxer * (boxsize + gap) + gap,
+			yorigin + gap); // bottomleft
+		glEnd();
+	    }
+
+	    glLineWidth(1.0);
+	}
+    }
+}
+
+static inline void display_gridlines(void)
+{
+    uint xsteps = xdim, ysteps = ydim;
+    glColor4f(0.8, 0.8, 0.8, 1.0);	// Grey Colour for Gridlines
+
+    // if not going to completely obscure the data
+    if (xsize > 3.0) {
+	// vertical grid lines
+	for (int xcord = 0 ; xcord <= xsteps ; xcord++) {
+	    glBegin (GL_LINES);
+	    glVertex2f(windowBorder + xcord * xsize, windowBorder);
+	    glVertex2f(windowBorder + xcord * xsize,
+		    windowHeight - windowBorder);
+	    glEnd();
+	}
+    }
+
+    // if not going to completely obscure the data
+    if (ysize > 3.0) {
+	// horizontal grid lines
+	for (int ycord = 0 ; ycord <= ysteps ; ycord++) {
+	    glBegin (GL_LINES);
+	    glVertex2f(windowBorder, windowBorder + ycord * ysize);
+	    glVertex2f(windowWidth - windowBorder - keyWidth,
+		    windowBorder + ycord * ysize);
+	    glEnd();
+	}
+    }
+}
+
+static inline void display_boxes(void)
+{
+    for (int boxer = 0 ; boxer < controlboxes * controlboxes ; boxer++) {
+	int boxx = boxer / controlboxes, boxy = boxer % controlboxes;
+	if (boxx != 1 && boxy != 1) {
+	    continue;
+	}
+	//only plot NESW+centre
+	glColor4f(0.0, 0.0, 0.0, 1.0);
+	if (boxer == livebox) {
+	    glColor4f(0.0, 1.0, 1.0, 1.0);
+	}
+	if (editmode || boxer == CENTRE) {
+	    if (boxer == CENTRE && editmode) {
+		glColor4f(0.0, 0.6, 0.0, 1.0); // go button is green!
+	    }
+
+	    glBegin (GL_QUADS);
+	    glRectVertices(windowWidth - (boxx + 1) * (boxsize + gap),
+		    yorigin + boxy * (boxsize + gap) + boxsize,
+		    windowWidth - (boxx + 1) * (boxsize + gap) + boxsize,
+		    yorigin + boxy * (boxsize + gap));
+	    glEnd();  // alter button
+	}
+
+	if (boxer == CENTRE) {
+	    glColor4f(1.0, 1.0, 1.0, 1.0);
+	    printgl(windowWidth - (boxx + 1) * (boxsize + gap),
+		    yorigin + boxy * (boxsize + gap) + boxsize / 2 - 5,
+		    GLUT_BITMAP_8_BY_13, editmode ? " Go!" : "Alter");
+	} else {
+	    glColor4f(0.0, 0.0, 0.0, 1.0);
+	    if (editmode && boxer != livebox) {
+		glColor4f(1.0, 1.0, 1.0, 1.0);
+	    }
+	    float currentvalue = 0.0;
+	    if (boxer == NORTH) {
+		currentvalue = alternorth;
+	    } else if (boxer == EAST) {
+		currentvalue = altereast;
+	    } else if (boxer == SOUTH) {
+		currentvalue = altersouth;
+	    } else if (boxer == WEST) {
+		currentvalue = alterwest;
+	    }
+	    printgl(windowWidth - (boxx + 1) * (boxsize + gap),
+		    yorigin + boxy * (boxsize + gap) + boxsize / 2 - 5,
+		    GLUT_BITMAP_8_BY_13, "%3.1f", currentvalue);
+	}
+    }
+}
+
+static inline void display_mini_pixel(
+	float xsize,
+	float ysize,
+	float tileratio,
+	int i,
+	int ii,
+	int xcord,
+	int ycord)
+{
+    const int gap = 10;
+
+    float ysize = max(1.0F, float(windowBorder - 6 * gap) / ydim);
+    float xsize = max(1.0F, float(ysize * tileratio)); // draw little / mini tiled version in btm left - pixel size
+    if (is_defined(immediate_data[ii])) { // only plot if data is valid
+	glBegin (GL_QUADS); // draw little tiled version in btm left
+	glRectVertices(2 * gap + xcord * xsize, 2 * gap + ycord * ysize,
+		2 * gap + (xcord + 1) * xsize, 2 * gap + (ycord + 1) * ysize);
+	glEnd(); // this plots the basic quad box filled as per colour above
+    }
+
+    if (livebox == i) { // draw outlines for selected box in little / mini version
+	glLineWidth(1.0);
+	glColor4f(0.0, 0.0, 0.0, 1.0);
+
+	glBegin (GL_LINE_LOOP);
+	glOpenBoxVertices(2 * gap + xcord * xsize, 2 * gap + ycord * ysize,
+		2 * gap + (xcord + 1) * xsize, 2 * gap + (ycord + 1) * ysize);
+	glEnd(); // this plots the external black outline of the selected tile
+
+	glColor4f(1.0, 1.0, 1.0, 1.0);
+
+	glBegin(GL_LINE_LOOP);
+	glOpenBoxVertices(1 + 2 * gap + xcord * xsize,
+		1 + 2 * gap + ycord * ysize,
+		2 * gap + (xcord + 1) * xsize - 1,
+		2 * gap + (ycord + 1) * ysize - 1);
+	glEnd(); // this plots the internal white outline of the selected tile
+
+	glLineWidth(1.0);
+    }
+}
+
+static inline void display_pixel(
+	float xsize,
+	float ysize,
+	int ii,
+	int xcord,
+	int ycord)
+{
+    // basic plot
+    if (is_defined(immediate_data[ii])) {
+	glBegin (GL_QUADS);
+	glRectVertices(windowBorder + xcord * xsize,
+		windowBorder + ycord * ysize,
+		windowBorder + (xcord + 1) * xsize,
+		windowBorder + (ycord + 1) * ysize);
+	glEnd(); // this plots the basic quad box filled as per colour above
+    }
+
+    // if we want to plot values in blocks (and blocks big enough)
+    if (plotvaluesinblocks && xsize > 8 && is_defined(immediate_data[ii])) {
+	// choose if light or dark labels
+	auto intensity = float(magnitude <= 0.6);
+	glColor4f(intensity, intensity, intensity, 1.0);
+	printglstroke(windowBorder - 20 + (xcord + 0.5) * xsize,
+		windowBorder - 6 + (ycord + 0.5) * ysize, 0.12, 0, "%3.2f",
+		immediate_data[ii]); // normal
+    }
+}
+
 // display function, called whenever the display window needs redrawing
 void display(void)
 {
@@ -643,88 +931,28 @@ void display(void)
     glClearColor(0.8, 0.8, 0.8, 1.0);	// background colour - grey surround
     glClear (GL_COLOR_BUFFER_BIT);
 
-    // if we want a forced black background then clear it now
-    if (BLACKBACKGROUND) {
-	glColor4f(0.0, 0.0, 0.0, 1.0);	// Black for filling
+    glColor4f(0.0, 0.0, 0.0, 1.0);	// Black Text for Labels
 
-	glBegin (GL_QUADS);
-	glRectVertices(windowBorder, windowBorder,
-		windowWidth - windowBorder - keyWidth,
-		windowHeight - windowBorder);
-	glEnd();
+    // titles and labels are only printed if border is big enough
+    if (printlabels && !fullscreen) {
+	display_titles_labels();
     }
 
-    glColor4f(0.0, 0.0, 0.0, 1.0);                    // Black Text for Labels
-
-    if (printlabels && !fullscreen) { // titles and labels are only printed if border is big enough
-	printgl(windowWidth / 2 - 200, windowHeight - 50,
-		GLUT_BITMAP_TIMES_ROMAN_24, (char*) TITLE); // Print Title of Graph
-	printgl(windowWidth / 2 - 250, windowHeight - 80,
-		GLUT_BITMAP_HELVETICA_12,
-		"Menu: right click."); // Print subtitle of Graph
-
-	// X Axis
-	if (DISPLAYXLABELS) {
-	    printglstroke(windowWidth / 2 - 25, 20, 0.12, 0, "X Coord");
-	    int xlabels = xdim;
-	    float xspacing = plotWidth / float(xdim);
-	    if (LABELBYCHIP) {
-		xlabels = xdim / EACHCHIPX;
-		xspacing *= EACHCHIPX;
-	    }
-	    int xplotted, spacing = 24, lastxplotted = -100;
-	    for (int i = 0 ; i < xlabels ; i++) {                // X-Axis
-		if (i > 100) {
-		    spacing = 32;
-		}
-		xplotted = i * xspacing + windowBorder + (xspacing - 8) / 2
-			- 3;	// what will be the next x coordinate
-		if (xplotted > lastxplotted + spacing) { // plot if enough space to not overlap labels.
-		    printgl(xplotted, 60, GLUT_BITMAP_HELVETICA_18, "%d", i);// Print X Axis Labels at required intervals
-		    lastxplotted = xplotted;// record last x coordinate plotted to
-		}
-	    }
-	}
-	// X Axis
-
-	if (DISPLAYYLABELS) {
-	    // Y Axis
-	    printglstroke(25, windowHeight / 2 - 50, 0.12, 90, "Y Coord"); // Print Y-Axis label for Graph
-	    int ylabels = ydim;
-	    float yspacing = float(windowHeight - 2 * windowBorder) / ydim;
-	    if (LABELBYCHIP) {
-		ylabels = ydim / EACHCHIPY;
-		yspacing *= EACHCHIPY;
-	    }
-	    int yplotted, lastyplotted = -100;
-	    for (int i = 0 ; i < ylabels ; i++) {                // Y-Axis
-		yplotted = i * yspacing + windowBorder + (yspacing - 18) / 2
-			+ 2; // what will be the next y coordinate
-		if (yplotted > lastyplotted + 16) { // plot only if enough space to not overlap labels.
-		    printgl(60,
-			    i * yspacing + windowBorder + (yspacing - 18) / 2
-				    + 2, GLUT_BITMAP_HELVETICA_18, "%d", i); // Print Y Axis Label
-		    lastyplotted = yplotted; // record where last label plotted on the Y axis
-		}
-	    }
-	}
-	// Y Axis
-    }   // titles and labels are only printed if border is big enough
-
+    // scale all the values to plottable range
     for (int i = 0 ; i < xdim * ydim ; i++) {
 	if (is_defined(immediate_data[i])) {    // is valid
 	    immediate_data[i] = clamp(MINDATAFLOAT, immediate_data[i],
 		    MAXDATAFLOAT);
-	    if (DYNAMICSCALE) {
-		if (immediate_data[i] > highwatermark && spinnakerboardipset) {
-		    highwatermark = immediate_data[i]; // only alter the high water mark when using dynamic scaling & data received
+	    if (spinnakerboardipset) {
+		if (immediate_data[i] > highwatermark) {
+		    highwatermark = immediate_data[i];
 		}
-		if (immediate_data[i] < lowwatermark && spinnakerboardipset) {
-		    lowwatermark = immediate_data[i]; // only alter the low water mark when using dynamic scaling & data received
+		if (immediate_data[i] < lowwatermark) {
+		    lowwatermark = immediate_data[i];
 		}
 	    }
 	}
-    }  // scale all the values to plottable range
+    }
 
     float xsize = plotWidth / float(xdim); // changed for dynamic reshaping
     if (xsize < 1.0) {
@@ -733,7 +961,7 @@ void display(void)
     float ysize = float(windowHeight - 2 * windowBorder) / ydim; // changed for dynamic reshaping
     float tileratio = xsize / ysize;
 
-    for (int i = 0 ; i < xdim * ydim ; i++) {                  //
+    for (int i = 0 ; i < xdim * ydim ; i++) {
 	int ii = coordinate_manipulate(i); // if any manipulation of how the data is to be plotted is required, do it
 	int xcord, ycord;
 	convert_index_to_coord(i, xcord, ycord); // find out the (x,y) coordinates of where to plot this data
@@ -742,48 +970,8 @@ void display(void)
 		lowwatermark); // work out what colour we should plot - sets 'ink' plotting colour
 
 	// if required, plot tiled mini version in bottom left
-	if (DISPLAYMINIPLOT && !fullscreen) {
-	    float ysize = max(1.0F, float(windowBorder - 6 * gap) / ydim);
-	    float xsize = max(1.0F, float(ysize * tileratio)); // draw little / mini tiled version in btm left - pixel size
-	    if (is_defined(immediate_data[ii])) { // only plot if data is valid
-		glBegin (GL_QUADS); // draw little tiled version in btm left
-		glRectVertices(2 * gap + xcord * xsize,
-			2 * gap + ycord * ysize,
-			2 * gap + (xcord + 1) * xsize,
-			2 * gap + (ycord + 1) * ysize);
-		glEnd(); // this plots the basic quad box filled as per colour above
-	    }
-
-	    if (livebox == i) { // draw outlines for selected box in little / mini version
-		glLineWidth(1.0);
-		glColor4f(0.0, 0.0, 0.0, 1.0);
-
-		glBegin (GL_LINE_LOOP);
-		glVertex2f((2 * gap) + (xcord * xsize),
-			(2 * gap) + (ycord * ysize));          //btm left
-		glVertex2f((2 * gap) + ((xcord + 1) * xsize),
-			(2 * gap) + (ycord * ysize));         //btm right
-		glVertex2f((2 * gap) + ((xcord + 1) * xsize),
-			(2 * gap) + ((ycord + 1) * ysize));   // top right
-		glVertex2f((2 * gap) + (xcord * xsize),
-			(2 * gap) + ((ycord + 1) * ysize));    // top left
-		glEnd(); // this plots the external black outline of the selected tile
-
-		glColor4f(1.0, 1.0, 1.0, 1.0);
-
-		glBegin(GL_LINE_LOOP);
-		glVertex2f(1 + (2 * gap) + (xcord * xsize),
-			1 + (2 * gap) + (ycord * ysize));       //btm left
-		glVertex2f((2 * gap) + ((xcord + 1) * xsize) - 1,
-			1 + (2 * gap) + (ycord * ysize));     //btm right
-		glVertex2f((2 * gap) + ((xcord + 1) * xsize) - 1,
-			(2 * gap) + ((ycord + 1) * ysize) - 1); // top right
-		glVertex2f(1 + (2 * gap) + (xcord * xsize),
-			(2 * gap) + ((ycord + 1) * ysize) - 1); // top left
-		glEnd(); // this plots the internal white outline of the selected tile
-
-		glLineWidth(1.0);
-	    }
+	if (!fullscreen) {
+	    display_mini_pixel(xsize, ysize, tileratio, i, ii, xcord, ycord);
 	}
 
 	xsize = plotWidth / float(xdim);
@@ -792,210 +980,28 @@ void display(void)
 	}
 	ysize = float(windowHeight - 2 * windowBorder) / ydim; // changed for dynamic reshaping
 
-	magnitude = colour_calculator(immediate_data[ii], highwatermark,
-		lowwatermark); // work out what colour we should plot - sets 'ink' plotting colour
+	// Set 'ink' plotting colour
+	colour_calculator(immediate_data[ii], highwatermark, lowwatermark);
 
 	// basic plot
-	if (is_defined(immediate_data[ii])) {
-	    glBegin (GL_QUADS);
-	    glRectVertices(windowBorder + xcord * xsize,
-		    windowBorder + ycord * ysize,
-		    windowBorder + (xcord + 1) * xsize,
-		    windowBorder + (ycord + 1) * ysize);
-	    glEnd(); // this plots the basic quad box filled as per colour above
-	}
+	display_pixel(xsize, ysize, ii, xcord, ycord);
 
-	// if we want to plot numbers / values in blocks (& blocks big enough)
-	if (plotvaluesinblocks != 0 && xsize > 8
-		&& is_defined(immediate_data[ii])) {
-	    // choose if light or dark labels
-	    auto intensity = float(magnitude <= 0.6);
-	    glColor4f(intensity, intensity, intensity, 1.0);
-	    printglstroke(windowBorder - 20 + (xcord + 0.5) * xsize,
-		    windowBorder - 6 + (ycord + 0.5) * ysize, 0.12, 0,
-		    "%3.2f", immediate_data[ii]); // normal
-	}
-
-	glColor4f(0.0, 0.0, 0.0, 1.0);
     }
+    glColor4f(0.0, 0.0, 0.0, 1.0);
 
     // scrolling modes x scale and labels and gridlines
     if (gridlines) {
-	uint xsteps = xdim, ysteps = ydim;
-	glColor4f(0.8, 0.8, 0.8, 1.0);            // Grey Colour for Gridlines
-	if (xsize > 3.0) {      // if not going to completely obscure the data
-	    for (int xcord = 0 ; xcord <= xsteps ; xcord++) { // vertical grid lines
-		//xsize
-		glBegin(GL_LINES);
-		glVertex2f(windowBorder + xcord * xsize, windowBorder); //bottom
-		glVertex2f(windowBorder + xcord * xsize,
-			windowHeight - windowBorder);			//top
-		glEnd();
-	    }
-	}
-	if (ysize > 3.0) {      // if not going to completely obscure the data
-	    for (int ycord = 0 ; ycord <= ysteps ; ycord++) { // horizontal grid lines
-		glBegin(GL_LINES);
-		glVertex2f(windowBorder, windowBorder + ycord * ysize); //left
-		glVertex2f(windowWidth - windowBorder - keyWidth,
-			windowBorder + ycord * ysize);			//right
-		glEnd();
-	    }
-	}
+	display_gridlines();
     }
 
-    if (DISPLAYKEY && !fullscreen) {
-	// only print if not in fullscreen mode
-	glColor4f(0.0, 0.0, 0.0, 1.0);		// Black Text for Labels
-	int keybase = windowBorder + 0.20 * (windowHeight - windowBorder); // bottom of the key
-	if (PERCENTAGESCALE) {
-	    printgl(windowWidth - 55, windowHeight - windowBorder - 5,
-		    GLUT_BITMAP_HELVETICA_12, "%.2f%%", 100.0); // Print HighWaterMark Value
-	    printgl(windowWidth - 55, keybase - 5, GLUT_BITMAP_HELVETICA_12,
-		    "%.2f%%", 0.0); // which for percentages is 0-100%
-	} else {
-	    printgl(windowWidth - 55, windowHeight - windowBorder - 5,
-		    GLUT_BITMAP_HELVETICA_12, "%.2f", highwatermark); // Print HighWaterMark Value
-	    printgl(windowWidth - 55, keybase - 5, GLUT_BITMAP_HELVETICA_12,
-		    "%.2f", lowwatermark); // Print LowWaterMark Value
-	}
-	float interval, difference = highwatermark - lowwatermark;
-	for (float i = 10000 ; i >= 0.1 ; i /= 10.0) {
-	    if (difference < i) {
-		interval = i / (difference < i / 2 ? 20.0 : 10.0);
-	    }
-	}
-	if (PERCENTAGESCALE) {
-	    interval = 10;  // fixed for percentage viewing
-	}
-	int multipleprinted = 1;
-	float linechunkiness = (windowHeight - windowBorder - keybase)
-		/ float(highwatermark - lowwatermark);
-	if (windowHeight - windowBorder - keybase > 0) { // too small to print
-	    for (uint i = 0 ; i < windowHeight - windowBorder - keybase ;
-		    i++) {
-		float temperaturehere = 1.0;
-		if (linechunkiness > 0.0) {
-		    temperaturehere = i / linechunkiness + lowwatermark;
-		}
-		float magnitude = colour_calculator(temperaturehere,
-			highwatermark, lowwatermark);
+    // only print if not in fullscreen mode
+    if (!fullscreen) {
+	display_key();
 
-		glBegin (GL_LINES);
-		glVertex2f(windowWidth - 65, i + keybase); // rhs
-		glVertex2f(windowWidth - 65 - keyWidth, i + keybase); // lhs
-		glEnd();      //draw_line;
+	// for display of visualisation screen controls
+	display_controls();
 
-		float positiveoffset = temperaturehere - lowwatermark;
-		if (PERCENTAGESCALE) {
-		    positiveoffset = positiveoffset / difference * 100.0; // scale it to a range of 0-100
-		}
-		if (positiveoffset >= interval * multipleprinted) {
-		    glColor4f(0.0, 0.0, 0.0, 1.0);
-		    glLineWidth(4.0);
-
-		    glBegin(GL_LINES);
-		    glVertex2f(windowWidth - 65, i + keybase); // rhs
-		    glVertex2f(windowWidth - 75, i + keybase); // inside
-		    glVertex2f(windowWidth - 55 - keyWidth, i + keybase); // inside
-		    glVertex2f(windowWidth - 65 - keyWidth, i + keybase); // lhs
-		    glEnd();
-
-		    glLineWidth(1.0);
-		    printgl(windowWidth - 55, i + keybase - 5,
-			    GLUT_BITMAP_HELVETICA_12, "%.2f",
-			    lowwatermark + multipleprinted * interval);
-		    multipleprinted++;
-		}
-		// if need to print a tag - do it
-	    }
-
-	    glColor4f(0.0, 0.0, 0.0, 1.0);
-	    glLineWidth(2.0);
-
-	    glBegin (GL_LINE_LOOP);
-	    glVertex2f(windowWidth - 65 - keyWidth, keybase); // bottomleft
-	    glVertex2f(windowWidth - 65, keybase); // bottomright
-	    glVertex2f(windowWidth - 65, windowHeight - windowBorder); // topright
-	    glVertex2f(windowWidth - 65 - keyWidth,
-		    windowHeight - windowBorder); // topleft
-	    glEnd();      //draw_line loop around the key;
-
-	    glLineWidth(1.0);
-	} // key is only printed if big enough to print
-    }
-
-    // for display of visualisation screen controls
-    if (PLAYPAUSEXIT && !fullscreen && windowToUpdate == win1) {
-	// only print if not in fullscreen mode & the main window
-	for (int boxer = 0 ; boxer < 3 ; boxer++) {
-	    int boxsize = 40, gap = 10;
-	    int xorigin = windowWidth - 3 * (boxsize + gap), yorigin =
-		    windowHeight - gap - boxsize;
-	    // local to this scope
-
-	    if ((!freezedisplay && boxer == 0)
-		    || (freezedisplay && boxer == 1) || boxer == 2) {
-		glColor4f(0.0, 0.0, 0.0, 1.0);   // black is the new black
-
-		glBegin (GL_QUADS);
-		glRectVertices(xorigin + boxer * (boxsize + gap),
-			yorigin + boxsize,
-			xorigin + boxer * (boxsize + gap) + boxsize, yorigin);
-		glEnd();
-
-		// now draw shapes on boxes
-		if (boxer == 2) {
-		    glColor4f(1.0, 0.0, 0.0, 1.0);
-		    glLineWidth(15.0);
-
-		    glBegin (GL_LINES);
-		    glVertex2f(xorigin + boxer * (boxsize + gap) + gap,
-			    yorigin + boxsize - gap); // topleft
-		    glVertex2f(
-			    xorigin + boxer * (boxsize + gap) + boxsize - gap,
-			    yorigin + gap); // bottomright
-		    glVertex2f(
-			    xorigin + boxer * (boxsize + gap) + boxsize - gap,
-			    yorigin + boxsize - gap); // topright
-		    glVertex2f(xorigin + boxer * (boxsize + gap) + gap,
-			    yorigin + gap); // bottomleft
-		    glEnd();
-
-		    glLineWidth(1.0);
-		}
-		if (boxer == 0) {
-		    glColor4f(1.0, 0.0, 0.0, 1.0);
-		    glLineWidth(15.0);
-
-		    glBegin(GL_QUADS);
-		    glRectVertices(xorigin + gap, yorigin + boxsize - gap,
-			    xorigin + (boxsize + gap) / 2 - gap,
-			    yorigin + gap);
-		    glRectVertices(xorigin + (boxsize - gap) / 2 + gap,
-			    yorigin + boxsize - gap, xorigin + boxsize - gap,
-			    yorigin + gap);
-		    glEnd();
-
-		    glLineWidth(1.0);
-		}
-		if (boxer == 1) {
-		    glColor4f(1.0, 0.0, 0.0, 1.0);
-		    glLineWidth(15.0);
-
-		    glBegin (GL_TRIANGLES);
-		    glVertex2f(xorigin + boxsize + 2 * gap,
-			    yorigin + boxsize - gap); // topleft
-		    glVertex2f(xorigin + 2 * boxsize, yorigin + boxsize / 2); // centreright
-		    glVertex2f(xorigin + boxsize + gap * 2, yorigin + gap); // bottomleft
-		    glEnd();
-
-		    glLineWidth(1.0);
-		}
-	    }
-	}
-
-	if (printpktgone != 0) {
+	if (printpktgone) {
 	    glColor4f(0.0, 0.0, 0.0, 1.0);
 	    if (spinnakerboardipset == 0) {
 		printgl(windowWidth - 3 * (boxsize + gap) - 5,
@@ -1007,68 +1013,11 @@ void display(void)
 			GLUT_BITMAP_8_BY_13, "Packet Sent");
 	    }
 	}
+
+	display_boxes();
     }
 
-    // only print if not in fullscreen mode
-    if (!fullscreen) {
-	for (int boxer = 0 ; boxer < controlboxes * controlboxes ; boxer++) {
-	    int boxx = boxer / controlboxes, boxy = boxer % controlboxes;
-	    if (boxx != 1 && boxy != 1) {
-		continue;
-	    }
-	    //only plot NESW+centre
-	    glColor4f(0.0, 0.0, 0.0, 1.0);
-	    if (boxer == livebox) {
-		glColor4f(0.0, 1.0, 1.0, 1.0);
-	    }
-	    if (editmode || boxer == CENTRE) {
-		if (boxer == CENTRE && editmode) {
-		    glColor4f(0.0, 0.6, 0.0, 1.0); // go button is green!
-		}
-
-		glBegin (GL_QUADS);
-		glRectVertices(windowWidth - (boxx + 1) * (boxsize + gap),
-			yorigin + boxy * (boxsize + gap) + boxsize,
-			windowWidth - (boxx + 1) * (boxsize + gap) + boxsize,
-			yorigin + boxy * (boxsize + gap));
-		glEnd();  // alter button
-	    }
-	    if (boxer == CENTRE) {
-		glColor4f(1.0, 1.0, 1.0, 1.0);
-		printgl(windowWidth - (boxx + 1) * (boxsize + gap),
-			yorigin + boxy * (boxsize + gap) + boxsize / 2 - 5,
-			GLUT_BITMAP_8_BY_13, editmode ? " Go!" : "Alter");
-	    } else {
-		glColor4f(0.0, 0.0, 0.0, 1.0);
-		if (editmode && boxer != livebox) {
-		    glColor4f(1.0, 1.0, 1.0, 1.0);
-		}
-		float currentvalue;
-		if (boxer == NORTH) {
-		    currentvalue = alternorth;
-		} else if (boxer == EAST) {
-		    currentvalue = altereast;
-		} else if (boxer == SOUTH) {
-		    currentvalue = altersouth;
-		} else if (boxer == WEST) {
-		    currentvalue = alterwest;
-		}
-		printgl(windowWidth - (boxx + 1) * (boxsize + gap),
-			yorigin + boxy * (boxsize + gap) + boxsize / 2 - 5,
-			GLUT_BITMAP_8_BY_13, "%3.1f", currentvalue);
-	    }
-	}
-    }
-
-    if (DECAYPROPORTION > 0.0 && !freezedisplay) { // CP - if used!
-	for (int i = 0 ; i < xdim * ydim ; i++) {
-	    if (is_defined(immediate_data[i])) {
-		immediate_data[i] *= DECAYPROPORTION; // puts a decay on the data per frame plotted
-	    }
-	}
-    }
-
-    glutSwapBuffers();			// no flickery gfx
+    glutSwapBuffers();			// no flickery graphics
     somethingtoplot = 0;		// indicate we have finished plotting
 }
 
@@ -1475,13 +1424,10 @@ void idleFunction()
 	trigger_display_refresh();	// force refresh screen
     }
 
-    if (!PLOTONLYONDEMAND) {
-	// force the refresh for this frame timing (even if nothing has changed!)
-	trigger_display_refresh();
-    }
+    // force the refresh for this frame timing (even if nothing has changed!)
+    trigger_display_refresh();
 
     if (somethingtoplot) {
-	windowToUpdate = win1;		// update the main master window
 	display(); // update the display - will be timered inside this function to get desired FPS
     }
 }
@@ -1523,46 +1469,6 @@ void safelyshut(void)
 	safelyshutcalls++;	// note that this routine has been run before
     }
     exit(0);			// kill program dead
-}
-
-void display_win2(void)
-{
-    glutSetWindow(win2);
-
-    glClearColor(0.2, 0.2, 0.7, 1.0);   // background colour - random surround
-    glClear (GL_COLOR_BUFFER_BIT);
-    glColor4f(1.0, 0.0, 0.0, 1.0);
-
-    glBegin (GL_QUADS);
-    glRectVertices(100, 100, 200, 800);
-    glEnd();    // draw centre window
-
-    glFlush();
-    glutSwapBuffers();
-}
-
-void destroy_new_window(void)
-{
-    printf("Destroying new Window: %d, - after destruction is:", win2);
-    glutDestroyWindow(win2);
-    win2 = 0;
-    printf("%d.\n", win2);
-}
-
-void create_new_window(void)
-{
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);	// Set the display mode
-    glutInitWindowSize(windowWidth, windowHeight);	// Set the window size
-    glutInitWindowPosition(800, 100);			// Set the window position
-    win2 = glutCreateWindow("Spawned window");		// Create the window
-
-    myinit();
-
-    glutDisplayFunc(display);		// Register the "display" function
-    glutReshapeFunc(reshape);		// Register the "reshape" function
-    glutIdleFunc(idleFunction);		// Register the idle function
-    glutKeyboardFunc(keyDown);		// Register the key press function
-    glutMouseFunc(mousehandler);	// Register the mouse handling function
 }
 
 void open_or_close_output_file(void)
@@ -1652,7 +1558,7 @@ int main(int argc, char **argv)
 
     for (int j = 0 ; j < HISTORYSIZE ; j++) {
 	for (int i = 0 ; i < xdim * ydim ; i++) {
-	    history_data[j][i] = INITZERO ? 0.0 : NOTDEFINEDFLOAT;
+	    history_data[j][i] = NOTDEFINEDFLOAT;
 	}
     }
 
@@ -1699,9 +1605,8 @@ int main(int argc, char **argv)
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
     glutInitWindowSize(windowWidth + keyWidth, windowHeight);
     glutInitWindowPosition(0, 100);
-    win1 = glutCreateWindow(
+    windowToUpdate = glutCreateWindow(
 	    "VisRT - plotting your network data in real time");
-    windowToUpdate = win1;
 
     myinit();
 
