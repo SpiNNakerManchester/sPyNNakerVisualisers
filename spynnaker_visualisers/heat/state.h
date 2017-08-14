@@ -1,46 +1,6 @@
 #ifndef VIS_STATE_H
 #define VIS_STATE_H
 
-// which visualiser option
-enum visopt_t {
-    HEATMAP = 1,
-    RATEPLOT,
-    RETINA,
-    INTEGRATORFG,
-    RATEPLOTLEGACY,
-    MAR12RASTER,
-    SEVILLERETINA,
-    LINKCHECK,
-    SPIKERVC,
-    CHIPTEMP,
-    CPUUTIL,
-    RETINA2,
-    COCHLEA
-};
-
-// different colour maps available
-enum colormaps_t {
-    MULTI = 1,
-    GREYS,
-    REDS,
-    GREENS,
-    BLUES,
-    THERMAL,
-    RED,
-    BLUE
-};
-
-// view mode
-enum viewmodes_t {
-    TILED = 1,
-    INTERPOLATED,
-    HISTOGRAM,
-    LINES,
-    RASTER,
-    EEGSTYLE
-};
-
-
 /* --------------------------------------------------------------------------------------------------
  * Initialise global variables, and to set some sensible defaults (can all
  * be overriden in visparam.ini)
@@ -137,8 +97,6 @@ char editmode = 1, livebox = -1;// for user feedback - box selection and whether
 float alternorth = 40.0, altereast = 10.0, altersouth = 10.0,
 	alterwest = 40.0;	// default starting temperatures, and in-flight editing values for the 4 edges
 int controlboxes = 3;		// grid of control boxes to build (3x3)
-char NORTH = 5, EAST = 1, SOUTH = 3, WEST = 7,
-	CENTRE = 4;		// which box in the grid is used for each edge + middle, Ordered:  BtmR->TopR .. BtmL->TopR
 int yorigin = gap;		// Base coordinate of where to plot the compass control box
 int xorigin;			// for the control box
 //int xorigin=(windowWidth+keyWidth)-(controlboxes*(boxsize+gap));    // for the control box

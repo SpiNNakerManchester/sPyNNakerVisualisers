@@ -1,12 +1,99 @@
-enum filemenuentries_t {
+enum menuentries_t {
+    MENU_SEPARATOR,
+    // File Submenu Items
     FILE_SAVE_SPINN,
     FILE_SAVE_NEURO,
     FILE_RESUME,
     FILE_PAUSE,
-    FILE_END
+    FILE_END,
+    // Transform Submenu Items
+    XFORM_XFLIP,
+    XFORM_YFLIP,
+    XFORM_VECTORFLIP,
+    XFORM_ROTATEFLIP,
+    XFORM_REVERT,
+    // Main Menu Items
+    MENU_RASTER_OFF,
+    MENU_RASTER_ON,
+    MENU_RASTER_OFF_ALL,
+    MENU_BORDER_TOGGLE,
+    MENU_NUMBER_TOGGLE,
+    MENU_FULLSCREEN_TOGGLE,
+    MENU_PAUSE,
+    MENU_RESUME,
+    MENU_QUIT
 };
 
-void myfilemenu(int value)
+static void menu_callback(int value);
+
+void filemenu(void)
+{
+    glutDestroyMenu(filesubmenu);
+    filesubmenu = glutCreateMenu(menu_callback);
+    if (outputfileformat == 0) {		// no savefile open
+	glutAddMenuEntry("Save Input Data in .spinn format (replayable)",
+		FILE_SAVE_SPINN);		// start saving data in spinn
+	glutAddMenuEntry(
+		"Save Input Spike Data as write-only .neuro Neurotools format",
+		FILE_SAVE_NEURO);		// or neurotools format
+    } else {					// savefile open
+	if (writingtofile == 2) {
+	    glutAddMenuEntry("Resume Saving Data to file", FILE_RESUME); // and paused
+	} else {
+	    glutAddMenuEntry("Pause Saving Data to file", FILE_PAUSE); // or running
+	}
+	glutAddMenuEntry("End saving Data to file", FILE_END); // closefile out
+    }
+}
+
+void transformmenu(void)
+{
+    glutDestroyMenu(transformsubmenu);
+    transformsubmenu = glutCreateMenu(menu_callback);
+    glutAddMenuEntry("(X) Mirror (left to right swop)", XFORM_XFLIP);
+    glutAddMenuEntry("(Y) Reflect (top to bottom swop)", XFORM_YFLIP);
+    glutAddMenuEntry("(V) Vector Swop (Full X+Y Reversal)", XFORM_VECTORFLIP);
+    glutAddMenuEntry("90 (D)egree Rotate Toggle", XFORM_ROTATEFLIP);
+    glutAddMenuEntry("(C) Revert changes back to default", XFORM_REVERT);
+}
+
+void rebuildmenu(void)
+{
+    glutDestroyMenu(RHMouseMenu);
+    RHMouseMenu = glutCreateMenu(menu_callback);
+
+    glutAddSubMenu("Transform Plot", transformsubmenu);
+    glutAddSubMenu("Save Data Operations", filesubmenu);
+
+    glutAddMenuEntry("-----", MENU_SEPARATOR);
+    if (gridlines) {
+	glutAddMenuEntry("Grid (B)orders off", MENU_BORDER_TOGGLE);
+    } else {
+	glutAddMenuEntry("Grid (B)orders on", MENU_BORDER_TOGGLE);
+    }
+    if (plotvaluesinblocks) {
+	glutAddMenuEntry("Numbers (#) off", MENU_NUMBER_TOGGLE);
+    } else {
+	glutAddMenuEntry("Numbers (#) on", MENU_NUMBER_TOGGLE);
+    }
+    if (fullscreen) {
+	glutAddMenuEntry("(F)ull Screen off", MENU_FULLSCREEN_TOGGLE);
+    } else {
+	glutAddMenuEntry("(F)ull Screen on", MENU_FULLSCREEN_TOGGLE);
+    }
+
+    glutAddMenuEntry("-----", MENU_SEPARATOR);
+
+    if (!freezedisplay) {
+	glutAddMenuEntry("(\") Pause Plot", MENU_PAUSE);
+    } else {
+	glutAddMenuEntry("(P)lay / Restart Plot", MENU_RESUME);
+    }
+    glutAddMenuEntry("(Q)uit", MENU_QUIT);
+    glutAttachMenu (GLUT_RIGHT_BUTTON);
+}
+
+static void menu_callback(int value)
 {
     switch (value) {
     case FILE_SAVE_SPINN:
@@ -28,42 +115,6 @@ void myfilemenu(int value)
     case FILE_END:
 	open_or_close_output_file();	// closefile out
 	break;
-    }
-    needtorebuildmenu = 1;
-    //rebuildmenu(); // rebuild menu with state modified by this work
-}
-
-void filemenu(void)
-{
-    glutDestroyMenu(filesubmenu);
-    filesubmenu = glutCreateMenu(myfilemenu);
-    if (outputfileformat == 0) {		// no savefile open
-	glutAddMenuEntry("Save Input Data in .spinn format (replayable)",
-		FILE_SAVE_SPINN);		// start saving data in spinn
-	glutAddMenuEntry(
-		"Save Input Spike Data as write-only .neuro Neurotools format",
-		FILE_SAVE_NEURO);		//  or neurotools format
-    } else {					// savefile open
-	if (writingtofile == 2) {
-	    glutAddMenuEntry("Resume Saving Data to file", FILE_RESUME); // and paused
-	} else {
-	    glutAddMenuEntry("Pause Saving Data to file", FILE_PAUSE); // or running
-	}
-	glutAddMenuEntry("End saving Data to file", FILE_END); // closefile out
-    }
-}
-
-enum transformmenuentries_t {
-    XFORM_XFLIP,
-    XFORM_YFLIP,
-    XFORM_VECTORFLIP,
-    XFORM_ROTATEFLIP,
-    XFORM_REVERT
-};
-
-void mytransformmenu(int value)
-{
-    switch (value) {
     case XFORM_XFLIP:
 	xflip = !xflip;
 	break;
@@ -79,96 +130,6 @@ void mytransformmenu(int value)
     case XFORM_REVERT:
 	cleardown();
 	break;
-    }
-    needtorebuildmenu = 1;
-}
-
-void transformmenu(void)
-{
-    glutDestroyMenu(transformsubmenu);
-    transformsubmenu = glutCreateMenu(mytransformmenu);
-    glutAddMenuEntry("(X) Mirror (left to right swop)", XFORM_XFLIP);
-    glutAddMenuEntry("(Y) Reflect (top to bottom swop)", XFORM_YFLIP);
-    glutAddMenuEntry("(V) Vector Swop (Full X+Y Reversal)", XFORM_VECTORFLIP);
-    glutAddMenuEntry("90 (D)egree Rotate Toggle", XFORM_ROTATEFLIP);
-    glutAddMenuEntry("(C) Revert changes back to default", XFORM_REVERT);
-}
-
-void mycolmenu(int value)
-{
-    colourused = value;
-    needtorebuildmenu = 1;
-}
-
-void colmenu(void)
-{
-    glutDestroyMenu(coloursubmenu);
-    coloursubmenu = glutCreateMenu(mycolmenu);
-    glutAddMenuEntry("(1) MultiColoured", MULTI);
-    glutAddMenuEntry("(2) Greys", GREYS);
-    glutAddMenuEntry("(3) Reds", REDS);
-    glutAddMenuEntry("(4) Greens", GREENS);
-    glutAddMenuEntry("(5) Blues", BLUES);
-    glutAddMenuEntry("(6) Thermal Imaging", THERMAL);
-    glutAddMenuEntry("(7) ON/OFF Red Only", RED);
-    glutAddMenuEntry("(8) ON/OFF Blue Only", BLUE);
-}
-
-enum mymenuentries_t {
-    MENU_SEPARATOR,
-    MENU_RASTER_OFF,
-    MENU_RASTER_ON,
-    MENU_RASTER_OFF_ALL,
-    MENU_BORDER_TOGGLE,
-    MENU_NUMBER_TOGGLE,
-    MENU_FULLSCREEN_TOGGLE,
-    MENU_PAUSE,
-    MENU_RESUME,
-    MENU_QUIT
-};
-
-void rebuildmenu(void)
-{
-    glutDestroyMenu(RHMouseMenu);
-    RHMouseMenu = glutCreateMenu(mymenu);
-
-    glutAddSubMenu("Transform Plot", transformsubmenu);
-    glutAddSubMenu("Colours", coloursubmenu);
-    glutAddSubMenu("Save Data Operations", filesubmenu);
-
-    glutAddMenuEntry("-----", MENU_SEPARATOR);
-    if (displaymode == TILED) {
-	if (gridlines) {
-	    glutAddMenuEntry("Grid (B)orders off", MENU_BORDER_TOGGLE);
-	} else {
-	    glutAddMenuEntry("Grid (B)orders on", MENU_BORDER_TOGGLE);
-	}
-	if (plotvaluesinblocks) {
-	    glutAddMenuEntry("Numbers (#) off", MENU_NUMBER_TOGGLE);
-	} else {
-	    glutAddMenuEntry("Numbers (#) on", MENU_NUMBER_TOGGLE);
-	}
-    }
-    if (fullscreen) {
-	glutAddMenuEntry("(F)ull Screen off", MENU_FULLSCREEN_TOGGLE);
-    } else {
-	glutAddMenuEntry("(F)ull Screen on", MENU_FULLSCREEN_TOGGLE);
-    }
-
-    glutAddMenuEntry("-----", MENU_SEPARATOR);
-
-    if (!freezedisplay) {
-	glutAddMenuEntry("(\") Pause Plot", MENU_PAUSE);
-    } else {
-	glutAddMenuEntry("(P)lay / Restart Plot", MENU_RESUME);
-    }
-    glutAddMenuEntry("(Q)uit", MENU_QUIT);
-    glutAttachMenu (GLUT_RIGHT_BUTTON);
-}
-
-void mymenu(int value)
-{
-    switch (value) {
     case MENU_RASTER_OFF:
 	for (int i = 0 ; i < xdim * ydim ; i++) {
 	    sdp_sender(0, 0x80 + i + 1, 258, 0, 4, 0, 0); // turn off raster on all populations
@@ -229,7 +190,7 @@ void mymenu(int value)
 	}
 	fullscreen = !fullscreen;
 	break;
-    case MENU_PAUSE: {
+    case MENU_PAUSE:
 	// send pause packet out
 	for (int i = 0 ; i < all_desired_chips() ; i++) {
 	    send_to_chip(i, 0x21, 2, 0, 0, 0, 4, 0, 0, 0, 0);
@@ -237,15 +198,13 @@ void mymenu(int value)
 	freezedisplay = 1;
 	freezetime = timestamp();		// get time now in us
 	break;
-    }
-    case MENU_RESUME: {
+    case MENU_RESUME:
 	// send resume/restart packet out
 	for (int i = 0 ; i < all_desired_chips() ; i++) {
 	    send_to_chip(i, 0x21, 3, 0, 0, 0, 4, 0, 0, 0, 0);
 	}
 	freezedisplay = 0;
 	break;
-    }
     case MENU_QUIT:
 	safelyshut();
 	break;

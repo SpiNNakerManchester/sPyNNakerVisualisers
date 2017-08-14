@@ -100,8 +100,6 @@ int paramload(char* config_file_name)
 	GET_SETTING(LOWATER);
 	GET_SETTING(DYNAMICSCALE);
 	GET_SETTING(PERCENTAGESCALE);
-	GET_SETTING(STARTCOLOUR);
-	GET_SETTING(STARTMODE);
 	GET_SETTING(LABELBYCHIP);
 	GET_SETTING(PLAYPAUSEXIT);
 	GET_SETTING(DISPLAYMINIPLOT);
@@ -139,8 +137,6 @@ int paramload(char* config_file_name)
     xdim = XDIMENSIONS;        // number of items to plot in the x dimension
     ydim = YDIMENSIONS;        // number of items to plot in the y dimension
 
-    colourused = STARTCOLOUR;    // start with requested colour scheme
-
     xorigin = (windowWidth + keyWidth) - controlboxes * (boxsize + gap); // for the control box
 
     // malloc appropriate memory
@@ -169,6 +165,28 @@ int paramload(char* config_file_name)
     config_destroy(&cfg);
 }
 
+static void finalise_memory(void) {
+    // free up mallocs made for dynamic arrays
+    for (int i = 0 ; i < HISTORYSIZE ; i++) {
+	delete[] history_data[i];
+    }
+    delete[] history_data;
+    for (int i = 0 ; i < HISTORYSIZE ; ii++) {
+	delete[] history_data_set2[i];
+    }
+    delete[] history_data_set2;
+
+    delete[] immediate_data;
+
+    for (int i = 0 ; i < XDIMENSIONS * YDIMENSIONS ; i++) {
+	delete[] maplocaltoglobal[i];
+    }
+    delete[] maplocaltoglobal;
+    for (int i = 0 ; i < XDIMENSIONS * YDIMENSIONS ; i++) {
+	delete[] mapglobaltolocal[i];
+    }
+    delete[] mapglobaltolocal;
+}
 
 void parse_arguments(
 	int argc,
@@ -253,7 +271,7 @@ void parse_arguments(
 	    }
 	    spinnakerboardip = *(in_addr *) validipfound->h_addr;
 	    spinnakerboardipset++;
-	    //spinnakerboardport=SDPPORT;
+	    //spinnakerboardport = SDPPORT;
 	    //init_sdp_sender();  // unsure of sending port # - so this is a guess...
 	    printf("Waiting for packets only from: %s.\n",
 		    inet_ntoa(spinnakerboardip));
