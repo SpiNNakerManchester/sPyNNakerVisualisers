@@ -89,6 +89,53 @@ static inline void process_heatmap_packet(
     }
 }
 
+static inline void update_history_data(unsigned updateline)
+{
+    // work out how many lines have gone past without activity.
+    int linestoclear = updateline - lasthistorylineupdated;
+    // when window is reduced updateline reduces. ths causes an underflow
+    // construed as a wraparound. TODO.
+    if (linestoclear < 0 && updateline + 500 > lasthistorylineupdated) {
+	// to cover any underflow when resizing plotting window smaller
+	// (wrapping difference will be < 500)
+	linestoclear = 0;
+    }
+    if (linestoclear < 0) {
+	// if has wrapped then work out the true value
+	linestoclear = updateline + HISTORYSIZE - lasthistorylineupdated;
+    }
+
+    unsigned numberofdatapoints = xdim * ydim;
+    for (int i = 0 ; i < linestoclear ; i++) {
+	for (unsigned j = 0 ; j < numberofdatapoints ; j++) {
+	    // nullify data in the quiet period
+	    history_data[(1 + i + lasthistorylineupdated) % HISTORYSIZE][j] =
+		    NOTDEFINEDFLOAT;
+	}
+    }
+    lasthistorylineupdated = updateline;
+}
+
+static inline void write_to_file(int64_t nowtime)
+{
+    // Write to output file only if required and in normal SPINNAKER packet
+    // format (1) - basically the UDP payload
+    if (outputfileformat == 1) {
+	short test_length = numbytes_input;
+	int64_t test_timeoffset = nowtime - firstreceivetimez;
+
+	// can only write to the file if its not paused and can write
+	if (writingtofile == 0) {
+	    // 3 states.  1=busy writing, 2=paused, 0=not paused, not busy can write.
+	    writingtofile = 1;
+	    fwrite(&test_length, sizeof(test_length), 1, fileoutput);
+	    fwrite(&test_timeoffset, sizeof(test_timeoffset), 1, fileoutput);
+	    fwrite(&buffer_input, test_length, 1, fileoutput);
+	    writingtofile = 0;        // note write finished
+	}
+    }
+}
+
 void* input_thread_SDP(void *ptr)
 {
     use(ptr);
@@ -111,83 +158,48 @@ void* input_thread_SDP(void *ptr)
 	scanptrspinn = (spinnpacket*) buffer_input; // pointer to our packet in the buffer from the Ethernet
 	numAdditionalBytes = numbytes_input - sdp_header_len; // used for SDP only
 
-	if (scanptrspinn->cmd_rc != htonl(SPINN_HELLO)) { // we process only spinnaker packets that are non-hellos
-	    if (!spinnakerboardipset) {   // if no ip: set ip,port && init
-		// if we don't already know the SpiNNaker board IP then we learn that this is our board to listen to
-		spinnakerboardip = si_other.sin_addr;
-		spinnakerboardport = htons(si_other.sin_port);
-		spinnakerboardipset++;
-		init_sdp_sender();
-		printf("Pkt Received from %s on port: %d\n",
-			inet_ntoa(si_other.sin_addr),
-			htons(si_other.sin_port));
-	    }
+	if (scanptrspinn->cmd_rc == htonl(SPINN_HELLO)) {
+	    // discarding any hello packet by dropping out without processing
+	    continue;
+	}
 
-	    if (!spinnakerboardport) {     // if no port: set port && init
-		// if we don't already know the SpiNNaker port, then we get this dynamically from an incoming message.
-		spinnakerboardport = htons(si_other.sin_port);
-		init_sdp_sender();
-		printf("Pkt Received from %s on port: %d\n",
-			inet_ntoa(si_other.sin_addr),
-			htons(si_other.sin_port));
-	    } // record the port number we are being spoken to upon, and open the SDP connection externally.
+	// we process only spinnaker packets that are non-hellos
+	if (!spinnakerboardipset) {   // if no ip: set ip,port && init
+	    // if we don't already know the SpiNNaker board IP then we learn that this is our board to listen to
+	    spinnakerboardip = si_other.sin_addr;
+	    spinnakerboardport = htons(si_other.sin_port);
+	    spinnakerboardipset++;
+	    init_sdp_sender();
+	    printf("Pkt Received from %s on port: %d\n",
+		    inet_ntoa(si_other.sin_addr), htons(si_other.sin_port));
+	}
 
-	    // ip && port are now set, so process this SpiNNaker packet
+	if (!spinnakerboardport) {     // if no port: set port && init
+	    // if we don't already know the SpiNNaker port, then we get this dynamically from an incoming message.
+	    spinnakerboardport = htons(si_other.sin_port);
+	    init_sdp_sender();
+	    printf("Pkt Received from %s on port: %d\n",
+		    inet_ntoa(si_other.sin_addr), htons(si_other.sin_port));
+	} // record the port number we are being spoken to upon, and open the SDP connection externally.
 
-	    int64_t nowtime = timestamp();    // get time now in us
-	    if (firstreceivetimez == 0) {
-		firstreceivetimez = nowtime; // if 1st packet then note it's arrival
-	    }
+	// ip && port are now set, so process this SpiNNaker packet
 
-	    float timeperindex = displayWindow / float(plotWidth); // time in seconds per history index in use (or pixel displayed)
-	    int updateline = ((nowtime - starttimez)
-		    / int64_t(timeperindex * 1000000)) % HISTORYSIZE; // which index is being updated (on the right hand side)
+	int64_t nowtime = timestamp();    // get time now in us
+	if (firstreceivetimez == 0) {
+	    firstreceivetimez = nowtime; // if 1st packet then note it's arrival
+	}
 
-	    if (updateline < 0 || unsigned(updateline) > HISTORYSIZE) {
-		printf("Updateline out of bounds: %d. Time per Index: %f.\n"
-			"  Times - Now:%lld  Start:%lld\n", updateline,
-			timeperindex, (long long) nowtime,
-			(long long) starttimez);
-	    } else if (!freezedisplay) {
-		int linestoclear = updateline - lasthistorylineupdated; // work out how many lines have gone past without activity.
-		// when window is reduced updateline reduces. ths causes an underflow construed as a wraparound. TODO.
-		if (linestoclear < 0
-			&& updateline + 500 > lasthistorylineupdated) {
-		    // to cover any underflow when resizing plotting window smaller (wrapping difference will be <500)
-		    linestoclear = 0;
-		}
-		if (linestoclear < 0) {
-		    // if has wrapped then work out the true value
-		    linestoclear = updateline + HISTORYSIZE
-			    - lasthistorylineupdated;
-		}
-		unsigned numberofdatapoints = xdim * ydim;
-		for (int i = 0 ; i < linestoclear ; i++) {
-		    for (unsigned j = 0 ; j < numberofdatapoints ; j++) {
-			// nullify data in the quiet period
-			history_data[(1 + i + lasthistorylineupdated)
-				% HISTORYSIZE][j] = NOTDEFINEDFLOAT;
-		    }
-		}
-		lasthistorylineupdated = updateline;
-	    }
+	// time in seconds per history index in use (or pixel displayed)
+	float timeperindex = displayWindow / float(plotWidth);
+	// which index is being updated (on the right hand side)
+	unsigned updateline = ((nowtime - starttimez)
+		/ int64_t(timeperindex * 1000000)) % HISTORYSIZE;
 
-	    process_heatmap_packet(numAdditionalBytes, updateline);
-
-	    if (outputfileformat == 1) { // write to output file only if required and in normal SPINNAKER packet format (1) - basically the UDP payload
-		short test_length = numbytes_input;
-		int64_t test_timeoffset = nowtime - firstreceivetimez;
-
-		if (writingtofile == 0) { // can only write to the file if its not paused and can write
-		    writingtofile = 1; // 3 states.  1=busy writing, 2=paused, 0=not paused, not busy can write.
-		    fwrite(&test_length, sizeof(test_length), 1, fileoutput);
-		    fwrite(&test_timeoffset, sizeof(test_timeoffset), 1,
-			    fileoutput);
-		    fwrite(&buffer_input, test_length, 1, fileoutput);
-		    writingtofile = 0;        // note write finished
-		}
-	    }
-	}    // discarding any hello packet by dropping out without processing
+	if (!freezedisplay) {
+	    update_history_data(nowtime);
+	}
+	process_heatmap_packet(numAdditionalBytes, updateline);
+	write_to_file(updateline);
     }
 }
 

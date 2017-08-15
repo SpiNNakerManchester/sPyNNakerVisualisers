@@ -100,7 +100,7 @@ volatile int mappingfilesread = 0;
 unsigned maplocaltoglobalsize, mapglobaltolocalsize;	// logs how bug each array actually gets (might not be full!)
 
 
-int lasthistorylineupdated = 0;	// this is stored so that rows that have not been updated between then and now can be cleared out
+unsigned lasthistorylineupdated = 0;	// this is stored so that rows that have not been updated between then and now can be cleared out
 
 int counter = 0;		// number of times the display loop has been entered
 int pktcount = 0;		// total aggregate of packets received and processed

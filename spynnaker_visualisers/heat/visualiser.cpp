@@ -71,45 +71,6 @@ using namespace std;
 // -------------------------------------------------------------------------
 // Key enum types
 
-// which visualiser option
-enum visopt_t {
-    HEATMAP = 1,
-    RATEPLOT,
-    RETINA,
-    INTEGRATORFG,
-    RATEPLOTLEGACY,
-    MAR12RASTER,
-    SEVILLERETINA,
-    LINKCHECK,
-    SPIKERVC,
-    CHIPTEMP,
-    CPUUTIL,
-    RETINA2,
-    COCHLEA
-};
-
-// different colour maps available
-enum colormaps_t {
-    MULTI = 1,
-    GREYS,
-    REDS,
-    GREENS,
-    BLUES,
-    THERMAL,
-    RED,
-    BLUE
-};
-
-// view mode
-enum viewmodes_t {
-    TILED = 1,
-    INTERPOLATED,
-    HISTOGRAM,
-    LINES,
-    RASTER,
-    EEGSTYLE
-};
-
 enum directionbox_t {		// which box in the grid is used for each edge + middle, Ordered:  BtmR->TopR .. BtmL->TopR
     NORTH = 5,
     EAST = 1,
@@ -240,17 +201,64 @@ static inline void glOpenBoxVertices(float x1, float y1, float x2, float y2)
     glVertex2f(x2, y1);
 }
 
-static inline bool is_defined(float f) {
+static inline bool is_defined(float f)
+{
     return f > NOTDEFINEDFLOAT + 1;
 }
 
-static inline void trigger_display_refresh(void) {
+static inline void trigger_display_refresh(void)
+{
     somethingtoplot = 1;
+}
+
+enum ui_colors_t {
+    BLACK,
+    WHITE,
+    RED,
+    GREEN,
+    CYAN,
+    GREY
+};
+
+static inline void color(float r, float g, float b)
+{
+    glColor4f(r, g, b, 1.0);
+}
+
+static inline void color(ui_colors_t colour_name)
+{
+    switch (colour_name) {
+    case BLACK:
+	color(0.0, 0.0, 0.0);
+	break;
+    case WHITE:
+	color(1.0, 1.0, 1.0);
+	break;
+    case RED:
+	color(1.0, 0.0, 0.0);
+	break;
+    case GREEN:
+	color(0.0, 0.6, 0.0);
+	break;
+    case CYAN:
+	color(0.0, 1.0, 1.0);
+	break;
+    case GREY:
+	color(0.8, 0.8, 0.8);
+	break;
+    }
+}
+
+template<typename T>
+static inline void start_thread(T *fun)
+{
+    pthread_t pt;
+    pthread_create(&pt, NULL, fun, NULL);
 }
 
 //-------------------------------------------------------------------
 
-void readmappings(char* filenamea, char* filenameb)
+void readmappings(const char* filenamea, const char* filenameb)
 {
     size_t i, j, k;
     char buffer[BUFSIZ], *ptr;
@@ -332,9 +340,9 @@ void* load_stimulus_data_from_file(void *ptr)
     }
 
     fseek(fileinput, 0, SEEK_SET);	// reset position
-    printf(
-	    "Detected: %d packets in input file over %3.1fs. Allocating memory and loading...\n",
-	    numberofpackets - 1, float(endtimer - startimer) / 1000000.0);
+    printf("Detected: %d packets in input file over %3.1fs. "
+	    "Allocating memory and loading...\n", numberofpackets - 1,
+	    float(endtimer - startimer) / 1000000.0);
 
     unsigned buffsize = 100000;		// max number of packets to load each time
     if (numberofpackets < buffsize) {
@@ -394,7 +402,7 @@ void* load_stimulus_data_from_file(void *ptr)
     }
 
     fclose(fileinput);  // we've now send all the data,
-    fileinput = NULL;
+    fileinput = nullptr;
 
     delete[] fromfilelen;
     delete[] fromfileoffset;
@@ -592,7 +600,7 @@ float colour_calculator(float inputty, float hiwater, float lowater)
     float R = interpolate(gamut, COLOURSTEPS, 0, fillcolour);
     float G = interpolate(gamut, COLOURSTEPS, 1, fillcolour);
     float B = interpolate(gamut, COLOURSTEPS, 2, fillcolour);
-    glColor4f(R, G, B, 1.0);
+    color(R, G, B);
 
     return fillcolour;
 }
@@ -648,8 +656,8 @@ static inline void display_titles_labels(void)
 
 static inline void display_key(void)
 {
-    glColor4f(0.0, 0.0, 0.0, 1.0);		// Black Text for Labels
-    int keybase = windowBorder + 0.20 * (windowHeight - windowBorder); // bottom of the key
+    color(BLACK);
+    const int keybase = windowBorder + 0.20 * (windowHeight - windowBorder); // bottom of the key
     printgl(windowWidth - 55, windowHeight - windowBorder - 5,
 	    GLUT_BITMAP_HELVETICA_12, "%.2f", highwatermark); // Print HighWaterMark Value
     printgl(windowWidth - 55, keybase - 5, GLUT_BITMAP_HELVETICA_12, "%.2f",
@@ -663,7 +671,8 @@ static inline void display_key(void)
     int multipleprinted = 1;
     float linechunkiness = (windowHeight - windowBorder - keybase)
 	    / float(highwatermark - lowwatermark);
-    if (windowHeight - windowBorder - keybase > 0) { // too small to print
+    // key is only printed if big enough to print
+    if (windowHeight - windowBorder - keybase > 0) {
 	for (uint i = 0 ; i < windowHeight - windowBorder - keybase ; i++) {
 	    float temperaturehere = 1.0;
 	    if (linechunkiness > 0.0) {
@@ -678,7 +687,7 @@ static inline void display_key(void)
 
 	    float positiveoffset = temperaturehere - lowwatermark;
 	    if (positiveoffset >= interval * multipleprinted) {
-		glColor4f(0.0, 0.0, 0.0, 1.0);
+		color(BLACK);
 		glLineWidth(4.0);
 
 		glBegin(GL_LINES);
@@ -697,7 +706,7 @@ static inline void display_key(void)
 	    // if need to print a tag - do it
 	}
 
-	glColor4f(0.0, 0.0, 0.0, 1.0);
+	color(BLACK);
 	glLineWidth(2.0);
 
 	glBegin (GL_LINE_LOOP);
@@ -706,13 +715,11 @@ static inline void display_key(void)
 	glEnd();      //draw_line loop around the key;
 
 	glLineWidth(1.0);
-    } // key is only printed if big enough to print
+    }
 }
 
 static inline void display_controls()
 {
-    const int boxsize = 40, gap = 10;
-
     for (int box = 0 ; box < 3 ; box++) {
 	int xorigin = windowWidth - 3 * (boxsize + gap), yorigin =
 		windowHeight - gap - boxsize;
@@ -720,7 +727,7 @@ static inline void display_controls()
 
 	if ((!freezedisplay && box == 0) || (freezedisplay && box == 1)
 		|| box == 2) {
-	    glColor4f(0.0, 0.0, 0.0, 1.0);   // black is the new black
+	    color(BLACK);
 
 	    glBegin (GL_QUADS);
 	    glRectVertices(xorigin + box * (boxsize + gap),
@@ -728,7 +735,7 @@ static inline void display_controls()
 		    xorigin + box * (boxsize + gap) + boxsize, yorigin);
 	    glEnd();
 
-	    glColor4f(1.0, 0.0, 0.0, 1.0);
+	    color(RED);
 	    glLineWidth(15.0);
 
 	    // now draw shapes on boxes
@@ -765,13 +772,12 @@ static inline void display_controls()
 
 static inline void display_gridlines(float xsize, float ysize)
 {
-    uint xsteps = xdim, ysteps = ydim;
-    glColor4f(0.8, 0.8, 0.8, 1.0);	// Grey Colour for Gridlines
+    color(GREY);
 
     // if not going to completely obscure the data
     if (xsize > 3.0) {
 	// vertical grid lines
-	for (unsigned xcord = 0 ; xcord <= xsteps ; xcord++) {
+	for (unsigned xcord = 0 ; xcord <= xdim ; xcord++) {
 	    glBegin (GL_LINES);
 	    glVertex2f(windowBorder + xcord * xsize, windowBorder);
 	    glVertex2f(windowBorder + xcord * xsize,
@@ -783,7 +789,7 @@ static inline void display_gridlines(float xsize, float ysize)
     // if not going to completely obscure the data
     if (ysize > 3.0) {
 	// horizontal grid lines
-	for (unsigned ycord = 0 ; ycord <= ysteps ; ycord++) {
+	for (unsigned ycord = 0 ; ycord <= ydim ; ycord++) {
 	    glBegin (GL_LINES);
 	    glVertex2f(windowBorder, windowBorder + ycord * ysize);
 	    glVertex2f(windowWidth - windowBorder - keyWidth,
@@ -801,13 +807,13 @@ static inline void display_boxes(void)
 	    continue;
 	}
 	//only plot NESW+centre
-	glColor4f(0.0, 0.0, 0.0, 1.0);
+	color(BLACK);
 	if (int(box) == livebox) {
-	    glColor4f(0.0, 1.0, 1.0, 1.0);
+	    color(CYAN);
 	}
 	if (editmode || box == CENTRE) {
 	    if (box == CENTRE && editmode) {
-		glColor4f(0.0, 0.6, 0.0, 1.0); // go button is green!
+		color(GREEN); // go button is green!
 	    }
 
 	    glBegin (GL_QUADS);
@@ -819,14 +825,14 @@ static inline void display_boxes(void)
 	}
 
 	if (box == CENTRE) {
-	    glColor4f(1.0, 1.0, 1.0, 1.0);
+	    color(WHITE);
 	    printgl(windowWidth - (boxx + 1) * (boxsize + gap),
 		    yorigin + boxy * (boxsize + gap) + boxsize / 2 - 5,
 		    GLUT_BITMAP_8_BY_13, editmode ? " Go!" : "Alter");
 	} else {
-	    glColor4f(0.0, 0.0, 0.0, 1.0);
+	    color(BLACK);
 	    if (editmode && int(box) != livebox) {
-		glColor4f(1.0, 1.0, 1.0, 1.0);
+		color(WHITE);
 	    }
 	    float currentvalue = 0.0;
 	    if (box == NORTH) {
@@ -868,14 +874,14 @@ static inline void display_mini_pixel(
 
     if (livebox == i) { // draw outlines for selected box in little / mini version
 	glLineWidth(1.0);
-	glColor4f(0.0, 0.0, 0.0, 1.0);
+	color(BLACK);
 
 	glBegin (GL_LINE_LOOP);
 	glOpenBoxVertices(2 * gap + xcord * xsize, 2 * gap + ycord * ysize,
 		2 * gap + (xcord + 1) * xsize, 2 * gap + (ycord + 1) * ysize);
 	glEnd(); // this plots the external black outline of the selected tile
 
-	glColor4f(1.0, 1.0, 1.0, 1.0);
+	color(WHITE);
 
 	glBegin(GL_LINE_LOOP);
 	glOpenBoxVertices(1 + 2 * gap + xcord * xsize,
@@ -911,8 +917,7 @@ static inline void display_pixel(
     // if we want to plot values in blocks (and blocks big enough)
     if (plotvaluesinblocks && xsize > 8 && is_defined(immediate_data[ii])) {
 	// choose if light or dark labels
-	auto intensity = float(magnitude <= 0.6);
-	glColor4f(intensity, intensity, intensity, 1.0);
+	color(magnitude <= 0.6 ? WHITE : BLACK);
 	printglstroke(windowBorder - 20 + (xcord + 0.5) * xsize,
 		windowBorder - 6 + (ycord + 0.5) * ysize, 0.12, 0, "%3.2f",
 		immediate_data[ii]); // normal
@@ -935,7 +940,7 @@ void display(void)
     glClearColor(0.8, 0.8, 0.8, 1.0);	// background colour - grey surround
     glClear (GL_COLOR_BUFFER_BIT);
 
-    glColor4f(0.0, 0.0, 0.0, 1.0);	// Black Text for Labels
+    color(BLACK);
 
     // titles and labels are only printed if border is big enough
     if (printlabels && !fullscreen) {
@@ -985,7 +990,7 @@ void display(void)
 	display_pixel(xsize, ysize, ii, xcord, ycord);
 
     }
-    glColor4f(0.0, 0.0, 0.0, 1.0);
+    color(BLACK);
 
     // scrolling modes x scale and labels and gridlines
     if (gridlines) {
@@ -1000,7 +1005,7 @@ void display(void)
 	display_controls();
 
 	if (printpktgone) {
-	    glColor4f(0.0, 0.0, 0.0, 1.0);
+	    color(BLACK);
 	    if (spinnakerboardipset == 0) {
 		printgl(windowWidth - 3 * (boxsize + gap) - 5,
 			windowHeight - gap - boxsize - 25,
@@ -1087,7 +1092,7 @@ void keyDown(unsigned char key, int x, int y)
     case 'q':
 	safelyshut();
 	break;
-    case '"': {
+    case '"':
 	// send pause packet out
 	for (int i = 0 ; i < all_desired_chips() ; i++) {
 	    send_to_chip(i, 0x21, 2, 0, 0, 0, 4, 0, 0, 0, 0);
@@ -1096,8 +1101,7 @@ void keyDown(unsigned char key, int x, int y)
 	freezetime = timestamp();	// get time now in us
 	needtorebuildmenu = 1;
 	break;
-    }
-    case 'p': {
+    case 'p':
 	// send resume/restart packet out
 	for (int i = 0 ; i < all_desired_chips() ; i++) {
 	    send_to_chip(i, 0x21, 3, 0, 0, 0, 4, 0, 0, 0, 0);
@@ -1105,7 +1109,6 @@ void keyDown(unsigned char key, int x, int y)
 	freezedisplay = 0;
 	needtorebuildmenu = 1;
 	break;
-    }
 
     case 'b':
 	gridlines = !gridlines;
@@ -1445,6 +1448,7 @@ void safelyshut(void)
     // in some circumstances this gets run twice, therefore we check for
     // this (particularly the frees!)
     if (!safelyshutcalls) {
+	safelyshutcalls++;	// note that this routine has been run before
 	if (spinnakerboardport != 0) {
 	    for (int i = 0 ; i < all_desired_chips() ; i++) {
 		// send exit packet out if we are interacting
@@ -1453,49 +1457,42 @@ void safelyshut(void)
 	}
 
 	open_or_close_output_file();	// Close down any open output file
-	if (fileinput != NULL) {
+	if (fileinput != nullptr) {
 	    fclose(fileinput);		// deal with input file
 	}
 
 	finalise_memory();
-
-	safelyshutcalls++;	// note that this routine has been run before
     }
-    exit(0);			// kill program dead
+    exit(0);				// kill program dead
 }
 
 void open_or_close_output_file(void)
 {
-    time_t rawtime;
-    struct tm * timeinfo;
-    char filenamebuffer[80];
-    time(&rawtime);
-    timeinfo = localtime(&rawtime);
+    if (fileoutput == nullptr) {		// If file isn't already open, so this is a request to open it
+	time_t rawtime;
+	time(&rawtime);
+	struct tm * timeinfo = localtime(&rawtime);
+	char filename[80];
 
-    if (fileoutput == NULL) {		// If file isn't already open, so this is a request to open it
-	if (outputfileformat == 2) {	//SAVE AS NEUROTOOLS FORMAT
-	    strftime(filenamebuffer, 80, "packets-20%y%b%d_%H%M.neuro",
-		    timeinfo);
-	    printf("Saving spike packets in this file:\n       %s\n",
-		    filenamebuffer);
-	    fileoutput = fopen(filenamebuffer, "w");
+	if (outputfileformat == 2) {		//SAVE AS NEUROTOOLS FORMAT
+	    strftime(filename, 80, "packets-%Y%b%d_%H%M.neuro", timeinfo);
+	    printf("Saving spike packets in this file:\n\t%s\n", filename);
+	    fileoutput = fopen(filename, "w");
 	    fprintf(fileoutput, "# first_id =          \n");	// ! writing header for neurotools format file
 	    fprintf(fileoutput, "# n =          \n");		// ! writing header for neurotools format file
 	    fprintf(fileoutput, "# dt = 1.0\n");		// ! writing header for neurotools format file
 	    fprintf(fileoutput, "# dimensions = [          ]\n"); // ! writing header for neurotools format file
 	    fprintf(fileoutput, "# last_id =          \n");	// ! writing header for neurotools format file
 	} else if (outputfileformat == 1) {	//SAVE AS SPINN (UDP Payload) FORMAT
-	    strftime(filenamebuffer, 80, "packets-20%y%b%d_%H%M.spinn",
-		    timeinfo);
-	    printf("Saving all input data in this file:\n       %s\n",
-		    filenamebuffer);
-	    fileoutput = fopen(filenamebuffer, "wb");
+	    strftime(filename, 80, "packets-%Y%b%d_%H%M.spinn", timeinfo);
+	    printf("Saving all input data in this file:\n\t%s\n", filename);
+	    fileoutput = fopen(filename, "wb");
 	}
-    } else {                    // File is open already, so we need to close
-	if (outputfileformat == 2) {          // File was in neurotools format
+    } else {					// File is open already, so we need to close
+	if (outputfileformat == 2) {		// File was in neurotools format
 	    do {
-	    } while (writingtofile == 1); // busy wait for file to finish being updated if in-flight
-	    writingtofile = 2; // stop anybody else writing the file, pause further updating
+	    } while (writingtofile == 1);	// busy wait for file to finish being updated if in-flight
+	    writingtofile = 2;			// stop anybody else writing the file, pause further updating
 
 	    fseek(fileoutput, 13, SEEK_SET);		// pos 13 First ID
 	    fprintf(fileoutput, "%d", minneuridrx);	// write lowest detected neurid
@@ -1509,7 +1506,7 @@ void open_or_close_output_file(void)
 	fflush(fileoutput);
 	fclose(fileoutput);
 	printf("File Save Completed\n");
-	fileoutput = NULL;
+	fileoutput = nullptr;
 	outputfileformat = 0;
 	writingtofile = 0;
     }
@@ -1520,7 +1517,7 @@ void open_or_close_output_file(void)
 int main(int argc, char **argv)
 {
     // read and check the command line arguments
-    char *configfn, *replayfn, *l2gfn, *g2lfn;
+    const char *configfn, *replayfn, *l2gfn, *g2lfn;
     float replayspeed = 1.0;
 
     parse_arguments(argc, argv, configfn, replayfn, l2gfn, g2lfn,
@@ -1528,7 +1525,7 @@ int main(int argc, char **argv)
 
     if (configfn == nullptr) {
 	// default filename if not supplied by the user
-	configfn = (char*) "visparam.ini";
+	configfn = "visparam.ini";
     }
 
     // recover the parameters from the file used to configure this visualisation
@@ -1561,9 +1558,8 @@ int main(int argc, char **argv)
 	    printf("    Requested Playback speed will be at %3.2f rate.\n",
 		    playbackmultiplier);
 	}
-	pthread_t p1;
 	fileinput = fopen(replayfn, "rb");
-	if (fileinput == NULL) {
+	if (fileinput == nullptr) {
 	    fprintf(stderr, "cannot read replay file \"%s\"\n", replayfn);
 	    exit(2);
 	}  // check if file is readable
@@ -1572,21 +1568,20 @@ int main(int argc, char **argv)
 	if (!spinnakerboardipset) {
 	    inet_aton("127.0.0.1", &spinnakerboardip);
 	}
-	spinnakerboardport = SDPPORT; // SDPPORT is used for outgoing cnnx
+	spinnakerboardport = SDPPORT;	// SDPPORT is used for outgoing cnnx
 	spinnakerboardipset++;
 	init_sdp_sender();
 	printf("Set up to receive internally from %s on port: %d\n",
 		inet_ntoa(spinnakerboardip), SDPPORT);
 	// Launch the file receiver
-	pthread_create(&p1, NULL, load_stimulus_data_from_file, NULL);
+	start_thread(load_stimulus_data_from_file);
     }
 
     // this sets up the thread that can come back to here from type
-    pthread_t p2;
-    init_sdp_listening();	//initialization of the port for receiving SDP frames
-    pthread_create(&p2, NULL, input_thread_SDP, NULL); // away the SDP network receiver goes
+    init_sdp_listening();		//initialization of the port for receiving SDP frames
+    start_thread(input_thread_SDP);	// away the SDP network receiver goes
 
-    glutInit(&argc, argv);	// Initialise OpenGL
+    glutInit(&argc, argv);		// Initialise OpenGL
 
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
     glutInitWindowSize(windowWidth + keyWidth, windowHeight);
@@ -1606,7 +1601,7 @@ int main(int argc, char **argv)
     // this keeps an eye on whether a window is open (as can't alter when open!)
     glutMenuStatusFunc(logifmenuopen);
 
-    glutMainLoop();		// Enter the main OpenGL loop
+    glutMainLoop();			// Enter the main OpenGL loop
     printf("goodbye");
 
     return 0;

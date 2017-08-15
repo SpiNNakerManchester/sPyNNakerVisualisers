@@ -47,7 +47,7 @@ static inline int streq(const char *str1, const char *str2)
 
 // --------------------------------------------------------------------
 
-void paramload(char* config_file_name)
+void paramload(const char *config_file_name)
 {
     // check if visparam exists
     // if not then use in-built defaults
@@ -195,10 +195,10 @@ void finalise_memory(void) {
 void parse_arguments(
 	int argc,
 	char **argv,
-	char *&configfn,
-	char *&replayfn,
-	char *&l2gfn,
-	char *&g2lfn,
+	const char *&configfn,
+	const char *&replayfn,
+	const char *&l2gfn,
+	const char *&g2lfn,
 	float &replayspeed)
 {
     // read and check the command line arguments
