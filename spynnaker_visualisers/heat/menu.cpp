@@ -171,6 +171,9 @@ static void menu_callback(int value)
 
 void logifmenuopen(int status, int x, int y)
 {
+    use(x);
+    use(y);
+
     menuopen = int(status == GLUT_MENU_IN_USE);
     if (!menuopen && needtorebuildmenu) {
 	// if menu is not open we can make changes

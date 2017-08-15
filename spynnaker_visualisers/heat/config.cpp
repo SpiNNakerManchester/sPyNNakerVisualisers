@@ -1,14 +1,16 @@
+#include <libconfig.h>
 #include "state.h"
 
+template<typename INT>
 static inline void get_setting(
 	config_setting_t *setting,
 	const char *name,
-	int &var)
+	INT &var)
 {
     long long VALUE = 0;
 
     if (config_setting_lookup_int64(setting, name, &VALUE)) {
-	var = int(VALUE);
+	var = INT(VALUE);
     }
 }
 
@@ -17,7 +19,19 @@ static inline void get_setting(
 	const char *name,
 	float &var)
 {
-    float VALUE = 0;
+    double VALUE = 0;
+
+    if (config_setting_lookup_float(setting, name, &VALUE)) {
+	var = VALUE;
+    }
+}
+
+static inline void get_setting(
+	config_setting_t *setting,
+	const char *name,
+	double &var)
+{
+    double VALUE = 0;
 
     if (config_setting_lookup_float(setting, name, &VALUE)) {
 	var = VALUE;
@@ -33,39 +47,49 @@ static inline int streq(const char *str1, const char *str2)
 
 // --------------------------------------------------------------------
 
-int paramload(char* config_file_name)
+void paramload(char* config_file_name)
 {
     // check if visparam exists
     // if not then use in-built defaults
     // if it does then deal with it
 
-    config_t cfg; /*Returns all parameters in this structure */
-    config_setting_t *setting;
+    config_t cfg; //Returns all parameters in this structure
     const char *paramblock;
     const char *titletemp;
-    int tmp;
     //const char *config_file_name = "visparam.ini";
 
-    config_init(&cfg); /*Initialization */
+    //Initialization
+    config_init(&cfg);
 
     if (!config_read_file(&cfg, config_file_name)) {
 	printf("No readable %s in the local directory - "
 		"configuration defaulted to 48-chip HEATMAP.\n",
 		config_file_name);
-	setting != NULL;
 	//config_destroy(&cfg);
 	//return -1;
-    } else {
-	/* Get the simulation parameters to use. */
-	if (config_lookup_string(&cfg, "simparams", &paramblock)) {
-	    printf("Sim params specified: %s\n", paramblock);
-	} else {
-	    printf("No 'simparams' settings in configuration file.\n");
-	}
-	setting = config_lookup(&cfg, paramblock); /*Read the simulation parameters group*/
+	goto use_defaults;
     }
 
-    if (setting != NULL) {
+    // Get the simulation parameters to use.
+    if (config_lookup_string(&cfg, "simparams", &paramblock)) {
+	printf("Sim params specified: %s\n", paramblock);
+    } else {
+	printf("No 'simparams' settings in configuration file.\n");
+    }
+
+    if (false) {
+	use_defaults:
+	printf("Sim Name not found, so using defaults\n");
+	titletemp = "SIM PARAMETER LIST NOT FOUND";
+	XCHIPS = XDIMENSIONS / EACHCHIPX;
+	YCHIPS = YDIMENSIONS / EACHCHIPY;
+    } else {
+	// Read the simulation parameters group
+	auto setting = config_lookup(&cfg, paramblock);
+
+	if (setting == nullptr) {
+	    goto use_defaults;
+	}
 	if (!config_setting_lookup_string(setting, "TITLE", &titletemp)) {
 	    titletemp = "NO SIMULATION TITLE SUPPLIED";
 	}
@@ -74,15 +98,10 @@ int paramload(char* config_file_name)
 	GET_SETTING(WINHEIGHT);
 	GET_SETTING(WINWIDTH);
 	GET_SETTING(TIMEWINDOW);
-	GET_SETTING(KEYWIDTH);
-	GET_SETTING(DISPLAYXLABELS);
-	GET_SETTING(DISPLAYYLABELS);
 	GET_SETTING(XDIMENSIONS);
 	GET_SETTING(YDIMENSIONS);
 	GET_SETTING(EACHCHIPX);
 	GET_SETTING(EACHCHIPY);
-	GET_SETTING(N_PER_PROC);
-	GET_SETTING(ID_OFFSET);
 	GET_SETTING(XCHIPS);
 	GET_SETTING(YCHIPS);
 	// if not explicitly defined, we assume display will be chipwise
@@ -96,11 +115,6 @@ int paramload(char* config_file_name)
 	GET_SETTING(FIXEDPOINT);
 	GET_SETTING(BITSOFPOPID);
 	GET_SETTING(ALTERSTEPSIZE);
-    } else {
-	printf("Sim Name not found, so using defaults\n");
-	titletemp = "SIM PARAMETER LIST NOT FOUND";
-	XCHIPS = XDIMENSIONS / EACHCHIPX;
-	YCHIPS = YDIMENSIONS / EACHCHIPY;
     }
 
     // this section sets the variables based on the input (or defaults)
@@ -109,7 +123,6 @@ int paramload(char* config_file_name)
 
     windowBorder = WINBORDER;
     windowHeight = WINHEIGHT;
-    keyWidth = KEYWIDTH;
     windowWidth = WINWIDTH + keyWidth; // startup for window sizing
     displayWindow = TIMEWINDOW;
 
@@ -124,51 +137,59 @@ int paramload(char* config_file_name)
 
     // malloc appropriate memory
 
-    const int len = XDIMENSIONS * YDIMENSIONS;
+    const unsigned len = XDIMENSIONS * YDIMENSIONS;
     history_data = new float*[HISTORYSIZE];
-    for (int ii = 0 ; ii < HISTORYSIZE ; ii++) {
+    for (unsigned ii = 0 ; ii < HISTORYSIZE ; ii++) {
 	history_data[ii] = new float[len];
     }
     history_data_set2 = new float*[HISTORYSIZE];
-    for (int ii = 0 ; ii < HISTORYSIZE ; ii++) {
+    for (unsigned ii = 0 ; ii < HISTORYSIZE ; ii++) {
 	history_data_set2[ii] = new float[MAXRASTERISEDNEURONS];
     }
 
     immediate_data = new float[len];
 
     maplocaltoglobal = new int*[len];
-    for (int ii = 0 ; ii < len ; ii++) {
+    for (unsigned ii = 0 ; ii < len ; ii++) {
 	maplocaltoglobal[ii] = new int[2];
     }
     mapglobaltolocal = new int*[len];
-    for (int ii = 0 ; ii < len ; ii++) {
+    for (unsigned ii = 0 ; ii < len ; ii++) {
 	mapglobaltolocal[ii] = new int[2];
     }
 
     config_destroy(&cfg);
 }
 
-static void finalise_memory(void) {
-    // free up mallocs made for dynamic arrays
-    for (int i = 0 ; i < HISTORYSIZE ; i++) {
+// free up mallocs made for dynamic arrays
+void finalise_memory(void) {
+    // ====================================================
+    for (unsigned i = 0 ; i < HISTORYSIZE ; i++) {
 	delete[] history_data[i];
     }
     delete[] history_data;
-    for (int i = 0 ; i < HISTORYSIZE ; ii++) {
+
+    // ====================================================
+    for (unsigned i = 0 ; i < HISTORYSIZE ; i++) {
 	delete[] history_data_set2[i];
     }
     delete[] history_data_set2;
 
+    // ====================================================
     delete[] immediate_data;
 
-    for (int i = 0 ; i < XDIMENSIONS * YDIMENSIONS ; i++) {
+    // ====================================================
+    for (unsigned i = 0 ; i < XDIMENSIONS * YDIMENSIONS ; i++) {
 	delete[] maplocaltoglobal[i];
     }
     delete[] maplocaltoglobal;
-    for (int i = 0 ; i < XDIMENSIONS * YDIMENSIONS ; i++) {
+
+    // ====================================================
+    for (unsigned i = 0 ; i < XDIMENSIONS * YDIMENSIONS ; i++) {
 	delete[] mapglobaltolocal[i];
     }
     delete[] mapglobaltolocal;
+    // ====================================================
 }
 
 void parse_arguments(

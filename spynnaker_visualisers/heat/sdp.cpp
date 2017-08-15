@@ -41,8 +41,6 @@ void init_sdp_listening()
     }
 
     freeaddrinfo(servinfo_input);
-
-    //printf ("SDP UDP listener setup complete!\n");      // here ends the UDP listener setup witchcraft
 }
 
 void *get_in_addr(struct sockaddr *sa)
@@ -54,7 +52,9 @@ void *get_in_addr(struct sockaddr *sa)
     return &(((struct sockaddr_in6*) sa)->sin6_addr);
 }
 
-static inline void process_heatmap_packet(int numAdditionalBytes)
+static inline void process_heatmap_packet(
+	int numAdditionalBytes,
+	int updateline)
 {
     if (freezedisplay) {
 	return;
@@ -67,9 +67,8 @@ static inline void process_heatmap_packet(int numAdditionalBytes)
     for (int i = 0 ; i < numAdditionalBytes / 4 ; i++) {
 	uint arrayindex = (EACHCHIPX * EACHCHIPY)
 		* (xsrc * (XDIMENSIONS / EACHCHIPX) + ysrc) + i;
-	if (arrayindex < 0 || arrayindex > XDIMENSIONS * YDIMENSIONS) {
-	    printf(
-		    "Error line 772: Array index out of bounds: %u. (x=%u, y=%u)\n",
+	if (arrayindex > XDIMENSIONS * YDIMENSIONS) {
+	    printf("Array index out of bounds: %u. (x=%u, y=%u)\n",
 		    arrayindex, xsrc, ysrc);        // CPDEBUG
 	} else {
 	    immediate_data[arrayindex] = scanptr->data[i]
@@ -77,9 +76,8 @@ static inline void process_heatmap_packet(int numAdditionalBytes)
 	    if (immediate_data[arrayindex] > highwatermark)
 		printf("new hwm [%d, %d, %d] = %f\n", xsrc, ysrc, i,
 			immediate_data[arrayindex]);
-	    if (updateline < 0 || updateline > HISTORYSIZE) {
-		printf("Error line 776: Updateline is out of bounds: %d.\n",
-			updateline);        // CPDEBUG
+	    if (updateline < 0 || unsigned(updateline) > HISTORYSIZE) {
+		printf("Updateline is out of bounds: %d\n", updateline);
 	    } else {
 		history_data[updateline][arrayindex] =
 			immediate_data[arrayindex]; // replace any data already here
@@ -93,13 +91,10 @@ static inline void process_heatmap_packet(int numAdditionalBytes)
 
 void* input_thread_SDP(void *ptr)
 {
+    use(ptr);
     struct sockaddr_in si_other; // for incoming frames
     socklen_t addr_len_input = sizeof(struct sockaddr_in);
-    int64_t sincefirstpacket, nowtime;
     char sdp_header_len = 26;
-    unsigned char xsrc, ysrc;
-    unsigned int i, xcoord, ycoord;
-    struct timeval stopwatchus;
 
     while (1) {                             // for ever ever, ever ever.
 	int numAdditionalBytes = 0;
@@ -108,8 +103,7 @@ void* input_thread_SDP(void *ptr)
 		sizeof buffer_input, 0, (sockaddr*) &si_other,
 		(socklen_t*) &addr_len_input);
 	if (numbytes_input == -1) {
-	    printf("Error line 441: : %s\n", strerror(errno));
-	    perror((char*) "error recvfrom");
+	    perror("error recvfrom");
 	    exit(-1); // will only get here if there's an error getting the input frame off the Ethernet
 	}
 
@@ -127,7 +121,7 @@ void* input_thread_SDP(void *ptr)
 		printf("Pkt Received from %s on port: %d\n",
 			inet_ntoa(si_other.sin_addr),
 			htons(si_other.sin_port));
-	    }        // record the IP address of our SpiNNaker board.
+	    }
 
 	    if (!spinnakerboardport) {     // if no port: set port && init
 		// if we don't already know the SpiNNaker port, then we get this dynamically from an incoming message.
@@ -140,24 +134,20 @@ void* input_thread_SDP(void *ptr)
 
 	    // ip && port are now set, so process this SpiNNaker packet
 
-	    gettimeofday(&stopwatchus, NULL);             // grab current time
-	    nowtime = (((int64_t) stopwatchus.tv_sec * (int64_t) 1000000)
-		    + (int64_t) stopwatchus.tv_usec);    // get time now in us
+	    int64_t nowtime = timestamp();    // get time now in us
 	    if (firstreceivetimez == 0) {
 		firstreceivetimez = nowtime; // if 1st packet then note it's arrival
 	    }
-	    sincefirstpacket = (nowtime - firstreceivetimez) / 1000; // how long in ms since visualisation got 1st valid packet.
 
 	    float timeperindex = displayWindow / float(plotWidth); // time in seconds per history index in use (or pixel displayed)
 	    int updateline = ((nowtime - starttimez)
-		    / (int64_t)(timeperindex * 1000000)) % HISTORYSIZE; // which index is being updated (on the right hand side)
+		    / int64_t(timeperindex * 1000000)) % HISTORYSIZE; // which index is being updated (on the right hand side)
 
-	    if (updateline < 0 || updateline > HISTORYSIZE) {
-		printf("Error line 500: Updateline out of bounds: %d. "
-			"Time per Index: %f.\n"
+	    if (updateline < 0 || unsigned(updateline) > HISTORYSIZE) {
+		printf("Updateline out of bounds: %d. Time per Index: %f.\n"
 			"  Times - Now:%lld  Start:%lld\n", updateline,
-			timeperindex, (long long int) nowtime,
-			(long long int) starttimez); // CPDEBUG
+			timeperindex, (long long) nowtime,
+			(long long) starttimez);
 	    } else if (!freezedisplay) {
 		int linestoclear = updateline - lasthistorylineupdated; // work out how many lines have gone past without activity.
 		// when window is reduced updateline reduces. ths causes an underflow construed as a wraparound. TODO.
@@ -171,28 +161,18 @@ void* input_thread_SDP(void *ptr)
 		    linestoclear = updateline + HISTORYSIZE
 			    - lasthistorylineupdated;
 		}
-		int numberofdatapoints = xdim * ydim;
+		unsigned numberofdatapoints = xdim * ydim;
 		for (int i = 0 ; i < linestoclear ; i++) {
-		    for (int j = 0 ; j < numberofdatapoints ; j++) {
+		    for (unsigned j = 0 ; j < numberofdatapoints ; j++) {
 			// nullify data in the quiet period
 			history_data[(1 + i + lasthistorylineupdated)
-				% HISTORYSIZE][j] =
-				INITZERO ? 0.0 : NOTDEFINEDFLOAT;
-		    }
-		    if (win2) {
-			numberofdatapoints = MAXRASTERISEDNEURONS; // bespoke for Discovery demo
-			for (int j = 0 ; j < numberofdatapoints ; j++) {
-			    // nullify data in the quiet period
-			    history_data_set2[(1 + i + lasthistorylineupdated)
-				    % HISTORYSIZE][j] =
-				    INITZERO ? 0.0 : NOTDEFINEDFLOAT;
-			}
+				% HISTORYSIZE][j] = NOTDEFINEDFLOAT;
 		    }
 		}
 		lasthistorylineupdated = updateline;
 	    }
 
-	    process_heatmap_packet(numAdditionalBytes);
+	    process_heatmap_packet(numAdditionalBytes, updateline);
 
 	    if (outputfileformat == 1) { // write to output file only if required and in normal SPINNAKER packet format (1) - basically the UDP payload
 		short test_length = numbytes_input;
@@ -216,14 +196,12 @@ void init_sdp_sender()
     char portno_input[7];
     snprintf(portno_input, 6, "%d", spinnakerboardport);
 
-    int rv, numbytes, block_data_len, block_id, i, j, length, remaining_bytes;
-
     bzero(&hints_output, sizeof hints_output);
     hints_output.ai_family = AF_UNSPEC;		// set to AF_INET to force IPv4
     hints_output.ai_socktype = SOCK_DGRAM;	// type UDP (socket datagram)
 
-    rv = getaddrinfo(inet_ntoa(spinnakerboardip), portno_input, &hints_output,
-	    &servinfo);
+    auto rv = getaddrinfo(inet_ntoa(spinnakerboardip), portno_input,
+	    &hints_output, &servinfo);
     if (rv != 0) {
 	fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
 	exit(1);
@@ -259,10 +237,7 @@ void sdp_sender(
     va_list ExtraData;            // Initialise list of extra data
     va_start(ExtraData, extrawords); // Populate it - it's just after the extra words argument
 
-    unsigned int numbytes, sdplength;
     struct sdp_msg output_packet; // create the SDP message we are going to send;
-    struct sdp_msg *output_packet_ptr;     // create a pointer to it too
-    output_packet_ptr = &output_packet;
 
     output_packet.ip_time_out = 0;	// n/a
     output_packet.pad = 0;		// n/a
@@ -283,23 +258,15 @@ void sdp_sender(
     }
     va_end(ExtraData);			// de-initialize the list
 
-    sdplength = 26 + 4 * extrawords;	// only send extra data if it's supplied
-
-    if (spinnakerboardipset != 0) { // if we don't know where to send don't send!
-	numbytes = sendto(sockfd, output_packet_ptr, sdplength, 0,
-		p->ai_addr, p->ai_addrlen);
-	if (numbytes == -1) {
+    if (spinnakerboardipset) {
+	auto sdplength = 26 + 4 * extrawords;
+	struct sdp_msg *output_packet_ptr = &output_packet;
+	if (sendto(sockfd, output_packet_ptr, sdplength, 0, p->ai_addr,
+		p->ai_addrlen) == -1) {
 	    perror("oh dear - we didn't send our data!\n");
 	    exit(1);
 	}
     }
 
-    int64_t nowtime;
-    struct timeval stopwatchus;
-
-    gettimeofday(&stopwatchus, NULL);	// grab current time
-    nowtime = (((int64_t) stopwatchus.tv_sec * (int64_t) 1000000)
-	    + (int64_t) stopwatchus.tv_usec);    // get time now in us
-    printpktgone = nowtime;		// initialise the time the message started being displayed
-    //printf("Pkt sent:\n");
+    printpktgone = timestamp();		// initialise the time the message started being displayed
 }

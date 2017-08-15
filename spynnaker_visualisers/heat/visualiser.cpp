@@ -21,9 +21,10 @@
 //
 // --------------------------------------------------------------------------------------------------
 //
-// -----------------------------------------------------------------------------------------------------
-//  Select your simulation via a specific or visparam.ini file in the local directory
-// -----------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------
+//  Select your simulation via a specific or visparam.ini file in the local
+//  directory
+// -------------------------------------------------------------------------
 //
 // general, Ethernet and threading includes:
 #include <iostream>
@@ -50,7 +51,7 @@ using namespace std;
 // select your visualisation via a specific configuration file (-c filename) or the visparam.ini file
 // --------------------------------------------------------------------------------------------------
 
-// --------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------
 // This section checks to see whether the compilation is on a 32- or a 64-bit architecture.
 
 #if defined(__i386__)
@@ -59,6 +60,12 @@ using namespace std;
 #define MACHINEBITS 64
 #else
 #define MACHINEBITS 0
+#endif
+
+// -------------------------------------------------------------------------
+// Macro to make a variable be used even when it otherwise wouldn't be
+#ifndef use
+#define use(x)	do {} while ((x)!=(x))
 #endif
 
 // -------------------------------------------------------------------------
@@ -111,18 +118,19 @@ enum directionbox_t {		// which box in the grid is used for each edge + middle, 
     CENTRE = 4
 };
 
-// --------------------------------------------------------------------------------------------------
-// These defines used to represent max/min and invalid data values for checking out of range etc.
-//    as data is typically all floating point, these INT versions are rarely (if ever) used.
+// -------------------------------------------------------------------------
+// These defines used to represent max/min and invalid data values for
+//    checking out of range etc. As data is typically all floating point,
+//    these INT versions are rarely (if ever) used.
 
 #define MAXDATAINT	(65535)
-#define MAXDATAFLOAT	(65535.0)
+#define MAXDATAFLOAT	(65535.0F)
 
 #define MINDATAINT	(-65535)
-#define MINDATAFLOAT	(-65535.0)
+#define MINDATAFLOAT	(-65535.0F)
 
 #define NOTDEFINEDINT	(-66666)
-#define NOTDEFINEDFLOAT	(-66666.0)
+#define NOTDEFINEDFLOAT	(-66666.0F)
 
 #include "state.h"
 
@@ -133,7 +141,6 @@ void init_sdp_listening(void);
 //void* input_thread (void *ptr);
 void* input_thread_SDP(void *ptr);
 void init_sdp_sender(void);
-// void sdp_sender(unsigned short dest_add, unsigned int command, unsigned int arg1, unsigned int arg2, unsigned int arg3, float north, float east, float south, float west);
 void sdp_sender(
 	unsigned short dest_add,
 	unsigned char dest_port,
@@ -154,7 +161,17 @@ void rebuildmenu(void);
 void safelyshut(void);
 void open_or_close_output_file(void);
 int paramload(void);
+void finalise_memory(void);
 // end of prototypes
+
+static inline int64_t timestamp(void)
+{
+    struct timeval stopwatchus;
+
+    gettimeofday(&stopwatchus, NULL);			// grab current time
+    return (1000000 * (int64_t) stopwatchus.tv_sec)
+	    + (int64_t) stopwatchus.tv_usec;		// get time now in us
+}
 
 #include "sdp.cpp"
 
@@ -167,16 +184,8 @@ static inline void send_to_chip(
 {
     unsigned short x = id / (XDIMENSIONS / EACHCHIPX);
     unsigned short y = id % (YDIMENSIONS / EACHCHIPY);
-    sdp_sender(256 * x + y, port, command, &args...);
-}
-
-static inline int64_t timestamp(void)
-{
-    struct timeval stopwatchus;
-
-    gettimeofday(&stopwatchus, NULL);			// grab current time
-    return (1000000 * (int64_t) stopwatchus.tv_sec)
-	    + (int64_t) stopwatchus.tv_usec;		// get time now in us
+    unsigned short dest = 256 * x + y;
+    sdp_sender(dest, port, command, args...);
 }
 
 static inline int all_desired_chips(void)
@@ -298,21 +307,17 @@ void readmappings(char* filenamea, char* filenameb)
 
 void* load_stimulus_data_from_file(void *ptr)
 {
-    int64_t sincefirstpacket, nowtime, filestarttime = -1;
-    int64_t howlongrunning, howlongtowait;                // for timings
+    use(ptr);
+    int64_t nowtime, filestarttime = -1, howlongtowait;	// for timings
     struct timespec ts; // used for calculating how long to wait for next frame
     int numbytes;
-    char sdp_header_len = 26;
-
     short fromfilelenproto; // allocate new heap memory for a buffer for reading up to 100k packets in
     int64_t fromfileoffsetproto; // allocate new heap memory for a buffer for reading up to 100k packets in
     sdp_msg fromfileproto; // allocate new heap memory for a buffer for reading up to 100k packets in
-
     uint numberofpackets = 0;
-    uint filesimtime; // time in ms offset from 1st packet at beginning of file
     int64_t startimer = -1, endtimer = -1;
 
-    printf("\nChecking File Length...\n", numberofpackets - 1);
+    printf("\nChecking File Length...\n");
 
     while (fread(&fromfilelenproto, sizeof fromfilelenproto, 1, fileinput)) {
 	fread(&fromfileoffsetproto, sizeof fromfileoffsetproto, 1, fileinput);
@@ -326,14 +331,14 @@ void* load_stimulus_data_from_file(void *ptr)
 	numberofpackets++;
     }
 
-    fseek(fileinput, 0, SEEK_SET);                    // reset position
+    fseek(fileinput, 0, SEEK_SET);	// reset position
     printf(
 	    "Detected: %d packets in input file over %3.1fs. Allocating memory and loading...\n",
 	    numberofpackets - 1, float(endtimer - startimer) / 1000000.0);
 
-    int buffsize = 100000;          // max number of packets to load each time
+    unsigned buffsize = 100000;		// max number of packets to load each time
     if (numberofpackets < buffsize) {
-	buffsize = numberofpackets;  // size for the number of packets we have
+	buffsize = numberofpackets;	// size for the number of packets we have
     }
 
     short *fromfilelen = new short[buffsize]; // allocate new heap memory for a buffer for reading packets into
@@ -398,6 +403,7 @@ void* load_stimulus_data_from_file(void *ptr)
     printf("\nAll packets in the file were sent. Finished.\n\n");
     freezedisplay = 1;
     freezetime = timestamp();			// get time now in us
+    return nullptr;
 }
 
 void error(char *msg)
@@ -408,7 +414,7 @@ void error(char *msg)
 
 void cleardown(void)
 {
-    for (int i = 0 ; i < xdim * ydim ; i++) {
+    for (unsigned i = 0 ; i < xdim * ydim ; i++) {
 	immediate_data[i] = NOTDEFINEDFLOAT;
     }
     highwatermark = HIWATER; // reset for auto-scaling of plot colours, can dynamically alter this value (255.0 = top of the shop)
@@ -465,7 +471,7 @@ void printglstroke(
     glScalef(size, size, size);
     glRotatef(rotate, 0.0, 0.0, 1.0);
     for (i = 0; str[i] != '\0' ; i++) {
-	glutStrokeCharacter(GLUT_STROKE_ROMAN, str[i]);
+	glutStrokeCharacter(font_style, str[i]);
     }
     glDisable(GL_LINE_SMOOTH);
     glDisable(GL_BLEND);
@@ -663,8 +669,7 @@ static inline void display_key(void)
 	    if (linechunkiness > 0.0) {
 		temperaturehere = i / linechunkiness + lowwatermark;
 	    }
-	    float magnitude = colour_calculator(temperaturehere,
-		    highwatermark, lowwatermark);
+	    colour_calculator(temperaturehere, highwatermark, lowwatermark);
 
 	    glBegin (GL_LINES);
 	    glVertex2f(windowWidth - 65, i + keybase); // rhs
@@ -708,26 +713,26 @@ static inline void display_controls()
 {
     const int boxsize = 40, gap = 10;
 
-    for (int boxer = 0 ; boxer < 3 ; boxer++) {
+    for (int box = 0 ; box < 3 ; box++) {
 	int xorigin = windowWidth - 3 * (boxsize + gap), yorigin =
 		windowHeight - gap - boxsize;
 	// local to this scope
 
-	if ((!freezedisplay && boxer == 0) || (freezedisplay && boxer == 1)
-		|| boxer == 2) {
+	if ((!freezedisplay && box == 0) || (freezedisplay && box == 1)
+		|| box == 2) {
 	    glColor4f(0.0, 0.0, 0.0, 1.0);   // black is the new black
 
 	    glBegin (GL_QUADS);
-	    glRectVertices(xorigin + boxer * (boxsize + gap),
+	    glRectVertices(xorigin + box * (boxsize + gap),
 		    yorigin + boxsize,
-		    xorigin + boxer * (boxsize + gap) + boxsize, yorigin);
+		    xorigin + box * (boxsize + gap) + boxsize, yorigin);
 	    glEnd();
 
 	    glColor4f(1.0, 0.0, 0.0, 1.0);
 	    glLineWidth(15.0);
 
 	    // now draw shapes on boxes
-	    if (boxer == 0) {
+	    if (box == 0) {
 		glBegin(GL_QUADS);
 		glRectVertices(xorigin + gap, yorigin + boxsize - gap,
 			xorigin + (boxsize + gap) / 2 - gap, yorigin + gap);
@@ -735,23 +740,21 @@ static inline void display_controls()
 			yorigin + boxsize - gap, xorigin + boxsize - gap,
 			yorigin + gap);
 		glEnd();
-	    } else if (boxer == 1) {
+	    } else if (box == 1) {
 		glBegin (GL_TRIANGLES);
 		glVertex2f(xorigin + boxsize + 2 * gap,
 			yorigin + boxsize - gap); // topleft
 		glVertex2f(xorigin + 2 * boxsize, yorigin + boxsize / 2); // centreright
 		glVertex2f(xorigin + boxsize + gap * 2, yorigin + gap); // bottomleft
 		glEnd();
-	    } else if (boxer == 2) {
+	    } else if (box == 2) {
 		glBegin (GL_LINES);
-		glVertex2f(xorigin + boxer * (boxsize + gap) + gap,
+		glVertex2f(xorigin + 2 * boxsize + 3 * gap,
 			yorigin + boxsize - gap); // topleft
-		glVertex2f(xorigin + boxer * (boxsize + gap) + boxsize - gap,
-			yorigin + gap); // bottomright
-		glVertex2f(xorigin + boxer * (boxsize + gap) + boxsize - gap,
+		glVertex2f(xorigin + 3 * boxsize + gap, yorigin + gap); // bottomright
+		glVertex2f(xorigin + 3 * boxsize + gap,
 			yorigin + boxsize - gap); // topright
-		glVertex2f(xorigin + boxer * (boxsize + gap) + gap,
-			yorigin + gap); // bottomleft
+		glVertex2f(xorigin + 2 * boxsize + 3 * gap, yorigin + gap); // bottomleft
 		glEnd();
 	    }
 
@@ -760,7 +763,7 @@ static inline void display_controls()
     }
 }
 
-static inline void display_gridlines(void)
+static inline void display_gridlines(float xsize, float ysize)
 {
     uint xsteps = xdim, ysteps = ydim;
     glColor4f(0.8, 0.8, 0.8, 1.0);	// Grey Colour for Gridlines
@@ -768,7 +771,7 @@ static inline void display_gridlines(void)
     // if not going to completely obscure the data
     if (xsize > 3.0) {
 	// vertical grid lines
-	for (int xcord = 0 ; xcord <= xsteps ; xcord++) {
+	for (unsigned xcord = 0 ; xcord <= xsteps ; xcord++) {
 	    glBegin (GL_LINES);
 	    glVertex2f(windowBorder + xcord * xsize, windowBorder);
 	    glVertex2f(windowBorder + xcord * xsize,
@@ -780,7 +783,7 @@ static inline void display_gridlines(void)
     // if not going to completely obscure the data
     if (ysize > 3.0) {
 	// horizontal grid lines
-	for (int ycord = 0 ; ycord <= ysteps ; ycord++) {
+	for (unsigned ycord = 0 ; ycord <= ysteps ; ycord++) {
 	    glBegin (GL_LINES);
 	    glVertex2f(windowBorder, windowBorder + ycord * ysize);
 	    glVertex2f(windowWidth - windowBorder - keyWidth,
@@ -792,18 +795,18 @@ static inline void display_gridlines(void)
 
 static inline void display_boxes(void)
 {
-    for (int boxer = 0 ; boxer < controlboxes * controlboxes ; boxer++) {
-	int boxx = boxer / controlboxes, boxy = boxer % controlboxes;
+    for (unsigned box = 0 ; box < controlboxes * controlboxes ; box++) {
+	int boxx = box / controlboxes, boxy = box % controlboxes;
 	if (boxx != 1 && boxy != 1) {
 	    continue;
 	}
 	//only plot NESW+centre
 	glColor4f(0.0, 0.0, 0.0, 1.0);
-	if (boxer == livebox) {
+	if (int(box) == livebox) {
 	    glColor4f(0.0, 1.0, 1.0, 1.0);
 	}
-	if (editmode || boxer == CENTRE) {
-	    if (boxer == CENTRE && editmode) {
+	if (editmode || box == CENTRE) {
+	    if (box == CENTRE && editmode) {
 		glColor4f(0.0, 0.6, 0.0, 1.0); // go button is green!
 	    }
 
@@ -815,24 +818,24 @@ static inline void display_boxes(void)
 	    glEnd();  // alter button
 	}
 
-	if (boxer == CENTRE) {
+	if (box == CENTRE) {
 	    glColor4f(1.0, 1.0, 1.0, 1.0);
 	    printgl(windowWidth - (boxx + 1) * (boxsize + gap),
 		    yorigin + boxy * (boxsize + gap) + boxsize / 2 - 5,
 		    GLUT_BITMAP_8_BY_13, editmode ? " Go!" : "Alter");
 	} else {
 	    glColor4f(0.0, 0.0, 0.0, 1.0);
-	    if (editmode && boxer != livebox) {
+	    if (editmode && int(box) != livebox) {
 		glColor4f(1.0, 1.0, 1.0, 1.0);
 	    }
 	    float currentvalue = 0.0;
-	    if (boxer == NORTH) {
+	    if (box == NORTH) {
 		currentvalue = alternorth;
-	    } else if (boxer == EAST) {
+	    } else if (box == EAST) {
 		currentvalue = altereast;
-	    } else if (boxer == SOUTH) {
+	    } else if (box == SOUTH) {
 		currentvalue = altersouth;
-	    } else if (boxer == WEST) {
+	    } else if (box == WEST) {
 		currentvalue = alterwest;
 	    }
 	    printgl(windowWidth - (boxx + 1) * (boxsize + gap),
@@ -843,8 +846,6 @@ static inline void display_boxes(void)
 }
 
 static inline void display_mini_pixel(
-	float xsize,
-	float ysize,
 	float tileratio,
 	int i,
 	int ii,
@@ -856,6 +857,9 @@ static inline void display_mini_pixel(
     float ysize = max(1.0F, float(windowBorder - 6 * gap) / ydim);
     float xsize = max(1.0F, float(ysize * tileratio)); // draw little / mini tiled version in btm left - pixel size
     if (is_defined(immediate_data[ii])) { // only plot if data is valid
+	// work out what colour we should plot - sets 'ink' plotting colour
+	colour_calculator(immediate_data[ii], highwatermark, lowwatermark);
+
 	glBegin (GL_QUADS); // draw little tiled version in btm left
 	glRectVertices(2 * gap + xcord * xsize, 2 * gap + ycord * ysize,
 		2 * gap + (xcord + 1) * xsize, 2 * gap + (ycord + 1) * ysize);
@@ -891,6 +895,9 @@ static inline void display_pixel(
 	int xcord,
 	int ycord)
 {
+    float magnitude = colour_calculator(immediate_data[ii], highwatermark,
+	    lowwatermark);
+
     // basic plot
     if (is_defined(immediate_data[ii])) {
 	glBegin (GL_QUADS);
@@ -915,9 +922,6 @@ static inline void display_pixel(
 // display function, called whenever the display window needs redrawing
 void display(void)
 {
-    int64_t nowtime;
-    float timeperindex = displayWindow / float(plotWidth); // time in seconds per history index in use
-
     glPointSize(1.0);
 
     counter++;				// how many frames have we plotted in our history
@@ -939,7 +943,7 @@ void display(void)
     }
 
     // scale all the values to plottable range
-    for (int i = 0 ; i < xdim * ydim ; i++) {
+    for (unsigned i = 0 ; i < xdim * ydim ; i++) {
 	if (is_defined(immediate_data[i])) {    // is valid
 	    immediate_data[i] = clamp(MINDATAFLOAT, immediate_data[i],
 		    MAXDATAFLOAT);
@@ -961,17 +965,14 @@ void display(void)
     float ysize = float(windowHeight - 2 * windowBorder) / ydim; // changed for dynamic reshaping
     float tileratio = xsize / ysize;
 
-    for (int i = 0 ; i < xdim * ydim ; i++) {
+    for (unsigned i = 0 ; i < xdim * ydim ; i++) {
 	int ii = coordinate_manipulate(i); // if any manipulation of how the data is to be plotted is required, do it
 	int xcord, ycord;
 	convert_index_to_coord(i, xcord, ycord); // find out the (x,y) coordinates of where to plot this data
 
-	float magnitude = colour_calculator(immediate_data[ii], highwatermark,
-		lowwatermark); // work out what colour we should plot - sets 'ink' plotting colour
-
 	// if required, plot tiled mini version in bottom left
 	if (!fullscreen) {
-	    display_mini_pixel(xsize, ysize, tileratio, i, ii, xcord, ycord);
+	    display_mini_pixel(tileratio, i, ii, xcord, ycord);
 	}
 
 	xsize = plotWidth / float(xdim);
@@ -979,9 +980,6 @@ void display(void)
 	    xsize = 1.0;
 	}
 	ysize = float(windowHeight - 2 * windowBorder) / ydim; // changed for dynamic reshaping
-
-	// Set 'ink' plotting colour
-	colour_calculator(immediate_data[ii], highwatermark, lowwatermark);
 
 	// basic plot
 	display_pixel(xsize, ysize, ii, xcord, ycord);
@@ -991,7 +989,7 @@ void display(void)
 
     // scrolling modes x scale and labels and gridlines
     if (gridlines) {
-	display_gridlines();
+	display_gridlines(xsize, ysize);
     }
 
     // only print if not in fullscreen mode
@@ -1052,15 +1050,23 @@ void reshape(int width, int height)
     trigger_display_refresh();
 }
 
-static inline void set_heatmap_cell(int id, float north, float east, float south float west)
+static inline void set_heatmap_cell(
+	int id,
+	float north,
+	float east,
+	float south,
+	float west)
 {
-    send_to_chip(i, 0x21, 1, 0, 0, 0, 4, int(north * 65536),
+    send_to_chip(id, 0x21, 1, 0, 0, 0, 4, int(north * 65536),
 	    int(east * 65536), int(south * 65536), int(west * 65536));
 }
 
 // Called when keys are pressed
 void keyDown(unsigned char key, int x, int y)
 {
+    use(x);
+    use(y);
+
     switch (tolower(key)) {
     case 'f':
 	if (fullscreen) {
@@ -1102,7 +1108,7 @@ void keyDown(unsigned char key, int x, int y)
     }
 
     case 'b':
-	gridlines = !gridlines
+	gridlines = !gridlines;
 	break;
     case '#':
 	// toggles the plotting of values
@@ -1222,26 +1228,27 @@ void keyDown(unsigned char key, int x, int y)
 #define SCROLL_UP	3
 #define SCROLL_DOWN	4
 
-static inline bool in_box(int box, int x, int y, int boxsize=40, int gap=10)
+static inline bool in_box(unsigned box, int x, int y)
 {
-    int xorigin = windowWidth - 3 * (boxsize + gap);
-    int yorigin = windowHeight - gap - boxsize;
+    unsigned xorigin = windowWidth - 3 * (boxsize + gap);
+    unsigned yorigin = windowHeight - gap - boxsize;
 
-    return x >= xorigin + box * (boxsize + gap)
-	    && x < xorigin + box * (boxsize + gap) + boxsize
-	    && windowHeight - y < yorigin + boxsize
-	    && windowHeight - y >= yorigin;
+    return x >= int(xorigin + box * (boxsize + gap))
+	    && x < int(xorigin + box * (boxsize + gap) + boxsize)
+	    && int(windowHeight - y) < int(yorigin + boxsize)
+	    && int(windowHeight - y) >= int(yorigin);
 }
 
-static inline bool in_box2(int boxx, int boxy, int x, int y, int boxsize=40, int gap=10)
+static inline bool in_box2(unsigned boxx, unsigned boxy, int x, int y)
 {
-    int xorigin = windowWidth - (boxx + 1) * (boxsize + gap);
-    int yorigin = windowHeight - gap - boxsize;
+    unsigned xorigin = windowWidth - (boxx + 1) * (boxsize + gap);
+    unsigned yorigin = windowHeight - gap - boxsize;
 
-    return x >= xorigin
-	    && windowHeight - y >= yorigin + boxy * (boxsize + gap)
-	    && x < xorigin + boxsize
-	    && windowHeight - y < yorigin + boxsize + boxy * (boxsize + gap);
+    return x >= int(xorigin)
+	    && int(windowHeight - y) >= int(yorigin + boxy * (boxsize + gap))
+	    && x < int(xorigin + boxsize)
+	    && int(windowHeight - y)
+		    < int(yorigin + boxsize + boxy * (boxsize + gap));
 }
 
 static inline void handle_control_box_click(int x, int y)
@@ -1273,8 +1280,8 @@ static inline void handle_control_box_click(int x, int y)
 }
 
 static inline int get_box_id(int x, int y) {
-    for (int boxx = 0 ; boxx < controlboxes ; boxx++) {
-	for (int boxy = 0 ; boxy < controlboxes ; boxy++) {
+    for (unsigned boxx = 0 ; boxx < controlboxes ; boxx++) {
+	for (unsigned boxy = 0 ; boxy < controlboxes ; boxy++) {
 	    if (in_box2(boxx, boxy, x, y)) {
 		return boxx * controlboxes + boxy;
 	    }
@@ -1329,7 +1336,7 @@ void mousehandler(int button, int state, int x, int y)
 
     if (button == GLUT_LEFT_BUTTON) {
 	handle_control_box_click(x, y);
-	hanlde_main_box_click(x, y);
+	handle_main_box_click(x, y);
 
 	// if you didn't manage to do something useful, then likely greyspace
 	// around the figure was clicked (should now deselect any selection)
@@ -1390,23 +1397,16 @@ void idleFunction()
 	needtorebuildmenu = 0;
     }
 
-    int usecperframe = 1000000 / MAXFRAMERATE;		// us target per frame
-    struct timespec ts; // used for calculating how long to wait for next frame
-    int64_t nowtime, howlongrunning, howlongtowait;	// for timings
+    int usecperframe = 1000000 / MAXFRAMERATE;	// us target per frame
 
-    if (plotWidth != windowWidth - 2 * windowBorder - keyWidth) {
-	printf(
-		"NOT SAME: windowWidth-(2*windowBorder)-keyWidth=%d, plotWidth=%d.\n",
-		windowWidth - 2 * windowBorder - keyWidth, plotWidth);
-    }
-
-    howlongtowait = starttimez + counter * (int64_t) usecperframe
-	    - timestamp(); // how long in us until we need to draw the next frame
-
+    // if we are ahead of schedule sleep for a bit
+    auto howlongtowait = starttimez + counter * (int64_t) usecperframe
+	    - timestamp();
     if (howlongtowait > 0) {
-	ts.tv_sec = howlongtowait / 1000000; // # seconds (very unlikely to be in the seconds!)
-	ts.tv_nsec = (howlongtowait % 1000000) * 1000; // us * 1000 = nano secs
-	nanosleep(&ts, NULL);   // if we are ahead of schedule sleep for a bit
+	struct timespec ts;
+	ts.tv_sec = howlongtowait / 1000000;
+	ts.tv_nsec = (howlongtowait % 1000000) * 1000;
+	nanosleep(&ts, NULL);
     }
 
     // log lastrowupdated.
@@ -1415,13 +1415,8 @@ void idleFunction()
     // Upon Plot screen. All between lastrowupdated and currenttimerow will be nothing - clear between last and to now.
     // If lastrowupdated = currenttimerow, nothing to nullify.
 
-    nowtime = timestamp();    // get time now in us
-    howlongrunning = nowtime - starttimez; // how long in us since visualation started running.
-    // idle until the next frame/s interval is due
-
-    if (printpktgone && nowtime > printpktgone + 1000000) {
+    if (printpktgone && timestamp() > printpktgone + 1000000) {
 	printpktgone = 0; // if packet send message has been displayed for more than 1s, stop its display
-	trigger_display_refresh();	// force refresh screen
     }
 
     // force the refresh for this frame timing (even if nothing has changed!)
@@ -1440,8 +1435,6 @@ void myinit(void)
 
     filemenu();
     transformmenu();
-    modemenu();
-    colmenu();
     rebuildmenu();
 }
 
@@ -1527,7 +1520,6 @@ void open_or_close_output_file(void)
 int main(int argc, char **argv)
 {
     // read and check the command line arguments
-    int errfound = 0;
     char *configfn, *replayfn, *l2gfn, *g2lfn;
     float replayspeed = 1.0;
 
@@ -1546,18 +1538,12 @@ int main(int argc, char **argv)
 	readmappings(l2gfn, g2lfn);		// read mappings file into array
     }
 
-    for (int ii = 0 ; ii < XDIMENSIONS * YDIMENSIONS ; ii++) {
-	int xcoordinate, ycoordinate, index;
-	convert_index_to_coord(ii, xcoordinate, ycoordinate);
-	index = convert_coord_to_index(xcoordinate, ycoordinate);
-    }
-
     cleardown(); // reset the plot buffer to something sensible (i.e. 0 to start with)
     starttimez = timestamp();
     keepalivetime = starttimez;
 
-    for (int j = 0 ; j < HISTORYSIZE ; j++) {
-	for (int i = 0 ; i < xdim * ydim ; i++) {
+    for (unsigned j = 0 ; j < HISTORYSIZE ; j++) {
+	for (unsigned i = 0 ; i < xdim * ydim ; i++) {
 	    history_data[j][i] = NOTDEFINEDFLOAT;
 	}
     }
