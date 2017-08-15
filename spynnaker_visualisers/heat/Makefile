@@ -15,7 +15,8 @@ all: visualiser
 visualiser: $(OBJS)
 
 # Dependencies
-visualiser.o: visualiser.cpp config.cpp menu.cpp sdp.cpp state.h 
+visualiser.o: visualiser.cpp config.cpp display.cpp events.cpp menu.cpp \
+	sdp.cpp state.h 
 
 clean:
 	-rm $(OBJS)
