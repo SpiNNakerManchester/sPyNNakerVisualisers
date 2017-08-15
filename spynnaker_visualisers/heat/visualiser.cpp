@@ -71,7 +71,8 @@ using namespace std;
 // -------------------------------------------------------------------------
 // Key enum types
 
-enum directionbox_t {		// which box in the grid is used for each edge + middle, Ordered:  BtmR->TopR .. BtmL->TopR
+enum directionbox_t {
+    // which box in the grid is used for each edge + middle, Ordered:  BtmR->TopR .. BtmL->TopR
     NORTH = 5,
     EAST = 1,
     SOUTH = 3,
@@ -212,12 +213,7 @@ static inline void trigger_display_refresh(void)
 }
 
 enum ui_colors_t {
-    BLACK,
-    WHITE,
-    RED,
-    GREEN,
-    CYAN,
-    GREY
+    BLACK, WHITE, RED, GREEN, CYAN, GREY
 };
 
 static inline void color(float r, float g, float b)
@@ -344,9 +340,9 @@ void* load_stimulus_data_from_file(void *ptr)
 	    "Allocating memory and loading...\n", numberofpackets - 1,
 	    float(endtimer - startimer) / 1000000.0);
 
-    unsigned buffsize = 100000;		// max number of packets to load each time
+    unsigned buffsize = 100000;	// max number of packets to load each time
     if (numberofpackets < buffsize) {
-	buffsize = numberofpackets;	// size for the number of packets we have
+	buffsize = numberofpackets;// size for the number of packets we have
     }
 
     short *fromfilelen = new short[buffsize]; // allocate new heap memory for a buffer for reading packets into
@@ -369,17 +365,17 @@ void* load_stimulus_data_from_file(void *ptr)
 	    int64_t targettime = (int64_t)(
 		    fromfileoffset[i] / float(playbackmultiplier));
 
-	    nowtime = timestamp();				// get time now in us
+	    nowtime = timestamp();			// get time now in us
 
 	    if (filestarttime == -1) {
-		filestarttime = nowtime - targettime;		// if 1st packet then note it's arrival (typically timeoffset==0 for 1st packet)
+		filestarttime = nowtime - targettime;// if 1st packet then note it's arrival (typically timeoffset==0 for 1st packet)
 	    }
 
 	    howlongtowait = (filestarttime + targettime) - nowtime; // how long in us until we need to send the next packet
 
 	    if (howlongtowait > 0) {
 		ts.tv_sec = howlongtowait / 1000000;		// # seconds
-		ts.tv_nsec = (howlongtowait % 1000000) * 1000;	// us * 1000 = nano secs
+		ts.tv_nsec = (howlongtowait % 1000000) * 1000;// us * 1000 = nano secs
 		nanosleep(&ts, NULL); // if we are ahead of schedule sleep for a bit
 	    }
 
@@ -608,7 +604,7 @@ float colour_calculator(float inputty, float hiwater, float lowater)
 void displayb(void)			// not currently used
 {
     glLoadIdentity();
-    glutSetWindow(windowToUpdate);	// this used to give a blank screen for the 2nd screen when loaded (so it doens't flash scr1)
+    glutSetWindow(windowToUpdate);// this used to give a blank screen for the 2nd screen when loaded (so it doens't flash scr1)
     glLoadIdentity();
     //glutPostRedisplay();
     glClearColor(0, 0, 0, 1.0);		// background colour - grey surround
@@ -730,8 +726,7 @@ static inline void display_controls()
 	    color(BLACK);
 
 	    glBegin (GL_QUADS);
-	    glRectVertices(xorigin + box * (boxsize + gap),
-		    yorigin + boxsize,
+	    glRectVertices(xorigin + box * (boxsize + gap), yorigin + boxsize,
 		    xorigin + box * (boxsize + gap) + boxsize, yorigin);
 	    glEnd();
 
@@ -830,10 +825,6 @@ static inline void display_boxes(void)
 		    yorigin + boxy * (boxsize + gap) + boxsize / 2 - 5,
 		    GLUT_BITMAP_8_BY_13, editmode ? " Go!" : "Alter");
 	} else {
-	    color(BLACK);
-	    if (editmode && int(box) != livebox) {
-		color(WHITE);
-	    }
 	    float currentvalue = 0.0;
 	    if (box == NORTH) {
 		currentvalue = alternorth;
@@ -844,6 +835,7 @@ static inline void display_boxes(void)
 	    } else if (box == WEST) {
 		currentvalue = alterwest;
 	    }
+	    color(editmode && int(box) != livebox ? WHITE : BLACK);
 	    printgl(windowWidth - (boxx + 1) * (boxsize + gap),
 		    yorigin + boxy * (boxsize + gap) + boxsize / 2 - 5,
 		    GLUT_BITMAP_8_BY_13, "%3.1f", currentvalue);
@@ -929,10 +921,10 @@ void display(void)
 {
     glPointSize(1.0);
 
-    counter++;				// how many frames have we plotted in our history
+    counter++;		// how many frames have we plotted in our history
 
     glLoadIdentity();
-    glutSetWindow(windowToUpdate);	// specifically look at our plotting window
+    glutSetWindow(windowToUpdate);// specifically look at our plotting window
     glLoadIdentity();
 
     //glutPostRedisplay();
@@ -1079,15 +1071,15 @@ void keyDown(unsigned char key, int x, int y)
 	    windowWidth -= keyWidth;		// recover the key area
 	    plotWidth = windowWidth - 2 * windowBorder - keyWidth;
 	} else {
-	    oldwindowBorder = windowBorder;	// used as border disappears when going full-screen
+	    oldwindowBorder = windowBorder;// used as border disappears when going full-screen
 	    windowBorder = 0;			// no borders around the plots
-	    windowWidth += keyWidth;		// take over the area used for the key too
+	    windowWidth += keyWidth;// take over the area used for the key too
 	    plotWidth = windowWidth - keyWidth;
 	}
 	fullscreen = !fullscreen;
 	break;
     case 'c':
-	cleardown();			// clears the output when 'c' key is pressed
+	cleardown();		// clears the output when 'c' key is pressed
 	break;
     case 'q':
 	safelyshut();
@@ -1282,7 +1274,8 @@ static inline void handle_control_box_click(int x, int y)
     }
 }
 
-static inline int get_box_id(int x, int y) {
+static inline int get_box_id(int x, int y)
+{
     for (unsigned boxx = 0 ; boxx < controlboxes ; boxx++) {
 	for (unsigned boxy = 0 ; boxy < controlboxes ; boxy++) {
 	    if (in_box2(boxx, boxy, x, y)) {
@@ -1468,7 +1461,7 @@ void safelyshut(void)
 
 void open_or_close_output_file(void)
 {
-    if (fileoutput == nullptr) {		// If file isn't already open, so this is a request to open it
+    if (fileoutput == nullptr) {// If file isn't already open, so this is a request to open it
 	time_t rawtime;
 	time(&rawtime);
 	struct tm * timeinfo = localtime(&rawtime);
@@ -1478,30 +1471,30 @@ void open_or_close_output_file(void)
 	    strftime(filename, 80, "packets-%Y%b%d_%H%M.neuro", timeinfo);
 	    printf("Saving spike packets in this file:\n\t%s\n", filename);
 	    fileoutput = fopen(filename, "w");
-	    fprintf(fileoutput, "# first_id =          \n");	// ! writing header for neurotools format file
-	    fprintf(fileoutput, "# n =          \n");		// ! writing header for neurotools format file
-	    fprintf(fileoutput, "# dt = 1.0\n");		// ! writing header for neurotools format file
+	    fprintf(fileoutput, "# first_id =          \n");// ! writing header for neurotools format file
+	    fprintf(fileoutput, "# n =          \n");// ! writing header for neurotools format file
+	    fprintf(fileoutput, "# dt = 1.0\n");// ! writing header for neurotools format file
 	    fprintf(fileoutput, "# dimensions = [          ]\n"); // ! writing header for neurotools format file
-	    fprintf(fileoutput, "# last_id =          \n");	// ! writing header for neurotools format file
-	} else if (outputfileformat == 1) {	//SAVE AS SPINN (UDP Payload) FORMAT
+	    fprintf(fileoutput, "# last_id =          \n"); // ! writing header for neurotools format file
+	} else if (outputfileformat == 1) { //SAVE AS SPINN (UDP Payload) FORMAT
 	    strftime(filename, 80, "packets-%Y%b%d_%H%M.spinn", timeinfo);
 	    printf("Saving all input data in this file:\n\t%s\n", filename);
 	    fileoutput = fopen(filename, "wb");
 	}
-    } else {					// File is open already, so we need to close
-	if (outputfileformat == 2) {		// File was in neurotools format
+    } else {			// File is open already, so we need to close
+	if (outputfileformat == 2) {	// File was in neurotools format
 	    do {
-	    } while (writingtofile == 1);	// busy wait for file to finish being updated if in-flight
-	    writingtofile = 2;			// stop anybody else writing the file, pause further updating
+	    } while (writingtofile == 1);// busy wait for file to finish being updated if in-flight
+	    writingtofile = 2;// stop anybody else writing the file, pause further updating
 
 	    fseek(fileoutput, 13, SEEK_SET);		// pos 13 First ID
-	    fprintf(fileoutput, "%d", minneuridrx);	// write lowest detected neurid
-	    fseek(fileoutput, 29, SEEK_SET);		// pos 29 n number of neurons-1
+	    fprintf(fileoutput, "%d", minneuridrx);// write lowest detected neurid
+	    fseek(fileoutput, 29, SEEK_SET);// pos 29 n number of neurons-1
 	    fprintf(fileoutput, "%d", maxneuridrx - minneuridrx); // write number of neurons in range
-	    fseek(fileoutput, 67, SEEK_SET);		// pos 67 dimensions number of neurons-1
+	    fseek(fileoutput, 67, SEEK_SET); // pos 67 dimensions number of neurons-1
 	    fprintf(fileoutput, "%d", maxneuridrx - minneuridrx); // write number of neurons in range
 	    fseek(fileoutput, 90, SEEK_SET);		// pos 90 Last ID
-	    fprintf(fileoutput, "%d", maxneuridrx);	// write highest detected neurid
+	    fprintf(fileoutput, "%d", maxneuridrx);// write highest detected neurid
 	}
 	fflush(fileoutput);
 	fclose(fileoutput);
@@ -1532,7 +1525,7 @@ int main(int argc, char **argv)
     paramload(configfn);
 
     if (l2gfn != nullptr && g2lfn != nullptr) {	// if both translations are provided
-	readmappings(l2gfn, g2lfn);		// read mappings file into array
+	readmappings(l2gfn, g2lfn);	// read mappings file into array
     }
 
     cleardown(); // reset the plot buffer to something sensible (i.e. 0 to start with)
@@ -1578,7 +1571,7 @@ int main(int argc, char **argv)
     }
 
     // this sets up the thread that can come back to here from type
-    init_sdp_listening();		//initialization of the port for receiving SDP frames
+    init_sdp_listening();//initialization of the port for receiving SDP frames
     start_thread(input_thread_SDP);	// away the SDP network receiver goes
 
     glutInit(&argc, argv);		// Initialise OpenGL
