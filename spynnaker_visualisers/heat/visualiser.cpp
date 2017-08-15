@@ -481,6 +481,31 @@ void safelyshut(void)
     exit(0);				// kill program dead
 }
 
+static inline void run_GUI(int argc, char **argv)
+{
+    glutInit(&argc, argv);		// Initialise OpenGL
+
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
+    glutInitWindowSize(windowWidth + keyWidth, windowHeight);
+    glutInitWindowPosition(0, 100);
+    windowToUpdate = glutCreateWindow(
+	    "VisRT - plotting your network data in real time");
+
+    myinit();
+
+    glutDisplayFunc(display);
+    glutReshapeFunc(reshape);
+    glutIdleFunc(idleFunction);
+    glutKeyboardFunc(keyDown);
+    glutMouseFunc(mousehandler);
+    // register what to do when the use kills the window via the frame object
+    glutCloseFunc(safelyshut);
+    // this keeps an eye on whether a window is open (as can't alter when open!)
+    glutMenuStatusFunc(logifmenuopen);
+
+    glutMainLoop();			// Enter the main OpenGL loop
+}
+
 void open_or_close_output_file(void)
 {
     if (fileoutput == nullptr) {// If file isn't already open, so this is a request to open it
@@ -596,28 +621,7 @@ int main(int argc, char **argv)
     init_sdp_listening();//initialization of the port for receiving SDP frames
     start_thread(input_thread_SDP);	// away the SDP network receiver goes
 
-    glutInit(&argc, argv);		// Initialise OpenGL
-
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
-    glutInitWindowSize(windowWidth + keyWidth, windowHeight);
-    glutInitWindowPosition(0, 100);
-    windowToUpdate = glutCreateWindow(
-	    "VisRT - plotting your network data in real time");
-
-    myinit();
-
-    glutDisplayFunc(display);
-    glutReshapeFunc(reshape);
-    glutIdleFunc(idleFunction);
-    glutKeyboardFunc(keyDown);
-    glutMouseFunc(mousehandler);
-    // register what to do when the use kills the window via the frame object
-    glutCloseFunc(safelyshut);
-    // this keeps an eye on whether a window is open (as can't alter when open!)
-    glutMenuStatusFunc(logifmenuopen);
-
-    glutMainLoop();			// Enter the main OpenGL loop
+    run_GUI(argc, argv);		// Initialise and run the GUI
     printf("goodbye");
-
     return 0;
 }
