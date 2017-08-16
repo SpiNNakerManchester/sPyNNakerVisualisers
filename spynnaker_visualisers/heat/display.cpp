@@ -274,6 +274,8 @@ static inline void display_key(void)
 
 static inline void display_controls()
 {
+    const unsigned boxsize = 40, gap = 10;
+
     for (int box = 0 ; box < 3 ; box++) {
 	int xorigin = windowWidth - 3 * (boxsize + gap), yorigin =
 		windowHeight - gap - boxsize;
@@ -408,8 +410,6 @@ static inline void display_mini_pixel(
 	int xcord,
 	int ycord)
 {
-    const int gap = 10;
-
     float ysize = max(1.0F, float(windowBorder - 6 * gap) / ydim);
     float xsize = max(1.0F, float(ysize * tileratio)); // draw little / mini tiled version in btm left - pixel size
     if (is_defined(immediate_data[ii])) { // only plot if data is valid

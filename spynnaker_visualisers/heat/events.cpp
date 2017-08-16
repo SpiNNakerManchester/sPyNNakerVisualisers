@@ -194,8 +194,9 @@ void keyDown(unsigned char key, int x, int y)
 #define SCROLL_UP	3
 #define SCROLL_DOWN	4
 
-static inline bool in_box(unsigned box, int x, int y)
+static inline bool in_control_box(unsigned box, int x, int y)
 {
+    const unsigned boxsize = 40, gap = 10;
     unsigned xorigin = windowWidth - 3 * (boxsize + gap);
     unsigned yorigin = windowHeight - gap - boxsize;
 
@@ -205,7 +206,35 @@ static inline bool in_box(unsigned box, int x, int y)
 	    && int(windowHeight - y) >= int(yorigin);
 }
 
-static inline bool in_box2(unsigned boxx, unsigned boxy, int x, int y)
+static inline void handle_control_box_click(int x, int y)
+{
+    if (in_control_box(0, x, y) && !freezedisplay) {
+	// send pause packet out
+	for (int i = 0 ; i < all_desired_chips() ; i++) {
+	    send_to_chip(i, 0x21, 2, 0, 0, 0, 4, 0, 0, 0, 0);
+	}
+	freezedisplay = 1;
+	freezetime = timestamp(); // get time now in us
+	// indicate we will need to refresh the screen
+	trigger_display_refresh();
+	needtorebuildmenu = 1;
+    }
+    if (in_control_box(1, x, y) && freezedisplay) {
+	// send resume/restart packet out
+	for (int i = 0 ; i < all_desired_chips() ; i++) {
+	    send_to_chip(i, 0x21, 3, 0, 0, 0, 4, 0, 0, 0, 0);
+	}
+	freezedisplay = 0;
+	// indicate we will need to refresh the screen
+	trigger_display_refresh();
+	needtorebuildmenu = 1;
+    }
+    if (in_control_box(2, x, y)) {
+	safelyshut();
+    }
+}
+
+static inline bool in_box(unsigned boxx, unsigned boxy, int x, int y)
 {
     unsigned xorigin = windowWidth - (boxx + 1) * (boxsize + gap);
     unsigned yorigin = windowHeight - gap - boxsize;
@@ -217,39 +246,11 @@ static inline bool in_box2(unsigned boxx, unsigned boxy, int x, int y)
 		    < int(yorigin + boxsize + boxy * (boxsize + gap));
 }
 
-static inline void handle_control_box_click(int x, int y)
-{
-    if (in_box(0, x, y) && !freezedisplay) {
-	// send pause packet out
-	for (int i = 0 ; i < all_desired_chips() ; i++) {
-	    send_to_chip(i, 0x21, 2, 0, 0, 0, 4, 0, 0, 0, 0);
-	}
-	freezedisplay = 1;
-	freezetime = timestamp(); // get time now in us
-	// indicate we will need to refresh the screen
-	trigger_display_refresh();
-	needtorebuildmenu = 1;
-    }
-    if (in_box(1, x, y) && freezedisplay) {
-	// send resume/restart packet out
-	for (int i = 0 ; i < all_desired_chips() ; i++) {
-	    send_to_chip(i, 0x21, 3, 0, 0, 0, 4, 0, 0, 0, 0);
-	}
-	freezedisplay = 0;
-	// indicate we will need to refresh the screen
-	trigger_display_refresh();
-	needtorebuildmenu = 1;
-    }
-    if (in_box(2, x, y)) {
-	safelyshut();
-    }
-}
-
 static inline int get_box_id(int x, int y)
 {
     for (unsigned boxx = 0 ; boxx < controlboxes ; boxx++) {
 	for (unsigned boxy = 0 ; boxy < controlboxes ; boxy++) {
-	    if (in_box2(boxx, boxy, x, y)) {
+	    if (in_box(boxx, boxy, x, y)) {
 		return boxx * controlboxes + boxy;
 	    }
 	}
