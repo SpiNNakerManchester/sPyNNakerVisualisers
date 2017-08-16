@@ -359,7 +359,6 @@ void mousehandler(int button, int state, int x, int y)
 void idleFunction()
 {
     if (needtorebuildmenu && !menuopen) {
-	filemenu();
 	rebuildmenu();    // if menu is not open we can make changes
 	needtorebuildmenu = 0;
     }
@@ -376,20 +375,16 @@ void idleFunction()
 	nanosleep(&ts, NULL);
     }
 
-    // log lastrowupdated.
-    // Upon Receive packet. All between lastrowupdated and currenttimerow will be nothing - clear between lastrowupdated+1 and to now.
-    // If lastrowupdated = currenttimerow, nothing to nullify, just add on.
-    // Upon Plot screen. All between lastrowupdated and currenttimerow will be nothing - clear between last and to now.
-    // If lastrowupdated = currenttimerow, nothing to nullify.
-
+    // if packet send message has been displayed for more than 1s, stop its display
     if (printpktgone && timestamp() > printpktgone + 1000000) {
-	printpktgone = 0; // if packet send message has been displayed for more than 1s, stop its display
+	printpktgone = 0;
     }
 
     // force the refresh for this frame timing (even if nothing has changed!)
     trigger_display_refresh();
 
+    // update the display - will be timed inside this function to get desired FPS
     if (somethingtoplot) {
-	display(); // update the display - will be timered inside this function to get desired FPS
+	display();
     }
 }

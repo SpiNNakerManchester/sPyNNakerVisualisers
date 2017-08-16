@@ -116,26 +116,6 @@ static inline void update_history_data(unsigned updateline)
     lasthistorylineupdated = updateline;
 }
 
-static inline void write_to_file(int64_t nowtime)
-{
-    // Write to output file only if required and in normal SPINNAKER packet
-    // format (1) - basically the UDP payload
-    if (outputfileformat == 1) {
-	short test_length = numbytes_input;
-	int64_t test_timeoffset = nowtime - firstreceivetimez;
-
-	// can only write to the file if its not paused and can write
-	if (writingtofile == 0) {
-	    // 3 states.  1=busy writing, 2=paused, 0=not paused, not busy can write.
-	    writingtofile = 1;
-	    fwrite(&test_length, sizeof(test_length), 1, fileoutput);
-	    fwrite(&test_timeoffset, sizeof(test_timeoffset), 1, fileoutput);
-	    fwrite(&buffer_input, test_length, 1, fileoutput);
-	    writingtofile = 0;        // note write finished
-	}
-    }
-}
-
 void* input_thread_SDP(void *ptr)
 {
     use(ptr);
@@ -199,7 +179,6 @@ void* input_thread_SDP(void *ptr)
 	    update_history_data(nowtime);
 	}
 	process_heatmap_packet(numAdditionalBytes, updateline);
-	write_to_file(updateline);
     }
 }
 
