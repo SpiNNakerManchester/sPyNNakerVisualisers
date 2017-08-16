@@ -16,16 +16,15 @@ static unsigned XDIMENSIONS = 32, YDIMENSIONS = 32,
 	EACHCHIPX = 4, EACHCHIPY = 4;	// canvas size defaults
 static unsigned XCHIPS = XDIMENSIONS / EACHCHIPX, YCHIPS = YDIMENSIONS / EACHCHIPY;// defaults to a chipwise display
 
-static double TIMEWINDOW = 3.5;		// default time width of a window
-static float displayWindow = TIMEWINDOW;
-static unsigned HISTORYSIZE = 3500, MAXRASTERISEDNEURONS = 1024;// data set sizes
+static const float TIMEWINDOW = 3.5;
+static unsigned HISTORYSIZE = 3500;	// data set sizes
 
-static unsigned WINBORDER = 110, WINHEIGHT = 700, WINWIDTH = 850; // defaults for window sizing
-static unsigned keyWidth = 50;
+static const unsigned WINBORDER = 110, WINHEIGHT = 700, WINWIDTH = 850; // defaults for window sizing
+static const unsigned keyWidth = 50;
 static unsigned windowBorder = WINBORDER, windowHeight = WINHEIGHT,
 	windowWidth = WINWIDTH+keyWidth;// startup for window sizing
 
-static double HIWATER = 10, LOWATER = 0;// default hi and lo water
+static const double HIWATER = 10, LOWATER = 0;// default hi and lo water
 static double lowwatermark = HIWATER, highwatermark = LOWATER;
 
 static unsigned xflip = 0, yflip = 0, vectorflip = 0, rotateflip = 0; // default to no translations of the data
@@ -33,7 +32,7 @@ static unsigned xflip = 0, yflip = 0, vectorflip = 0, rotateflip = 0; // default
 static unsigned MAXFRAMERATE = 25;	// graphics frame updates
 static unsigned short SDPPORT = 17894;	// which UDP port are we expecting our SDP traffic on
 static unsigned short FIXEDPOINT = 16;	// number of bits in word of data that are to the right of the decimal place
-static unsigned short BITSOFPOPID = 0;	// number of bits of population in each core (pow of 2); 0 for implicit core==popID
+static float FixedPointFactor;		// multiplier created from FIXEDPOINT value, above
 static double ALTERSTEPSIZE = 1.0;	// the step size used when altering the data to send
 
 // ------------------------------------------------------------------------
@@ -56,7 +55,7 @@ static unsigned ydim;// = YDIMENSIONS;	// number of items to plot in the y dimen
 static unsigned plotWidth, printlabels;
 
 static int fullscreen = 0;		// toggles to get rid of menus/labels/axes/key/controls etc.
-static int oldwindowBorder = 0;	// used as border disappears when going full-screen
+static int oldwindowBorder = 0;		// used as border disappears when going full-screen
 static int gridlines = 0;		// toggles gridlines, starts off
 
 static int RHMouseMenu = 0;		// used for menu generation/regeneration.
@@ -73,13 +72,9 @@ static const unsigned controlboxes = 3;	// grid of control boxes to build (3x3)
 static unsigned yorigin = gap;		// Base coordinate of where to plot the compass control box
 static unsigned xorigin;		// for the control box
 
-// this is stored so that rows that have not been updated between then and now can be cleared out
-static unsigned lasthistorylineupdated = 0;
-
 static int counter = 0;			// number of times the display loop has been entered
 static int64_t printpktgone = 0;	// if set non zero, this is the time the last Eth packet message was sent, idle function checks for 1s before stopping displaying it
 static int64_t starttimez, firstreceivetimez = 0; // storage of persistent times in us
-static int64_t keepalivetime;		// used by code to send out a packet every few seconds to keep ARP entries alive
 
 static int safelyshutcalls = 0;		// sometimes the routine to close (and free memory) is called > once, this protects
 
@@ -91,8 +86,7 @@ static int safelyshutcalls = 0;		// sometimes the routine to close (and free mem
 #define SPINN_HELLO	0x41		// SpiNNaker raw format uses this as a discovery protocol
 #define P2P_SPINN_PACKET 0x3A		// P2P SpiNNaker output packets (Stimulus from SpiNNaker to outside world)
 #define STIM_IN_SPINN_PACKET 0x49	// P2P SpiNNaker input packets (Stimulus from outside world)
-// Maximum size of packet (waaaaaaaaaaay too big, but not a problem here)
-#define MTU	1515
+#define MTU		1515		// Maximum size of packet (waaaaaaaaaaay too big, but not a problem here)
 
 // stop alignment in structure: word alignment would be nasty here, byte alignment reqd
 #pragma pack(1)
@@ -130,16 +124,8 @@ struct sdp_msg {		// SDP message (<=292 bytes)
 
 //global variables for SDP packet receiver
 static int sockfd_input, sockfd;
-static char portno_input[6];
-static struct addrinfo hints_input, hints_output, *servinfo_input, *p_input,
-    *servinfo, *p;
-static int rv_input;
-static int numbytes_input;
 static sdp_msg *scanptr;
 static spinnpacket *scanptrspinn;
-static in_addr spinnakerboardip;
-static int spinnakerboardport = 0;
-static char spinnakerboardipset = 0;
 
 // buffer for network packets
 static unsigned char buffer_input[MTU];

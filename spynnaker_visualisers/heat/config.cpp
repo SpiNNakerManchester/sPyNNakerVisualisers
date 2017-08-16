@@ -57,26 +57,16 @@ static bool parse_config_section(T setting, const char *&titletemp)
 	titletemp = "NO SIMULATION TITLE SUPPLIED";
     }
 
-    GET_SETTING(WINBORDER);
-    GET_SETTING(WINHEIGHT);
-    GET_SETTING(WINWIDTH);
-    GET_SETTING(TIMEWINDOW);
     GET_SETTING(XDIMENSIONS);
     GET_SETTING(YDIMENSIONS);
     GET_SETTING(EACHCHIPX);
     GET_SETTING(EACHCHIPY);
     GET_SETTING(XCHIPS);
     GET_SETTING(YCHIPS);
-    // if not explicitly defined, we assume display will be chipwise
-
     GET_SETTING(HISTORYSIZE);
-    GET_SETTING(MAXRASTERISEDNEURONS);
-    GET_SETTING(HIWATER);
-    GET_SETTING(LOWATER);
     GET_SETTING(MAXFRAMERATE);
     GET_SETTING(SDPPORT);
     GET_SETTING(FIXEDPOINT);
-    GET_SETTING(BITSOFPOPID);
     GET_SETTING(ALTERSTEPSIZE);
     return false;
 }
@@ -86,13 +76,12 @@ static void parse_config(const char *config_file_name)
     config_t cfg; //Returns all parameters in this structure
     const char *paramblock;
     const char *titletemp;
-    //const char *config_file_name = "visparam.ini";
 
     //Initialization
     config_init(&cfg);
 
     if (!config_read_file(&cfg, config_file_name)) {
-	printf("No readable %s in the local directory - "
+	printf("No readable %s in the local directory; "
 		"configuration defaulted to 48-chip HEATMAP.\n",
 		config_file_name);
 	goto use_defaults;
@@ -126,7 +115,6 @@ static void paramload(const char *config_file_name)
     windowBorder = WINBORDER;
     windowHeight = WINHEIGHT;
     windowWidth = WINWIDTH + keyWidth; // startup for window sizing
-    displayWindow = TIMEWINDOW;
 
     plotWidth = windowWidth - 2 * windowBorder - keyWidth; // how wide is the actual plot area
     printlabels = (windowBorder >= 100); // only print labels if the border is big enough
@@ -135,6 +123,8 @@ static void paramload(const char *config_file_name)
     ydim = YDIMENSIONS;        // number of items to plot in the y dimension
 
     xorigin = (windowWidth + keyWidth) - controlboxes * (boxsize + gap); // for the control box
+
+    FixedPointFactor = 1.0F / float(pow(2.0, FIXEDPOINT));
 
     // malloc appropriate memory
 
@@ -146,7 +136,7 @@ static void paramload(const char *config_file_name)
     // ====================================================
     history_data_set2 = new float*[HISTORYSIZE];
     for (unsigned ii = 0 ; ii < HISTORYSIZE ; ii++) {
-	history_data_set2[ii] = new float[MAXRASTERISEDNEURONS];
+	history_data_set2[ii] = new float[1024];
     }
     // ====================================================
     immediate_data = new float[len];
@@ -179,33 +169,26 @@ static void parse_arguments(int argc, char **argv, const char *&configfn)
 	if (streq(argv[i], "-c") || streq(argv[i], "-config")) {
 	    if (i + 1 >= argc) {
 		errfound++;
-		printf("*No local config filename provided. Error.\n");
+		fprintf(stderr, "***** No local config filename given.\n");
 		break;
 	    }
-	    // TODO: check if filename begins with - and give error if this is the case?
 	    configfn = argv[++i];
 	    printf("Attempting to load configuration file: %s.\n", configfn);
 	} else if (streq(argv[i], "-ip")) {
 	    // spinnakerboardip is set
 	    if (i + 1 >= argc) { // check to see if a 2nd argument provided
 		errfound++;
-		printf(
-			"***** You said you'd supply an IP "
-			"address/hostname but didn't, I'm sad. Error.\n");
+		fprintf(stderr, "***** IP address missing.\n");
 		break;
 	    }
 	    char *sourceipaddr = argv[++i]; // here's our hostname or ip address to check
 	    hostent *validipfound = gethostbyname(sourceipaddr);
 	    if (!validipfound) {
 		errfound++;                  // if doesn't exist then fail
-		printf("***** Can't figure out the IP "
-			"address/hostname supplied, sorry. Error.\n");
+		fprintf(stderr, "***** Can't parse IP address/hostname.\n");
 		continue;
 	    }
-	    spinnakerboardip = *(in_addr *) validipfound->h_addr;
-	    spinnakerboardipset++;
-	    //spinnakerboardport = SDPPORT;
-	    //init_sdp_sender();  // unsure of sending port # - so this is a guess...
+	    set_board_ip_address((in_addr *) validipfound->h_addr);
 	    printf("Waiting for packets only from: %s.\n",
 		    inet_ntoa(spinnakerboardip));
 	} else {

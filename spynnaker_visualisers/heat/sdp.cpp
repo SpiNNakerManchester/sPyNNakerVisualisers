@@ -1,16 +1,41 @@
 #include "state.h"
 
-// setup socket for SDP frame receiving on port SDPPORT defined about (usually 17894)
-void init_sdp_listening()
+static in_addr spinnakerboardip;
+static char spinnakerboardipset = 0;
+static int spinnakerboardport = 0;
+
+static void set_board_ip_address(in_addr *address)
 {
-    snprintf(portno_input, 6, "%d", SDPPORT);
+    spinnakerboardip = *address;
+    spinnakerboardipset = 1;
+}
 
-    bzero(&hints_input, sizeof(hints_input));
-    hints_input.ai_family = AF_INET; // set to AF_INET to force IPv4
-    hints_input.ai_socktype = SOCK_DGRAM; // type UDP (socket datagram)
-    hints_input.ai_flags = AI_PASSIVE; // use my IP
+static bool is_board_address_set(void)
+{
+    return spinnakerboardipset != 0;
+}
 
-    rv_input = getaddrinfo(NULL, portno_input, &hints_input, &servinfo_input);
+static bool is_board_port_set(void)
+{
+    // 0 is not a valid port, as it is the ANY port.
+    return spinnakerboardport != 0;
+}
+
+// setup socket for SDP frame receiving on port SDPPORT defined about
+// (usually 17894)
+static int init_sdp_listening()
+{
+    struct addrinfo hints_input, *servinfo_input, *p_input;
+    char portno_input[8];
+
+    snprintf(portno_input, 7, "%d", SDPPORT);
+    bzero(&hints_input, sizeof hints_input);
+    hints_input.ai_family = AF_INET;		// SpiNNaker only supports IPv4
+    hints_input.ai_socktype = SOCK_DGRAM;	// type UDP (socket datagram)
+    hints_input.ai_flags = AI_PASSIVE;		// use my IP
+
+    int rv_input = getaddrinfo(NULL, portno_input, &hints_input,
+	    &servinfo_input);
     if (rv_input != 0) {
 	fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv_input));
 	exit(1);
@@ -41,20 +66,12 @@ void init_sdp_listening()
     }
 
     freeaddrinfo(servinfo_input);
-}
-
-void *get_in_addr(struct sockaddr *sa)
-{
-    if (sa->sa_family == AF_INET) {
-	return &(((struct sockaddr_in*) sa)->sin_addr);
-    }
-
-    return &(((struct sockaddr_in6*) sa)->sin6_addr);
+    return sockfd_input;
 }
 
 static inline void process_heatmap_packet(
 	int numAdditionalBytes,
-	int updateline)
+	unsigned updateline)
 {
     if (freezedisplay) {
 	return;
@@ -71,12 +88,11 @@ static inline void process_heatmap_packet(
 	    printf("Array index out of bounds: %u. (x=%u, y=%u)\n",
 		    arrayindex, xsrc, ysrc);        // CPDEBUG
 	} else {
-	    immediate_data[arrayindex] = scanptr->data[i]
-		    / float(pow(2.0, FIXEDPOINT));
+	    immediate_data[arrayindex] = scanptr->data[i] * FixedPointFactor;
 	    if (immediate_data[arrayindex] > highwatermark)
 		printf("new hwm [%d, %d, %d] = %f\n", xsrc, ysrc, i,
 			immediate_data[arrayindex]);
-	    if (updateline < 0 || unsigned(updateline) > HISTORYSIZE) {
+	    if (updateline > HISTORYSIZE) {
 		printf("Updateline is out of bounds: %d\n", updateline);
 	    } else {
 		history_data[updateline][arrayindex] =
@@ -91,10 +107,14 @@ static inline void process_heatmap_packet(
 
 static inline void update_history_data(unsigned updateline)
 {
+    // this is stored so that rows that have not been updated between then
+    // and now can be cleared out; NOTE THAT IT IS STATIC!
+    static unsigned lasthistorylineupdated = 0;
+
     // work out how many lines have gone past without activity.
     int linestoclear = updateline - lasthistorylineupdated;
-    // when window is reduced updateline reduces. ths causes an underflow
-    // construed as a wraparound. TODO.
+    // TODO: when window is reduced updateline reduces. this causes an
+    // underflow construed as a wraparound.
     if (linestoclear < 0 && updateline + 500 > lasthistorylineupdated) {
 	// to cover any underflow when resizing plotting window smaller
 	// (wrapping difference will be < 500)
@@ -116,26 +136,25 @@ static inline void update_history_data(unsigned updateline)
     lasthistorylineupdated = updateline;
 }
 
-void* input_thread_SDP(void *ptr)
+static void* input_thread_SDP(void *ptr)
 {
     use(ptr);
-    struct sockaddr_in si_other; // for incoming frames
-    socklen_t addr_len_input = sizeof(struct sockaddr_in);
-    char sdp_header_len = 26;
+    sockaddr_in si_other;		// for incoming frames
+    const unsigned char sdp_header_len = 26;
 
-    while (1) {                             // for ever ever, ever ever.
+    while (true) {
 	int numAdditionalBytes = 0;
-
-	numbytes_input = recvfrom(sockfd_input, buffer_input,
-		sizeof buffer_input, 0, (sockaddr*) &si_other,
-		(socklen_t*) &addr_len_input);
+	socklen_t addr_len_input = sizeof(si_other);
+	int numbytes_input = recvfrom(sockfd_input, buffer_input,
+		sizeof buffer_input, 0, (sockaddr *) &si_other,
+		&addr_len_input);
 	if (numbytes_input == -1) {
 	    perror("error recvfrom");
 	    exit(-1); // will only get here if there's an error getting the input frame off the Ethernet
 	}
 
-	scanptr = (sdp_msg*) buffer_input; // pointer to our packet in the buffer from the Ethernet
-	scanptrspinn = (spinnpacket*) buffer_input; // pointer to our packet in the buffer from the Ethernet
+	scanptr = (sdp_msg *) buffer_input; // pointer to our packet in the buffer from the Ethernet
+	scanptrspinn = (spinnpacket *) buffer_input; // pointer to our packet in the buffer from the Ethernet
 	numAdditionalBytes = numbytes_input - sdp_header_len; // used for SDP only
 
 	if (scanptrspinn->cmd_rc == htonl(SPINN_HELLO)) {
@@ -143,24 +162,21 @@ void* input_thread_SDP(void *ptr)
 	    continue;
 	}
 
-	// we process only spinnaker packets that are non-hellos
-	if (!spinnakerboardipset) {   // if no ip: set ip,port && init
+	// record the port number we are being spoken to upon, and open the SDP connection externally.
+	if (!is_board_address_set()) {   // if no ip: set ip,port && init
 	    // if we don't already know the SpiNNaker board IP then we learn that this is our board to listen to
-	    spinnakerboardip = si_other.sin_addr;
 	    spinnakerboardport = htons(si_other.sin_port);
-	    spinnakerboardipset++;
+	    set_board_ip_address(&si_other.sin_addr);
 	    init_sdp_sender();
 	    printf("Pkt Received from %s on port: %d\n",
 		    inet_ntoa(si_other.sin_addr), htons(si_other.sin_port));
-	}
-
-	if (!spinnakerboardport) {     // if no port: set port && init
+	} else if (!is_board_port_set()) {     // if no port: set port && init
 	    // if we don't already know the SpiNNaker port, then we get this dynamically from an incoming message.
 	    spinnakerboardport = htons(si_other.sin_port);
 	    init_sdp_sender();
 	    printf("Pkt Received from %s on port: %d\n",
 		    inet_ntoa(si_other.sin_addr), htons(si_other.sin_port));
-	} // record the port number we are being spoken to upon, and open the SDP connection externally.
+	}
 
 	// ip && port are now set, so process this SpiNNaker packet
 
@@ -169,27 +185,30 @@ void* input_thread_SDP(void *ptr)
 	    firstreceivetimez = nowtime; // if 1st packet then note it's arrival
 	}
 
-	// time in seconds per history index in use (or pixel displayed)
-	float timeperindex = displayWindow / float(plotWidth);
-	// which index is being updated (on the right hand side)
-	unsigned updateline = ((nowtime - starttimez)
-		/ int64_t(timeperindex * 1000000)) % HISTORYSIZE;
-
 	if (!freezedisplay) {
 	    update_history_data(nowtime);
 	}
+
+	// time in seconds per history index in use (or pixel displayed)
+	float timeperindex = TIMEWINDOW / float(plotWidth);
+	// which index is being updated (on the right hand side)
+	unsigned updateline = ((nowtime - starttimez)
+		/ int64_t(timeperindex * 1000000)) % HISTORYSIZE;
 	process_heatmap_packet(numAdditionalBytes, updateline);
     }
 }
 
-void init_sdp_sender()
-{
-    char portno_input[7];
-    snprintf(portno_input, 6, "%d", spinnakerboardport);
+static sockaddr_in board_address;
 
+static int init_sdp_sender()
+{
+    struct addrinfo hints_output, *servinfo, *p;
+    char portno_input[8];
+
+    snprintf(portno_input, 8, "%d", spinnakerboardport);
     bzero(&hints_output, sizeof hints_output);
-    hints_output.ai_family = AF_UNSPEC;		// set to AF_INET to force IPv4
-    hints_output.ai_socktype = SOCK_DGRAM;	// type UDP (socket datagram)
+    hints_output.ai_family = AF_INET;
+    hints_output.ai_socktype = SOCK_DGRAM;
 
     auto rv = getaddrinfo(inet_ntoa(spinnakerboardip), portno_input,
 	    &hints_output, &servinfo);
@@ -200,22 +219,19 @@ void init_sdp_sender()
     // loop through all the results and make a socket
     for (p = servinfo; p != NULL ; p = p->ai_next) {
 	sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-	if (sockfd == -1) {
-	    perror("talker: socket");
-	    continue;
+	if (sockfd != -1) {
+	    board_address = *(sockaddr_in*) p->ai_addr;
+	    freeaddrinfo(servinfo);
+	    return sockfd;
 	}
-	break;
+	perror("talker: socket");
     }
 
-    if (p == NULL) {
-	fprintf(stderr, "failed to bind socket\n");
-	exit(1);
-    }
-
-    // freeaddrinfo(servinfo);  // at the end only
+    fprintf(stderr, "failed to bind socket\n");
+    exit(1);
 }
 
-void sdp_sender(
+static void sdp_sender(
 	unsigned short dest_add,
 	unsigned char dest_port,
 	unsigned int command,
@@ -225,10 +241,10 @@ void sdp_sender(
 	unsigned char extrawords,
 	...)
 {
-    va_list ExtraData;            // Initialise list of extra data
-    va_start(ExtraData, extrawords); // Populate it - it's just after the extra words argument
+    va_list ExtraData;			// Initialise list of extra data
+    va_start(ExtraData, extrawords);	// Populate it - it's just after the extra words argument
 
-    struct sdp_msg output_packet; // create the SDP message we are going to send;
+    struct sdp_msg output_packet;	// create the SDP message we are going to send;
 
     output_packet.ip_time_out = 0;	// n/a
     output_packet.pad = 0;		// n/a
@@ -249,11 +265,12 @@ void sdp_sender(
     }
     va_end(ExtraData);			// de-initialize the list
 
-    if (spinnakerboardipset) {
+    if (is_board_address_set()) {
 	auto sdplength = 26 + 4 * extrawords;
 	struct sdp_msg *output_packet_ptr = &output_packet;
-	if (sendto(sockfd, output_packet_ptr, sdplength, 0, p->ai_addr,
-		p->ai_addrlen) == -1) {
+
+	if (sendto(sockfd, output_packet_ptr, sdplength, 0,
+		(sockaddr*) &board_address, sizeof board_address) == -1) {
 	    perror("oh dear - we didn't send our data!\n");
 	    exit(1);
 	}

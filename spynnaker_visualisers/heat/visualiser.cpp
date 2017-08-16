@@ -97,9 +97,9 @@ enum directionbox_t {
 #include "state.h"
 
 // prototypes for functions below
-static void init_sdp_listening(void);
+static int init_sdp_listening(void);
 static void* input_thread_SDP(void *ptr);
-static void init_sdp_sender(void);
+static int init_sdp_sender(void);
 static void sdp_sender(
 	unsigned short dest_add,
 	unsigned char dest_port,
@@ -288,7 +288,7 @@ static void safelyshut(void)
     // this (particularly the frees!)
     if (!safelyshutcalls) {
 	safelyshutcalls++;	// note that this routine has been run before
-	if (spinnakerboardport != 0) {
+	if (is_board_port_set()) {
 	    for (int i = 0 ; i < all_desired_chips() ; i++) {
 		// send exit packet out if we are interacting
 		send_to_chip(i, 0x21, 0, 0, 0, 0, 4, 0, 0, 0, 0);
@@ -343,7 +343,6 @@ int main(int argc, char **argv)
 
     cleardown(); // reset the plot buffer to something sensible (i.e. 0 to start with)
     starttimez = timestamp();
-    keepalivetime = starttimez;
 
     for (unsigned j = 0 ; j < HISTORYSIZE ; j++) {
 	for (unsigned i = 0 ; i < xdim * ydim ; i++) {

@@ -502,7 +502,7 @@ void display(void)
 	if (is_defined(immediate_data[i])) {    // is valid
 	    immediate_data[i] = clamp(MINDATAFLOAT, immediate_data[i],
 		    MAXDATAFLOAT);
-	    if (spinnakerboardipset) {
+	    if (is_board_address_set()) {
 		if (immediate_data[i] > highwatermark) {
 		    highwatermark = immediate_data[i];
 		}
@@ -556,14 +556,14 @@ void display(void)
 
 	if (printpktgone) {
 	    color(BLACK);
-	    if (spinnakerboardipset == 0) {
-		printgl(windowWidth - 3 * (boxsize + gap) - 5,
-			windowHeight - gap - boxsize - 25,
-			GLUT_BITMAP_8_BY_13, "Target Unknown");
-	    } else {
+	    if (is_board_address_set()) {
 		printgl(windowWidth - 3 * (boxsize + gap) + 5,
 			windowHeight - gap - boxsize - 25,
 			GLUT_BITMAP_8_BY_13, "Packet Sent");
+	    } else {
+		printgl(windowWidth - 3 * (boxsize + gap) - 5,
+			windowHeight - gap - boxsize - 25,
+			GLUT_BITMAP_8_BY_13, "Target Unknown");
 	    }
 	}
 
