@@ -124,7 +124,6 @@ struct sdp_msg {		// SDP message (<=292 bytes)
 //global variables for SDP packet receiver
 static int sockfd_input, sockfd;
 static sdp_msg *scanptr;
-static spinnpacket *scanptrspinn;
 
 // buffer for network packets
 static unsigned char buffer_input[MTU];

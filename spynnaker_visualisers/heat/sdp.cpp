@@ -158,8 +158,9 @@ static void* input_thread_SDP(void *ptr)
 	    exit(-1); // will only get here if there's an error getting the input frame off the Ethernet
 	}
 
-	scanptr = (sdp_msg *) buffer_input; // pointer to our packet in the buffer from the Ethernet
-	scanptrspinn = (spinnpacket *) buffer_input; // pointer to our packet in the buffer from the Ethernet
+	// pointers to our packet in the buffer from the Ethernet
+	spinnpacket *scanptrspinn = (spinnpacket *) buffer_input;
+	scanptr = (sdp_msg *) buffer_input;
 	numAdditionalBytes = numbytes_input - sdp_header_len; // used for SDP only
 
 	if (scanptrspinn->cmd_rc == htonl(SPINN_HELLO)) {
