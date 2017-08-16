@@ -85,14 +85,9 @@ enum directionbox_t {
 //    checking out of range etc. As data is typically all floating point,
 //    these INT versions are rarely (if ever) used.
 
-#define MAXDATAINT	(65535)
-#define MAXDATAFLOAT	(65535.0F)
-
-#define MINDATAINT	(-65535)
-#define MINDATAFLOAT	(-65535.0F)
-
-#define NOTDEFINEDINT	(-66666)
-#define NOTDEFINEDFLOAT	(-66666.0F)
+static const float MAXDATAFLOAT	= 65535;
+static const float MINDATAFLOAT	= -65535;
+static const float NOTDEFINEDFLOAT = -66666;
 
 #include "state.h"
 
@@ -112,7 +107,8 @@ static void sdp_sender(
 static void rebuildmenu(void);
 static void safelyshut(void);
 static void finalise_memory(void);
-// end of prototypes
+
+//-------------------------------------------------------------------
 
 static inline int64_t timestamp(void)
 {
@@ -122,8 +118,6 @@ static inline int64_t timestamp(void)
     return (1000000 * (int64_t) stopwatchus.tv_sec)
 	    + (int64_t) stopwatchus.tv_usec;		// get time now in us
 }
-
-#include "sdp.cpp"
 
 template<class ...Ts>
 static inline void send_to_chip(
@@ -268,26 +262,18 @@ static void cleardown(void)
     rotateflip = 0;
 }
 
+#include "sdp.cpp"
 #include "display.cpp"
 #include "events.cpp"
-
-static void myinit(void)
-{
-    glClearColor(0.0, 0.0, 0.0, 1.0);
-    glColor3f(1.0, 1.0, 1.0);
-    glShadeModel (GL_SMOOTH); // permits nice shading between plot points for interpolation if required
-
-    rebuildmenu();
-}
-
 #include "menu.cpp"
+#include "config.cpp"
 
 static void safelyshut(void)
 {
     // in some circumstances this gets run twice, therefore we check for
     // this (particularly the frees!)
     if (!safelyshutcalls) {
-	safelyshutcalls++;	// note that this routine has been run before
+	safelyshutcalls = 0;	// note that this routine has been run before
 	if (is_board_port_set()) {
 	    for (int i = 0 ; i < all_desired_chips() ; i++) {
 		// send exit packet out if we are interacting
@@ -307,10 +293,13 @@ static inline void run_GUI(int argc, char **argv)
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
     glutInitWindowSize(windowWidth + keyWidth, windowHeight);
     glutInitWindowPosition(0, 100);
-    windowToUpdate = glutCreateWindow(
-	    "VisRT - plotting your network data in real time");
+    glutCreateWindow("VisRT - plotting your network data in real time");
 
-    myinit();
+    glClearColor(0.0, 0.0, 0.0, 1.0);
+    color(WHITE);
+    glShadeModel (GL_SMOOTH); // permits nice shading between plot points for interpolation if required
+
+    rebuildmenu();
 
     glutDisplayFunc(display);
     glutReshapeFunc(reshape);
@@ -324,8 +313,6 @@ static inline void run_GUI(int argc, char **argv)
 
     glutMainLoop();			// Enter the main OpenGL loop
 }
-
-#include "config.cpp"
 
 int main(int argc, char **argv)
 {

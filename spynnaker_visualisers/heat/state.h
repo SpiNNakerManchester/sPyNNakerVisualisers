@@ -49,7 +49,6 @@ static char somethingtoplot = 0;	// determines when we should update the screen 
 static char freezedisplay = 0;		// whether we should pause the display updates (and send a pause packet to the sim)
 static int64_t freezetime;		// when pausing the simulation we hold time at the time of pausing (for screen display purposes)
 static const unsigned boxsize = 40, gap = 5;	// used for button creation and gaps between these boxes and the edge of the screen
-static int windowToUpdate;		// used to know which window to update
 static unsigned xdim;// = XDIMENSIONS;	// number of items to plot in the x dimension
 static unsigned ydim;// = YDIMENSIONS;	// number of items to plot in the y dimension
 static unsigned plotWidth, printlabels;

@@ -478,13 +478,8 @@ static inline void display_pixel(
 void display(void)
 {
     glPointSize(1.0);
-
     counter++;		// how many frames have we plotted in our history
-
     glLoadIdentity();
-    glutSetWindow(windowToUpdate);// specifically look at our plotting window
-    glLoadIdentity();
-
     //glutPostRedisplay();
 
     glClearColor(0.8, 0.8, 0.8, 1.0);	// background colour - grey surround

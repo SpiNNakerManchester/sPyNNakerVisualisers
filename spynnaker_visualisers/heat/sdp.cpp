@@ -3,6 +3,7 @@
 static in_addr spinnakerboardip;
 static char spinnakerboardipset = 0;
 static int spinnakerboardport = 0;
+static sockaddr_in board_address;
 
 static void set_board_ip_address(in_addr *address)
 {
@@ -149,6 +150,10 @@ static void* input_thread_SDP(void *ptr)
 		sizeof buffer_input, 0, (sockaddr *) &si_other,
 		&addr_len_input);
 	if (numbytes_input == -1) {
+	    if (errno == EBADF) {
+		// Socket was closed on our end; we're out of here!
+		return nullptr;
+	    }
 	    perror("error recvfrom");
 	    exit(-1); // will only get here if there's an error getting the input frame off the Ethernet
 	}
@@ -197,8 +202,6 @@ static void* input_thread_SDP(void *ptr)
 	process_heatmap_packet(numAdditionalBytes, updateline);
     }
 }
-
-static sockaddr_in board_address;
 
 static int init_sdp_sender()
 {
