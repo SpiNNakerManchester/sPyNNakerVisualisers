@@ -25,6 +25,7 @@ FRAMES_PER_SECOND = 60
 
 class SudokuPlot(GlutFramework):
     def __init__(self, args, neurons_per_number, ms_per_bin, wait_for_start):
+        GlutFramework.__init__(self)
         self.window_width = INIT_WINDOW_WIDTH
         self.window_height = INIT_WINDOW_HEIGHT
 
@@ -121,16 +122,17 @@ class SudokuPlot(GlutFramework):
                 prompt = "Waiting for simulation to start..."
             else:
                 prompt = "Sudoku"
-        self._print_prompt(prompt)
+        self._print_text(prompt)
 
         self._draw_cells(cell_width, cell_height)
 
-        start_tick = int(start / self.timestep_ms)
-        with self.point_mutex:
-            values, probs = self._find_cell_values()
-            valid = self._find_cell_correctness(values)
-            self._draw_cell_contents(values, valid, probs, start_tick,
-                                     x_spacing, cell_width, cell_height)
+        if self.timestep_ms != 0:
+            start_tick = int(start / self.timestep_ms)
+            with self.point_mutex:
+                values, probs = self._find_cell_values()
+                valid = self._find_cell_correctness(values)
+                self._draw_cell_contents(values, valid, probs, start_tick,
+                                         x_spacing, cell_width, cell_height)
 
     @overrides(super_class_method=GlutFramework.reshape)
     def reshape(self, width, height):
@@ -210,7 +212,8 @@ class SudokuPlot(GlutFramework):
 
     def _start_display(self):
         glPointSize(1.0)
-        glClearColor(GL_COLOR_BUFFER_BIT)
+        glClear(GL_COLOR_BUFFER_BIT)
+        glClearColor(1.0, 1.0, 1.0, 1.0)
         glColor4f(0.0, 0.0, 0.0, 1.0)
 
     def _print_text(self, prompt):  # FIXME positioning
@@ -299,29 +302,29 @@ def main(argv=None):
     parser = ArgumentParser(prog=program_name,
                             version=program_version_string,
                             description=program_description)
-    parser.add_option(
+    parser.add_argument(
         "-d", "--database", dest="database", metavar="FILE",
         help="optional file path to where the database is located, if "
         "needed for manual configuration", default=None)
-    parser.add_option(
+    parser.add_argument(
         "-m", "--ms_per_bin", dest="ms", metavar="MILLISECONDS",
         help="optional number of milliseconds to show at once",
-        type=float, default=None)
-    parser.add_option(
-        "-n", "--neurons_per_number", dest="neurons", default="0",
+        type=float, default=100)
+    parser.add_argument(
+        "-n", "--neurons_per_number", dest="neurons",
         help="the number of neurons that represent each number in a cell",
-        metavar="COUNT", type=int, default=None)
-    parser.add_option(
+        metavar="COUNT", type=int, default=5)
+    parser.add_argument(
         "-p", "--hand_shake_port", dest="port", default="19999",
         help="optional port which the visualiser will listen to for"
         " database hand shaking", metavar="PORT", type=int)
-    parser.add_option("args", nargs=REMAINDER)
+    parser.add_argument("args", nargs=REMAINDER)
 
     # Set up and run the application
     try:
         if argv is None:
             argv = sys.argv[1:]
-        sudoku_visualiser(**parser.parse_args(argv))
+        sudoku_visualiser(**parser.parse_args(argv).__dict__)
         return 0
     except Exception, e:
         indent = len(program_name) * " "

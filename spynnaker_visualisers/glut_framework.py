@@ -29,6 +29,7 @@ import OpenGL.GLUT as GLUT
 from datetime import datetime
 from spinn_utilities.abstract_base import AbstractBase, abstractmethod
 from six import add_metaclass
+import traceback
 
 
 class _PerformanceTimer(object):
@@ -76,6 +77,7 @@ class GlutFramework(object):
         self.frameRateTimer = _PerformanceTimer()
         self.displayTimer = _PerformanceTimer()
         self.elapsedTimeInSeconds = 0.0
+        self.__loggederrors = set()
 
     def startFramework(self, args, title, width, height, posx, posy, fps):
         """startFramework will initialize framework and start the Glut run\
@@ -94,15 +96,15 @@ class GlutFramework(object):
         self.init()  # Initialize
 
         # Function callbacks with wrapper functions
-        GLUT.glutDisplayFunc(self.displayFramework)
-        GLUT.glutReshapeFunc(self.reshapeFramework)
-        GLUT.glutIdleFunc(self.run)
-        GLUT.glutMouseFunc(self.mouseButtonPress)
-        GLUT.glutMotionFunc(self.mouseMove)
-        GLUT.glutKeyboardFunc(self.keyboardDown)
-        GLUT.glutKeyboardUpFunc(self.keyboardUp)
-        GLUT.glutSpecialFunc(self.specialKeyboardDown)
-        GLUT.glutSpecialUpFunc(self.specialKeyboardUp)
+        GLUT.glutDisplayFunc(self.__displayFramework)
+        GLUT.glutReshapeFunc(self.__reshapeFramework)
+        GLUT.glutIdleFunc(self.__run)
+        GLUT.glutMouseFunc(self.__mouseButtonPress)
+        GLUT.glutMotionFunc(self.__mouseMove)
+        GLUT.glutKeyboardFunc(self.__keyboardDown)
+        GLUT.glutKeyboardUpFunc(self.__keyboardUp)
+        GLUT.glutSpecialFunc(self.__specialKeyboardDown)
+        GLUT.glutSpecialUpFunc(self.__specialKeyboardUp)
 
         GLUT.glutMainLoop()
 
@@ -223,14 +225,14 @@ class GlutFramework(object):
         if GLUT.glutGetWindow() == self.window:
             self.reshape(width, height)
 
-    def _write_large(self, x, y, string, *args):
+    def write_large(self, x, y, string, *args):
         """Utility function: write a string to a given location as a bitmap.
         """
         if len(args):
             string = string % args
         GL.glRasterPos2f(x, y)
         for ch in string:
-            GLUT.glutBitmapCharacter(GLUT.GLUT_BITMAP_TIMES_ROMAN_24, ch)
+            GLUT.glutBitmapCharacter(GLUT.GLUT_BITMAP_TIMES_ROMAN_24, ord(ch))
 
     def write_small(self, x, y, size, rotate, string, *args):
         """Utility function: write a string to a given location as a strokes.
@@ -249,8 +251,68 @@ class GlutFramework(object):
         GL.glScalef(size, size, size)
         GL.glRotatef(rotate, 0.0, 0.0, 1.0)
         for ch in string:
-            GLUT.glutStrokeCharacter(GLUT.GLUT_STROKE_ROMAN, ch)
+            GLUT.glutStrokeCharacter(GLUT.GLUT_STROKE_ROMAN, ord(ch))
 
         GL.glDisable(GL.GL_LINE_SMOOTH)
         GL.glDisable(GL.GL_BLEND)
         GL.glPopMatrix()
+
+    def __displayFramework(self, *args):
+        try:
+            return self.displayFramework(*args)
+        except:
+            self.__logerror()
+
+    def __reshapeFramework(self, *args):
+        try:
+            return self.reshapeFramework(*args)
+        except:
+            self.__logerror()
+
+    def __run(self, *args):
+        try:
+            return self.run(*args)
+        except:
+            self.__logerror()
+
+    def __mouseButtonPress(self, *args):
+        try:
+            return self.mouseButtonPress(*args)
+        except:
+            self.__logerror()
+
+    def __mouseMove(self, *args):
+        try:
+            return self.mouseMove(*args)
+        except:
+            self.__logerror()
+
+    def __keyboardDown(self, *args):
+        try:
+            return self.keyboardDown(*args)
+        except:
+            self.__logerror()
+
+    def __keyboardUp(self, *args):
+        try:
+            return self.keyboardUp(*args)
+        except:
+            self.__logerror()
+
+    def __specialKeyboardDown(self, *args):
+        try:
+            return self.specialKeyboardDown(*args)
+        except:
+            self.__logerror()
+
+    def __specialKeyboardUp(self, *args):
+        try:
+            return self.specialKeyboardUp(*args)
+        except:
+            self.__logerror()
+
+    def __logerror(self):
+        tb = traceback.format_exc()
+        if tb not in self.__loggederrors:
+            self.__loggederrors.add(tb)
+            traceback.print_exc()
