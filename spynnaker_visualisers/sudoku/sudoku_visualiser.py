@@ -28,6 +28,7 @@ class SudokuPlot(GlutFramework):
         GlutFramework.__init__(self)
         self.window_width = INIT_WINDOW_WIDTH
         self.window_height = INIT_WINDOW_HEIGHT
+        self.NPRINT = 0
 
         self.cell_id = 0
         self.user_pressed_start = not wait_for_start
@@ -36,7 +37,7 @@ class SudokuPlot(GlutFramework):
         self.n_neurons = 0
         self.timestep_ms = 0
         self.plot_time_ms = 0
-        self.ms_per_bin = ms_per_bin
+        self.ms_per_bin = float(ms_per_bin)
         self.latest_time = 0.0
         self.neurons_per_number = neurons_per_number
 
@@ -65,8 +66,8 @@ class SudokuPlot(GlutFramework):
         connection.add_start_resume_callback(label, self._start_cb)
 
     def _init_cb(self, label, n_neurons, run_time_ms, machine_time_step_ms):
-        self.plot_time_ms = run_time_ms
-        self.timestep_ms = machine_time_step_ms
+        self.plot_time_ms = float(run_time_ms)
+        self.timestep_ms = float(machine_time_step_ms)
 
         self.cell_labels[self.cell_id] = label
         self.cell_size_map[self.cell_id] = n_neurons
@@ -111,11 +112,10 @@ class SudokuPlot(GlutFramework):
         if start < 0.0:
             start = 0.0
             end = start + self.ms_per_bin
-        x_spacing = float(cell_width) / ((end - start) / self.ms_per_bin)
 
         with self.start_condition:
             if not self.database_read:
-                prompt = "Waiting for database to be ready..."
+                prompt = "Waiting for simulation to load..."
             elif not self.user_pressed_start:
                 prompt = "Press space bar to start..."
             elif not self.simulation_started:
@@ -127,16 +127,16 @@ class SudokuPlot(GlutFramework):
         self._draw_cells(cell_width, cell_height)
 
         if self.timestep_ms != 0:
+            x_spacing = cell_width / ((end - start) / self.timestep_ms)
             start_tick = int(start / self.timestep_ms)
             with self.point_mutex:
-                values, probs = self._find_cell_values()
+                values, probs = self._find_cell_values(start_tick)
                 valid = self._find_cell_correctness(values)
                 self._draw_cell_contents(values, valid, probs, start_tick,
                                          x_spacing, cell_width, cell_height)
 
     @overrides(super_class_method=GlutFramework.reshape)
     def reshape(self, width, height):
-        sys.stderr.write("Reshape to %d, %d\n" % (width, height))
         self.window_width = width
         self.window_height = height
         # Viewport dimensions
@@ -149,9 +149,9 @@ class SudokuPlot(GlutFramework):
         glMatrixMode(GL_MODELVIEW)
         glLoadIdentity()
 
-    @overrides(super_class_method=GlutFramework.keyboardUp)
-    def keyboardUp(self, key, x, y):  # @UnusedVariable
-        if key == 32:
+    @overrides(super_class_method=GlutFramework.keyboardDown)
+    def keyboardDown(self, key, x, y):  # @UnusedVariable
+        if key == 32 or key == ' ':
             with self.start_condition:
                 if not self.user_pressed_start:
                     print "Starting the simulation"
@@ -282,7 +282,7 @@ def sudoku_visualiser(args, port, neurons, ms, database):
     # Set up the application
     cells = ["Cells"]
     connection = LiveEventConnection(
-        "Visualiser", receive_labels=cells, local_port=port)
+        "LiveSpikeReceiver", receive_labels=cells, local_port=port)
     plotter = SudokuPlot(args, neurons, ms, database is None)
     for label in cells:
         plotter.connect_callbacks(connection, label)
