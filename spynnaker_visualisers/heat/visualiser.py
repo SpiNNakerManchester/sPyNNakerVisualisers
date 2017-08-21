@@ -1,40 +1,18 @@
-import datetime
 import random
 import sys
 import threading
 from OpenGL.GL import *  # @UnusedWildImport
 from OpenGL.GLUT import *  # @UnusedWildImport
 
-from .constants import XDIMENSIONS, YDIMENSIONS, EACHCHIPX, EACHCHIPY, \
-    HIWATER, LOWATER, KEYWIDTH, HISTORYSIZE, UIColours
+from .constants import XDIMENSIONS, EACHCHIPX, HIWATER, LOWATER, \
+    KEYWIDTH, HISTORYSIZE, NOTDEFINED, UIColours
 import spynnaker_visualisers.heat.config as config
 import spynnaker_visualisers.heat.display as display
 import spynnaker_visualisers.heat.events as events
 import spynnaker_visualisers.heat.menu as menu
 import spynnaker_visualisers.heat.sdp as sdp
 import spynnaker_visualisers.heat.state as state
-
-MAXDATA = 65535.0
-MINDATA = -65535.0
-NOTDEFINED = -66666.0
-
-
-def timestamp():
-    td = datetime.datetime.now()
-    return td.microsecond + (td.second + td.day * 86400) * 10**6
-
-
-def send_to_chip(id, port, command, *args):  # @ReservedAssignment
-    x = id / (XDIMENSIONS / EACHCHIPX)
-    y = id % (XDIMENSIONS / EACHCHIPX)
-    dest = 256 * x + y
-    sdp.sender(dest, port, command, *args)
-
-
-def all_desired_chips():
-    # for i in xrange((XDIMENSIONS * YDIMENSIONS) / (EACHCHIPX * EACHCHIPY)):
-    #     yield i
-    yield 1
+import spynnaker_visualisers.heat.utils as utils
 
 
 def clamp(low, value, high):
@@ -87,29 +65,18 @@ def color(colour_id):
 
 
 def set_heatmap_cell(id, north, east, south, west):  # @ReservedAssignment
-    send_to_chip(id, 0x21, 1, 0, 0, 0,
-                 int(north * 65536), int(east * 65536),
-                 int(south * 65536), int(west * 65536))
+    sdp.send_to_chip(id, 0x21, 1, 0, 0, 0,
+                     int(north * 65536), int(east * 65536),
+                     int(south * 65536), int(west * 65536))
 
 # -------------------------------------------------------------------
-
-def cleardown():
-    for i in xrange(state.xdim * state.ydim):
-        state.immediate_data[i] = NOTDEFINED
-    state.highwatermark = HIWATER
-    state.lowwatermark = LOWATER
-    state.xflip = False
-    state.yflip = False
-    state.vectorflip = False
-    state.rotateflip = False
-
 
 def safelyshut():
     if not state.safelyshutcalls:
         state.safelyshutcalls = True
         if sdp.is_board_port_set():
-            for i in all_desired_chips():
-                send_to_chip(i, 0x21, 0, 0, 0, 0, 0, 0, 0, 0)
+            for i in sdp.all_desired_chips():
+                sdp.send_to_chip(i, 0x21, 0, 0, 0, 0, 0, 0, 0, 0)
         config.finalise_memory()
     sys.exit(0)
 
@@ -144,8 +111,8 @@ def main(argv):
         configfile = "visparam.json"
     config.param_load(configfile)
 
-    cleardown()
-    state.starttimez = timestamp()
+    state.cleardown()
+    state.starttimez = utils.timestamp()
 
     state.history_data = [
         [NOTDEFINED for _ in xrange(state.xdim * state.ydim)]
