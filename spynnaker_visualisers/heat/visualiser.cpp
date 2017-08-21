@@ -273,7 +273,7 @@ static void safelyshut(void)
     // in some circumstances this gets run twice, therefore we check for
     // this (particularly the frees!)
     if (!safelyshutcalls) {
-	safelyshutcalls = 0;	// note that this routine has been run before
+	safelyshutcalls = 1;	// note that this routine has been run before
 	if (is_board_port_set()) {
 	    for (int i = 0 ; i < all_desired_chips() ; i++) {
 		// send exit packet out if we are interacting
