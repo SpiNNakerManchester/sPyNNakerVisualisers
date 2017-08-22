@@ -1,14 +1,15 @@
 from OpenGL.GLUT import glutCreateMenu, glutDestroyMenu, glutAddMenuEntry, \
     glutAttachMenu, GLUT_RIGHT_BUTTON, GLUT_MENU_IN_USE
 import spynnaker_visualisers.heat.state as state
-from spynnaker_visualisers.heat.constants import KEYWIDTH
 import spynnaker_visualisers.heat.sdp as sdp 
 from spynnaker_visualisers.heat import utils
 from spynnaker_visualisers.heat.visualiser import safelyshut
+from spynnaker_visualisers.heat.events import toggle_fullscreen
 
 
 _RHMouseMenu = None
 _needtorebuildmenu = False
+_menuopen = False
 # Should be enum...
 MENU_SEPARATOR = 0
 XFORM_XFLIP = 1
@@ -40,17 +41,7 @@ def callback(option):
     elif option == MENU_NUMBER_TOGGLE:
         state.plotvaluesinblocks = not state.plotvaluesinblocks
     elif option == MENU_FULLSCREEN_TOGGLE:
-        if state.fullscreen:
-            state.windowBorder = state.oldWindowBorder
-            state.windowWidth -= KEYWIDTH
-            state.plotwidth = \
-                state.windowWidth - 2 * state.windowBorder - KEYWIDTH
-        else:
-            state.oldWindowBorder = state.windowBorder
-            state.windowBorder = 0
-            state.windowWidth += KEYWIDTH
-            state.plotwidth = state.windowWidth - KEYWIDTH
-        state.fullscreen = not state.fullscreen
+        toggle_fullscreen()
     elif option == MENU_PAUSE:
         for i in sdp.all_desired_chips():
             sdp.send_to_chip(i, 0x21, 2, 0, 0, 0, 0, 0, 0, 0)
@@ -65,7 +56,7 @@ def callback(option):
     _needtorebuildmenu = True
 
 
-def rebuildmenu():
+def rebuild():
     global _RHMouseMenu
     glutDestroyMenu(_RHMouseMenu)
     _RHMouseMenu = glutCreateMenu(callback)
@@ -99,6 +90,14 @@ def rebuildmenu():
 
 
 def logifmenuopen(status, x, y):  # @UnusedVariable
-    if status != GLUT_MENU_IN_USE and _needtorebuildmenu:
-        rebuildmenu()
+    global _menuopen
+    _menuopen = (status == GLUT_MENU_IN_USE)
+    rebuild_if_needed()
+
+def trigger_rebuild():
+    _needtorebuildmenu = True
+
+def rebuild_if_needed():
+    if _needtorebuildmenu and not _menuopen:
+        rebuild()
         _needtorebuildmenu = False

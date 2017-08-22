@@ -16,6 +16,7 @@ HISTORYSIZE = 3500
 
 HIWATER = 10.0
 LOWATER = 0.0
+ALTERSTEPSIZE = 1.0
 
 WINBORDER = 110
 WINHEIGHT = 700
@@ -44,3 +45,11 @@ class UIColours(Enum):
     GREEN = 3
     CYAN = 4
     GREY = 5
+
+
+class Direction(Enum):
+    NORTH = 1
+    WEST = 3
+    CENTRE = 4
+    EAST = 5
+    SOUTH = 7

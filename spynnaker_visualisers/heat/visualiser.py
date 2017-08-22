@@ -1,11 +1,9 @@
-import random
 import sys
 import threading
 from OpenGL.GL import *  # @UnusedWildImport
 from OpenGL.GLUT import *  # @UnusedWildImport
 
-from .constants import XDIMENSIONS, EACHCHIPX, HIWATER, LOWATER, \
-    KEYWIDTH, HISTORYSIZE, NOTDEFINED, UIColours
+from .constants import KEYWIDTH, HISTORYSIZE, NOTDEFINED, UIColours
 import spynnaker_visualisers.heat.config as config
 import spynnaker_visualisers.heat.display as display
 import spynnaker_visualisers.heat.events as events
@@ -23,45 +21,12 @@ def clamp(low, value, high):
     return value
 
 
-def rand_num(limit, from_num=0):
-    return random.randint(from_num, limit-1)
-
-
-def glRectVertices(x1, y1, x2, y2):
-    glVertex2f(x1, y1)
-    glVertex2f(x1, y2)
-    glVertex2f(x2, y2)
-    glVertex2f(x2, y1)
-
-
-def glOpenBoxVertices(x1, y1, x2, y2):
-    glVertex2f(x1, y1)
-    glVertex2f(x1, y2)
-    glVertex2f(x2, y2)
-    glVertex2f(x2, y1)
-
-
 def is_defined(f):
     return f > NOTDEFINED + 1
 
 
 def trigger_display_refresh():
     state.somethingtoplot = True
-
-
-def color(colour_id):
-    if colour_id == UIColours.BLACK:
-        glColor4f(0, 0, 0, 1)
-    elif colour_id == UIColours.WHITE:
-        glColor4f(1, 1, 1, 1)
-    elif colour_id == UIColours.RED:
-        glColor4f(1, 0, 0, 1)
-    elif colour_id == UIColours.GREEN:
-        glColor4f(0, 0.6, 0, 1)
-    elif colour_id == UIColours.CYAN:
-        glColor4f(0, 1, 1, 1)
-    elif colour_id == UIColours.GREY:
-        glColor4f(0.8, 0.8, 0.8, 1)
 
 
 def set_heatmap_cell(id, north, east, south, west):  # @ReservedAssignment
@@ -89,8 +54,8 @@ def run_GUI(argv):
     glutInitWindowPosition(0, 100)
     glutCreateWindow("VisRT - plotting your network data in real time")
 
-    glClearColor(0.0, 0.0, 0.0, 1.0)
-    color(UIColours.WHITE)
+    display.clear(UIColours.BLACK)
+    display.color(UIColours.WHITE)
     glShadeModel(GL_SMOOTH)
 
     menu.rebuild()
