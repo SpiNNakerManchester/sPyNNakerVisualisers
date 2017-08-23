@@ -1,21 +1,29 @@
 from OpenGL.GL import *  # @UnusedWildImport
 from OpenGL.GLUT import *  # @UnusedWildImport
 import random
+import time
 
-import spynnaker_visualisers.heat.menu as menu
 import spynnaker_visualisers.heat.display as display
 import spynnaker_visualisers.heat.state as state
 from spynnaker_visualisers.heat.constants import KEYWIDTH, BOXSIZE, GAP,\
     CONTROLBOXES, ALTERSTEPSIZE, Direction, MAXFRAMERATE
-from spynnaker_visualisers.heat.sdp import all_desired_chips, send_to_chip
+from spynnaker_visualisers.heat import protocol
+from spynnaker_visualisers.heat.sdp \
+    import all_desired_chips, is_board_port_set
 from spynnaker_visualisers.heat.utils import timestamp
-from spynnaker_visualisers.heat.visualiser import safelyshut, set_heatmap_cell
 from spynnaker_visualisers.heat.state import cleardown
-import time
-
 
 SCROLL_UP = 3
 SCROLL_DOWN = 4
+
+
+def safelyshut():
+    if not state.safelyshutcalls:
+        state.safelyshutcalls = True
+        if is_board_port_set():
+            for i in all_desired_chips():
+                protocol.stop_heatmap_cell(i)
+    sys.exit(0)
 
 
 def reshape(width, height):
@@ -62,18 +70,18 @@ def toggle_fullscreen():
 
 
 def pause():
-    for i in xrange(all_desired_chips()):
-        send_to_chip(i, 0x21, 2, 0, 0, 0, 0, 0, 0, 0)
+    for i in all_desired_chips():
+        protocol.pause_heatmap_cell(i)
     state.freezedisplay = True
     state.freezetime = timestamp()
-    menu.trigger_rebuild()
+    trigger_menu_rebuild()
 
 
 def resume():
-    for i in xrange(all_desired_chips()):
-        send_to_chip(i, 0x21, 3, 0, 0, 0, 0, 0, 0, 0)
+    for i in all_desired_chips():
+        protocol.resume_heatmap_cell(i)
     state.freezedisplay = False
-    menu.trigger_rebuild()
+    trigger_menu_rebuild()
 
 
 def keyDown(key, x, y):  # @UnusedVariable
@@ -140,11 +148,11 @@ def keyDown(key, x, y):  # @UnusedVariable
     elif key == 'g':
         if state.editmode:
             state.livebox = -1
-            for i in xrange(all_desired_chips()):
-                set_heatmap_cell(i, state.alternorth, state.altereast,
+            for i in all_desired_chips():
+                protocol.set_heatmap_cell(i, state.alternorth, state.altereast,
                                  state.altersouth, state.alterwest)
     elif key == '9':
-        for i in xrange(all_desired_chips()):
+        for i in all_desired_chips():
             state.alternorth = random.uniform(
                 state.lowwatermark, state.highwatermark)
             state.altereast = random.uniform(
@@ -153,7 +161,7 @@ def keyDown(key, x, y):  # @UnusedVariable
                 state.lowwatermark, state.highwatermark)
             state.alterwest = random.uniform(
                 state.lowwatermark, state.highwatermark)
-            set_heatmap_cell(i, state.alternorth, state.altereast,
+            protocol.set_heatmap_cell(i, state.alternorth, state.altereast,
                              state.altersouth, state.alterwest)
     elif key == '0':
         state.livebox = -1
@@ -169,8 +177,8 @@ def keyDown(key, x, y):  # @UnusedVariable
             state.altereast = 0.0
             state.altersouth = 0.0
             state.alterwest = 0.0
-        for i in xrange(all_desired_chips()):
-            set_heatmap_cell(i, state.alternorth, state.altereast,
+        for i in all_desired_chips():
+            protocol.set_heatmap_cell(i, state.alternorth, state.altereast,
                              state.altersouth, state.alterwest)
 
 
@@ -224,8 +232,8 @@ def handle_main_box_click(x, y):
         if not state.editmode:
             state.editmode = True
         else:
-            for i in xrange(all_desired_chips()):
-                set_heatmap_cell(i, state.alternorth, state.altereast,
+            for i in all_desired_chips():
+                protocol.set_heatmap_cell(i, state.alternorth, state.altereast,
                                  state.altersouth, state.alterwest)
     elif state.editmode:
         if selectedbox == state.livebox:
@@ -246,7 +254,7 @@ def mouse(button, state, x, y):
         if not acted and state.livebox != -1:
             state.livebox = -1
             display.trigger_refresh()
-            menu.rebuild()
+            rebuild_menu()
     elif button == SCROLL_UP:
         if state.livebox == Direction.NORTH:
             state.alternorth += ALTERSTEPSIZE
@@ -276,7 +284,7 @@ def mouse(button, state, x, y):
 
 
 def idle():
-    menu.rebuild_if_needed()
+    rebuild_menu_if_needed()
     frame_us = 1000000 / MAXFRAMERATE
     howlongtowait = state.starttime + state.counter * frame_us - timestamp()
     if howlongtowait > 0:
@@ -286,3 +294,124 @@ def idle():
     display.trigger_refresh()
     if state.somethingtoplot:
         display.display()
+
+
+# -------------------------------------------------------------------------
+
+_RHMouseMenu = None
+_needtorebuildmenu = False
+_menuopen = False
+
+# Should be enum...
+MENU_SEPARATOR = 0
+XFORM_XFLIP = 1
+XFORM_YFLIP = 2
+XFORM_VECTORFLIP = 3
+XFORM_ROTATEFLIP = 4
+XFORM_REVERT = 5
+MENU_BORDER_TOGGLE = 6
+MENU_NUMBER_TOGGLE = 7
+MENU_FULLSCREEN_TOGGLE = 8
+MENU_PAUSE = 9
+MENU_RESUME = 10
+MENU_QUIT = 11
+
+
+def menu_callback(option):
+    if option == XFORM_XFLIP:
+        state.xflip = not state.xflip
+    elif option == XFORM_YFLIP:
+        state.yflip = not state.yflip
+    elif option == XFORM_VECTORFLIP:
+        state.vectorflip = not state.vectorflip
+    elif option == XFORM_ROTATEFLIP:
+        state.rotateflip = not state.rotateflip
+    elif option == XFORM_REVERT:
+        state.cleardown()
+    elif option == MENU_BORDER_TOGGLE:
+        state.gridlines = not state.gridlines
+    elif option == MENU_NUMBER_TOGGLE:
+        state.plotvaluesinblocks = not state.plotvaluesinblocks
+    elif option == MENU_FULLSCREEN_TOGGLE:
+        toggle_fullscreen()
+    elif option == MENU_PAUSE:
+        for i in all_desired_chips():
+            protocol.pause_heatmap_cell(i)
+        state.freezedisplay = True
+        state.freezetime = timestamp()
+    elif option == MENU_RESUME:
+        for i in all_desired_chips():
+            protocol.resume_heatmap_cell(i)
+        state.freezedisplay = False
+    elif option == MENU_QUIT:
+        safelyshut()
+    _needtorebuildmenu = True
+
+
+def rebuild_menu():
+    global _RHMouseMenu
+    glutDestroyMenu(_RHMouseMenu)
+    _RHMouseMenu = glutCreateMenu(menu_callback)
+
+    glutAddMenuEntry("(X) Mirror (left to right swap)", XFORM_XFLIP)
+    glutAddMenuEntry("(Y) Reflect (top to bottom swap)", XFORM_YFLIP)
+    glutAddMenuEntry("(V) Vector Swap (Full X+Y Reversal)", XFORM_VECTORFLIP)
+    glutAddMenuEntry("90 (D)egree Rotate Toggle", XFORM_ROTATEFLIP)
+    glutAddMenuEntry("(C) Revert changes back to default", XFORM_REVERT)
+    glutAddMenuEntry("-----", MENU_SEPARATOR)
+    if state.gridlines:
+        glutAddMenuEntry("Grid (B)orders off", MENU_BORDER_TOGGLE)
+    else:
+        glutAddMenuEntry("Grid (B)orders on", MENU_BORDER_TOGGLE)
+    if state.plotvaluesinblocks:
+        glutAddMenuEntry("Numbers (#) off", MENU_NUMBER_TOGGLE)
+    else:
+        glutAddMenuEntry("Numbers (#) on", MENU_NUMBER_TOGGLE)
+    if state.fullscreen:
+        glutAddMenuEntry("(F)ull Screen off", MENU_FULLSCREEN_TOGGLE)
+    else:
+        glutAddMenuEntry("(F)ull Screen on", MENU_FULLSCREEN_TOGGLE)
+    glutAddMenuEntry("-----", MENU_SEPARATOR)
+    if not state.freezedisplay:
+        glutAddMenuEntry("(\") Pause Plot", MENU_PAUSE)
+    else:
+        glutAddMenuEntry("(P)lay / Restart Plot", MENU_RESUME)
+    glutAddMenuEntry("(Q)uit", MENU_QUIT)
+    glutAttachMenu(GLUT_RIGHT_BUTTON)
+    return _RHMouseMenu
+
+
+def logifmenuopen(status, x, y):  # @UnusedVariable
+    global _menuopen
+    _menuopen = (status == GLUT_MENU_IN_USE)
+    rebuild_menu_if_needed()
+
+
+def trigger_menu_rebuild():
+    _needtorebuildmenu = True
+
+
+def rebuild_menu_if_needed():
+    if _needtorebuildmenu and not _menuopen:
+        rebuild_menu()
+        _needtorebuildmenu = False
+
+
+# -------------------------------------------------------------------------
+
+
+def run_GUI(argv):
+    glutInit(argv)
+
+    display.init()
+    rebuild_menu()
+
+    glutDisplayFunc(display.display)
+    glutReshapeFunc(reshape)
+    glutIdleFunc(idle)
+    glutKeyboardFunc(keyDown)
+    glutMouseFunc(mouse)
+    glutCloseFunc(safelyshut)
+    glutMenuStateFunc(logifmenuopen)
+
+    glutMainLoop()

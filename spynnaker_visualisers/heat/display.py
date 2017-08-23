@@ -1,12 +1,15 @@
 from OpenGL.GL import *  # @UnusedWildImport
 from OpenGL.GLUT import *  # @UnusedWildImport
 
-from spynnaker_visualisers.heat.constants import UIColours, EACHCHIPX, EACHCHIPY,\
-    YDIMENSIONS, YCHIPS, XDIMENSIONS, MINDATA, MAXDATA, BOXSIZE, GAP, KEYWIDTH,\
-    CONTROLBOXES, Direction
+from spynnaker_visualisers.heat.constants \
+    import UIColours, EACHCHIPX, EACHCHIPY, YDIMENSIONS, YCHIPS, XDIMENSIONS,\
+    MINDATA, MAXDATA, BOXSIZE, GAP, KEYWIDTH, CONTROLBOXES, Direction
 import spynnaker_visualisers.heat.state as state
-from spynnaker_visualisers.heat.visualiser import is_defined
 from spynnaker_visualisers.heat.sdp import is_board_address_set
+from spynnaker_visualisers.heat.utils import clamp, is_defined
+
+
+# ----------------------------------------------------------------------------
 
 
 def printgl(x, y, style, fmt, *args):
@@ -129,7 +132,7 @@ def coordinate_manipulate(i):
 
 def _interpolate(gamut, idx, fillcolour):
     size = len(gamut) - 1
-    val = 0.0 if fillcolour < 0.0 else 1.0 if fillcolour > 1.0 else fillcolour
+    val = clamp(0.0, fillcolour, 1.0)
     index = int(val * size)
     offset = (index + 1) - val * size
     return (1 - offset) * gamut[index+1][idx] + offset * gamut[index][idx]
@@ -143,8 +146,7 @@ def colour_calculator(val, hi, lo):
     if diff < 0.0001:
         fillcolour = 1.0
     else:
-        val = lo if val < lo else hi if val > hi else val
-        fillcolour = (val - lo) / diff
+        fillcolour = (clamp(lo, val, hi) - lo) / diff
     r = _interpolate(GAMUT, 0, fillcolour)
     g = _interpolate(GAMUT, 1, fillcolour)
     b = _interpolate(GAMUT, 2, fillcolour)
@@ -189,7 +191,8 @@ def display_titles_labels():
 
 def display_key():
     color(UIColours.BLACK)
-    keybase = state.windowBorder + 0.20 * (state.windowHeight - state.windowBorder)
+    keybase = state.windowBorder + 0.20 * (
+        state.windowHeight - state.windowBorder)
     printgl(state.windowWidth - 55,
             state.windowHeight - state.windowBorder - 5,
             GLUT_BITMAP_HELVETICA_12, "%.2f", state.highwatermark)
@@ -433,8 +436,7 @@ def display():
     for i in xrange(state.xdim * state.ydim):
         if is_defined(state.immediate_data[i]):
             datum = state.immediate_data[i]
-            datum = MINDATA if datum < MINDATA else \
-                MAXDATA if datum > MAXDATA else datum
+            datum = clamp(MINDATA, datum, MAXDATA)
             state.immediate_data[i] = datum
             if is_board_address_set():
                 if datum > state.highwatermark:
@@ -479,3 +481,14 @@ def display():
 
 def trigger_refresh():
     state.somethingtoplot = True
+
+
+def init():
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB)
+    glutInitWindowSize(state.windowWidth + KEYWIDTH)
+    glutInitWindowPosition(0, 100)
+    glutCreateWindow("VisRT - plotting your network data in real time")
+
+    display.clear(UIColours.BLACK)
+    display.color(UIColours.WHITE)
+    glShadeModel(GL_SMOOTH)

@@ -3,9 +3,9 @@ import struct
 import sys
 
 import spynnaker_visualisers.heat.state as state
-from spynnaker_visualisers.heat.constants import SDPPORT, MTU, SPINN_HELLO,\
+from spynnaker_visualisers.heat.constants import MTU, SPINN_HELLO,\
     TIMEWINDOW, HISTORYSIZE, NOTDEFINED, EACHCHIPX, EACHCHIPY, XDIMENSIONS,\
-    YDIMENSIONS, FIXEDPOINT
+    YDIMENSIONS
 from spynnaker_visualisers.heat.utils import timestamp
 from spynnaker_visualisers.heat.state import plotwidth, starttime,\
     immediate_data
@@ -21,8 +21,7 @@ _last_history_line_updated = 0
 
 
 def send_to_chip(id, port, command, *args):  # @ReservedAssignment
-    x = id / (XDIMENSIONS / EACHCHIPX)
-    y = id % (XDIMENSIONS / EACHCHIPX)
+    x, y = divmod(id, XDIMENSIONS / EACHCHIPX)
     dest = 256 * x + y
     sender(dest, port, command, *args)
 
@@ -48,7 +47,7 @@ def is_board_port_set():
 
 def init_listening():
     for family, socktype, proto, _, sockaddr in socket.getaddrinfo(
-            None, SDPPORT, socket.AF_INET, socket.SOCK_DGRAM,
+            None, state.our_port, socket.AF_INET, socket.SOCK_DGRAM,
             socket.IPPROTO_UDP, socket.AI_PASSIVE):
         try:
             _sock_input = socket.socket(family, socktype, proto)
@@ -119,7 +118,6 @@ def process_heatmap_packet(buf, n_bytes, updateline):
     src_addr = struct.unpack_from("<H", buf, 6)[0]
     xsrc = src_addr / 256
     ysrc = src_addr % 256
-    FixedPointFactor = 0.5 ** FIXEDPOINT
 
     # for all extra data (assuming regular array of 4 byte words)
     for i in xrange(n_bytes / 4):
@@ -128,7 +126,7 @@ def process_heatmap_packet(buf, n_bytes, updateline):
         if arrayindex > XDIMENSIONS * YDIMENSIONS:
             continue
         immediate_data[arrayindex] = struct.unpack_from(
-            "<I", buf, 26 + i * 4)[0] * FixedPointFactor
+            "<I", buf, 26 + i * 4)[0] * state.fixed_point_factor
         state.history_data[updateline][arrayindex] = immediate_data[arrayindex]
         state.somethingtoplot = True
 

@@ -1,4 +1,17 @@
 import datetime
+from spynnaker_visualisers.heat.constants import NOTDEFINED
+
+
+def clamp(low, value, high):
+    if value < low:
+        return low
+    if value > high:
+        return high
+    return value
+
+
+def is_defined(f):
+    return f > NOTDEFINED + 1
 
 
 def timestamp():
