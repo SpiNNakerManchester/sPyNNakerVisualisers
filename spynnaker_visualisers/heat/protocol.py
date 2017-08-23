@@ -10,8 +10,8 @@ def stop_heatmap_cell(id):  # @ReservedAssignment
 def set_heatmap_cell(id, north, east, south, west):  # @ReservedAssignment
     # Of particular interest is the encoding of the cell values
     _send_to_chip(id, 1, 0, 0, 0,
-                 int(float(north) * 65536), int(float(east) * 65536),
-                 int(float(south) * 65536), int(float(west) * 65536))
+                  int(float(north) * 65536), int(float(east) * 65536),
+                  int(float(south) * 65536), int(float(west) * 65536))
 
 
 def pause_heatmap_cell(id):  # @ReservedAssignment

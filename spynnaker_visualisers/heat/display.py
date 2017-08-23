@@ -47,10 +47,10 @@ def _interpolate(gamut, idx, fillcolour):
     val = clamp(0.0, fillcolour, 1.0)
     index = int(val * size)
     offset = (index + 1) - val * size
-    return (1 - offset) * gamut[index+1][idx] + offset * gamut[index][idx]
+    return (1 - offset) * gamut[index + 1][idx] + offset * gamut[index][idx]
 
 
-GAMUT = [(0,0,0), (0,0,1), (0,1,1), (0,1,0), (1,1,0), (1,0,0)]
+GAMUT = [(0, 0, 0), (0, 0, 1), (0, 1, 1), (0, 1, 0), (1, 1, 0), (1, 0, 0)]
 
 
 def colour_calculator(val, hi, lo):
@@ -128,8 +128,8 @@ def convert_coord_to_index(x, y):
     tilex, elementx = divmod(x, state.each_x)
     tiley, elementy = divmod(y, state.each_y)
     elementid = elementx * state.each_y + elementy
-    return (state.each_x * state.each_y * (tilex * state.y_chips + tiley) \
-            + elementid)
+    return (state.each_x * state.each_y * (tilex * state.y_chips + tiley) +
+            elementid)
 
 
 def coordinate_manipulate(i):
@@ -148,8 +148,8 @@ def coordinate_manipulate(i):
             tilex = state.x_chips - 1 - tilex
 
         elementid = elementx * state.each_y + elementy
-        i = (state.each_x * state.each_y * (tilex * state.x_chips + tiley)
-             + elementid)
+        i = (state.each_x * state.each_y * (tilex * state.x_chips + tiley) +
+             elementid)
 
         # Go back to front (cumulative)
         if state.vectorflip:
@@ -213,7 +213,7 @@ def _display_key():
     i = 10000
     while i >= 0.1:
         if difference < i:
-            interval = i / (20.0 if difference < i/2 else 10.0)
+            interval = i / (20.0 if difference < i / 2 else 10.0)
         i /= 10.0
     multipleprinted = 1
     linechunkiness = (state.windowHeight - state.windowBorder - keybase) / \
@@ -226,24 +226,24 @@ def _display_key():
                 temperaturehere = i / linechunkiness + state.lowwatermark
             colour_calculator(temperaturehere,
                               state.highwatermark, state.lowwatermark)
-    
+
             glBegin(GL_LINES)
             glVertex(state.windowWidth - 65, i + keybase)
             glVertex(state.windowWidth - 65 - KEYWIDTH, i + keybase)
             glEnd()
-    
+
             positiveoffset = temperaturehere - state.lowwatermark
             if positiveoffset >= interval * multipleprinted:
                 color(UIColours.BLACK)
                 glLineWidth(4.0)
-    
+
                 glBegin(GL_LINES)
                 glVertex(state.windowWidth - 65, i + keybase)
                 glVertex(state.windowWidth - 75, i + keybase)
                 glVertex(state.windowWidth - 55 - KEYWIDTH, i + keybase)
                 glVertex(state.windowWidth - 65 - KEYWIDTH, i + keybase)
                 glEnd()
-    
+
                 glLineWidth(1.0)
                 _draw_string(state.windowWidth - 55, i + keybase - 5,
                              GLUT_BITMAP_HELVETICA_12, "%.2f",
@@ -255,7 +255,7 @@ def _display_key():
         glLineWidth(2.0)
         _draw_open_box(state.windowWidth - 65 - KEYWIDTH, keybase,
                        state.windowWidth - 65,
-                       state.windowHeight - state.windowBorder);
+                       state.windowHeight - state.windowBorder)
         glLineWidth(1.0)
 
 
@@ -318,7 +318,7 @@ def _display_gridlines(xsize, ysize):
         # horizontal grid lines
         for ycord in xrange(state.ydim):
             glBegin(GL_LINES)
-            glVertex(state.windowBorder, state.windowBorder + ycord * ysize);
+            glVertex(state.windowBorder, state.windowBorder + ycord * ysize)
             glVertex(state.windowWidth - state.windowBorder - KEYWIDTH,
                      state.windowBorder + ycord * ysize)
             glEnd()
@@ -339,7 +339,7 @@ def _display_boxes():
         if state.editmode or box == Direction.CENTRE:
             if box == Direction.CENTRE and state.editmode:
                 color(UIColours.GREEN)
-    
+
             _draw_filled_box(x_o, y_o + BOXSIZE, x_o + BOXSIZE, y_o)
         if box == Direction.CENTRE:
             color(UIColours.WHITE)
@@ -402,7 +402,7 @@ def _display_pixel(xsize, ysize, ii, xcord, ycord):
         _draw_filled_box(state.windowBorder + xcord * xsize,
                          state.windowBorder + ycord * ysize,
                          state.windowBorder + (xcord + 1) * xsize,
-                         state.windowBorder + (ycord + 1) * ysize);
+                         state.windowBorder + (ycord + 1) * ysize)
 
     # if we want to plot values in blocks (and blocks big enough)
     if state.plotvaluesinblocks and xsize > 8 and \
@@ -412,6 +412,7 @@ def _display_pixel(xsize, ysize, ii, xcord, ycord):
         _draw_string_stroke(state.windowBorder - 20 + (xcord + 0.5) * xsize,
                             state.windowBorder - 6 + (ycord + 0.5) * ysize,
                             0.12, 0, "%3.2f", state.immediate_data[ii])
+
 
 def display():
     glPointSize(0.1)
@@ -460,12 +461,12 @@ def display():
             color(UIColours.BLACK)
             if is_board_address_set():
                 _draw_string(state.windowWidth - 3 * (BOXSIZE + GAP) + 5,
-                        state.windowHeight - GAP - BOXSIZE - 25,
-                        GLUT_BITMAP_8_BY_13, "Packet Sent")
+                             state.windowHeight - GAP - BOXSIZE - 25,
+                             GLUT_BITMAP_8_BY_13, "Packet Sent")
             else:
                 _draw_string(state.windowWidth - 3 * (BOXSIZE + GAP) - 5,
-                        state.windowHeight - GAP - BOXSIZE - 25,
-                        GLUT_BITMAP_8_BY_13, "Target Unknown")
+                             state.windowHeight - GAP - BOXSIZE - 25,
+                             GLUT_BITMAP_8_BY_13, "Target Unknown")
         _display_boxes()
 
     glutSwapBuffers()

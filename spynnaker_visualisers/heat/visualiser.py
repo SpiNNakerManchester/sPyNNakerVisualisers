@@ -51,7 +51,7 @@ def main(argv):
     state.history_data = [
         [NOTDEFINED for _ in xrange(state.xdim * state.ydim)]
         for _ in xrange(state.history_size)]
-    
+
     sdp.init_listening()
     threading.Thread(target=sdp.input_thread)
 

@@ -9,7 +9,7 @@ title = "NO SIMULATION TITLE SUPPLIED"
 
 xdim, ydim = XDIMENSIONS, YDIMENSIONS
 each_x, each_y = EACHCHIPX, EACHCHIPY
-x_chips, y_chips = 0, 0 
+x_chips, y_chips = 0, 0
 plotwidth = 0
 windowBorder = WINBORDER
 windowHeight = WINHEIGHT
@@ -92,7 +92,7 @@ def param_load(filename):
 
 def cleardown():
     global immediate_data, highwatermark, lowwatermark
-    global xflip, yflip, vectorflip, rotateflip 
+    global xflip, yflip, vectorflip, rotateflip
     for i in xrange(xdim * ydim):
         immediate_data[i] = NOTDEFINED
     highwatermark = HIWATER

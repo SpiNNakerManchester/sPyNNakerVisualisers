@@ -147,7 +147,7 @@ def keyDown(key, x, y):  # @UnusedVariable
             state.livebox = -1
             for i in all_desired_chips():
                 protocol.set_heatmap_cell(i, state.alternorth, state.altereast,
-                                 state.altersouth, state.alterwest)
+                                          state.altersouth, state.alterwest)
     elif key == '9':
         for i in all_desired_chips():
             state.alternorth = random.uniform(
@@ -159,7 +159,7 @@ def keyDown(key, x, y):  # @UnusedVariable
             state.alterwest = random.uniform(
                 state.lowwatermark, state.highwatermark)
             protocol.set_heatmap_cell(i, state.alternorth, state.altereast,
-                             state.altersouth, state.alterwest)
+                                      state.altersouth, state.alterwest)
     elif key == '0':
         state.livebox = -1
         if (state.alternorth < 1.0 and state.altereast < 1.0 and
@@ -176,7 +176,7 @@ def keyDown(key, x, y):  # @UnusedVariable
             state.alterwest = 0.0
         for i in all_desired_chips():
             protocol.set_heatmap_cell(i, state.alternorth, state.altereast,
-                             state.altersouth, state.alterwest)
+                                      state.altersouth, state.alterwest)
 
 
 def in_control_box(box, x, y):
@@ -187,7 +187,7 @@ def in_control_box(box, x, y):
     yorigin = state.windowHeight - sum
     return xorigin + box * sum <= x < xorigin + box * sum + boxsize \
         and yorigin <= state.windowHeight - y < yorigin + boxsize
-    
+
 
 def handle_control_box_click(x, y):
     if in_control_box(0, x, y) and not state.freezedisplay:
@@ -231,7 +231,7 @@ def handle_main_box_click(x, y):
         else:
             for i in all_desired_chips():
                 protocol.set_heatmap_cell(i, state.alternorth, state.altereast,
-                                 state.altersouth, state.alterwest)
+                                          state.altersouth, state.alterwest)
     elif state.editmode:
         if selectedbox == state.livebox:
             state.livebox = -1
@@ -342,7 +342,7 @@ def menu_callback(option):
         state.freezedisplay = False
     elif option == MENU_QUIT:
         safelyshut()
-    _needtorebuildmenu = True
+    trigger_menu_rebuild()
 
 
 def rebuild_menu():
@@ -385,10 +385,12 @@ def logifmenuopen(status, x, y):  # @UnusedVariable
 
 
 def trigger_menu_rebuild():
+    global _needtorebuildmenu
     _needtorebuildmenu = True
 
 
 def rebuild_menu_if_needed():
+    global _needtorebuildmenu
     if _needtorebuildmenu and not _menuopen:
         rebuild_menu()
         _needtorebuildmenu = False

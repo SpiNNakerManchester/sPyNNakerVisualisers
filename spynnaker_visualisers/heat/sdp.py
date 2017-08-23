@@ -30,6 +30,7 @@ def all_desired_chips():
 
 
 def set_board_ip_address(address):
+    global _board_ip, _board_ip_set
     _board_ip = address
     _board_ip_set = True
 
@@ -42,6 +43,7 @@ def get_board_ip_address():
         except:
             pass
     return None
+
 
 def is_board_address_set():
     return _board_ip_set
@@ -110,8 +112,8 @@ def update_history_data(updateline):
     if linestoclear < 0 and updateline + 500 > _last_history_line_updated:
         linestoclear = 0
     if linestoclear < 0:
-        linestoclear = (updateline + state.history_size
-                        - _last_history_line_updated)
+        linestoclear = (updateline + state.history_size -
+                        _last_history_line_updated)
 
     num_pts = state.xdim * state.ydim
     for i in xrange(linestoclear):
@@ -167,8 +169,8 @@ def sender(dest_addr, dest_port, command, arg1, arg2, arg3, *args):
     src_addr = 0
     seq = 0
     msg = memoryview(struct.pack("<BxBBBBHHHHIII", ip_time_out, flags, tag,
-                      dest_port, src_port, 0, 0,
-                      command, seq, arg1, arg2, arg3))
+                                 dest_port, src_port, 0, 0,
+                                 command, seq, arg1, arg2, arg3))
     struct.pack_into("!HH", msg, 6, dest_addr, src_addr)
     msg = msg.tobytes()
     for a in args:
