@@ -1,7 +1,6 @@
 # The Heatmap protocol, used for controlling what chips are doing
 
-from spynnaker_visualisers.heat.constants import EACHCHIPX, XDIMENSIONS
-from spynnaker_visualisers.heat import sdp
+from spynnaker_visualisers.heat import sdp, state
 
 
 def stop_heatmap_cell(id):  # @ReservedAssignment
@@ -24,5 +23,5 @@ def resume_heatmap_cell(id):  # @ReservedAssignment
 
 
 def _send_to_chip(id, command, *args):  # @ReservedAssignment
-    x, y = divmod(id, XDIMENSIONS / EACHCHIPX)
+    x, y = divmod(id, state.x_chips)
     sdp.sender(256 * x + y, 0x21, command, *args)

@@ -2,39 +2,14 @@ from OpenGL.GL import *  # @UnusedWildImport
 from OpenGL.GLUT import *  # @UnusedWildImport
 
 from spynnaker_visualisers.heat.constants \
-    import UIColours, EACHCHIPX, EACHCHIPY, YDIMENSIONS, YCHIPS, XDIMENSIONS,\
-    MINDATA, MAXDATA, BOXSIZE, GAP, KEYWIDTH, CONTROLBOXES, Direction
-import spynnaker_visualisers.heat.state as state
+    import MINDATA, MAXDATA, BOXSIZE, GAP, KEYWIDTH, CONTROLBOXES, \
+    UIColours, Direction
+from spynnaker_visualisers.heat import state
 from spynnaker_visualisers.heat.sdp import is_board_address_set
 from spynnaker_visualisers.heat.utils import clamp, is_defined
 
 
 # ----------------------------------------------------------------------------
-
-
-def printgl(x, y, style, fmt, *args):
-    if len(args):
-        fmt = fmt % tuple(args)
-    glRasterPos(x, y)
-    glutBitmapString(style, fmt)
-
-
-def printglstroke(x, y, size, rotate, fmt, *args):
-    style = GLUT_STROKE_ROMAN
-    if len(args):
-        fmt = fmt % tuple(args)
-    glPushMatrix()
-    glEnable(GL_BLEND)
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-    glEnable(GL_SMOOTH)
-    glLineWidth(1.5)
-    glTranslate(x, y, 0)
-    glScale(size, size, size)
-    glRotate(rotate, 0, 0, 1)
-    glutStrokeString(style, fmt)
-    glDisable(GL_LINE_SMOOTH)
-    glDisable(GL_BLEND)
-    glPopMatrix()
 
 
 def color(colour_id):
@@ -67,69 +42,6 @@ def clear(colour_id):
         glClearColor(0.8, 0.8, 0.8, 1)
 
 
-def rectVertices(x1, y1, x2, y2):
-    """Generate vertices for a filled box"""
-    glVertex(x1, y1)
-    glVertex(x1, y2)
-    glVertex(x2, y2)
-    glVertex(x2, y1)
-
-
-def openBoxVertices(x1, y1, x2, y2):
-    """Generate vertices for an open box"""
-    glVertex(x1, y1)
-    glVertex(x1, y2)
-    glVertex(x2, y2)
-    glVertex(x2, y1)
-
-
-# ----------------------------------------------------------------------------
-
-
-def convert_index_to_coord(index):
-    tileid, elementid = divmod(index, EACHCHIPX * EACHCHIPY)
-    elementx, elementy = divmod(elementid, EACHCHIPY)
-    tilex, tiley = divmod(tileid, YDIMENSIONS / EACHCHIPY)
-    return tilex * EACHCHIPX + elementx, tiley * EACHCHIPY + elementy
-
-
-def convert_coord_to_index(x, y):
-    tilex, elementx = divmod(x, EACHCHIPX)
-    tiley, elementy = divmod(y, EACHCHIPY)
-    elementid = elementx * EACHCHIPY + elementy
-    return (EACHCHIPX * EACHCHIPY) * (tilex * YCHIPS + tiley) + elementid
-
-
-def coordinate_manipulate(i):
-    if state.xflip or state.yflip or state.vectorflip or state.rotateflip:
-        chips_x = XDIMENSIONS / EACHCHIPX
-        chips_y = YDIMENSIONS / EACHCHIPY
-        tileid, elementid = divmod(i, EACHCHIPX * EACHCHIPY)
-        elementx, elementy = divmod(elementid, EACHCHIPY)
-        tilex, tiley = divmod(tileid, chips_y)
-
-        # Flip ycoords
-        if state.yflip:
-            elementy = EACHCHIPY - 1 - elementy
-            tiley = chips_y - 1 - tiley
-        # Flip xcoords
-        if state.xflip:
-            elementx = EACHCHIPX - 1 - elementx
-            tilex = chips_x - 1 - tilex
-
-        elementid = elementx * EACHCHIPY + elementy
-        i = (EACHCHIPX * EACHCHIPY) * (tilex * chips_x + tiley) + elementid
-
-        # Go back to front (cumulative)
-        if state.vectorflip:
-            i = YDIMENSIONS * XDIMENSIONS - 1 - i
-        # Rotate
-        if state.rotateflip:
-            xcoord, ycoord = convert_index_to_coord(i)
-            i = convert_coord_to_index(ycoord, XDIMENSIONS - 1 - xcoord)
-    return i
-
-
 def _interpolate(gamut, idx, fillcolour):
     size = len(gamut) - 1
     val = clamp(0.0, fillcolour, 1.0)
@@ -154,11 +66,109 @@ def colour_calculator(val, hi, lo):
     return fillcolour
 
 
-def display_titles_labels():
-    printgl(state.windowWidth / 2 - 200, state.windowHeight - 50,
-            GLUT_BITMAP_TIMES_ROMAN_24, state.title)
-    printgl(state.windowWidth / 2 - 250, state.windowHeight - 80,
-            GLUT_BITMAP_HELVETICA_12, "Menu: right click.")
+# ----------------------------------------------------------------------------
+
+
+def _draw_string(x, y, style, fmt, *args):
+    if len(args):
+        fmt = fmt % tuple(args)
+    glRasterPos(x, y)
+    glutBitmapString(style, fmt)
+
+
+def _draw_string_stroke(x, y, size, rotate, fmt, *args):
+    style = GLUT_STROKE_ROMAN
+    if len(args):
+        fmt = fmt % tuple(args)
+    glPushMatrix()
+    glEnable(GL_BLEND)
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+    glEnable(GL_SMOOTH)
+    glLineWidth(1.5)
+    glTranslate(x, y, 0)
+    glScale(size, size, size)
+    glRotate(rotate, 0, 0, 1)
+    glutStrokeString(style, fmt)
+    glDisable(GL_LINE_SMOOTH)
+    glDisable(GL_BLEND)
+    glPopMatrix()
+
+
+def _draw_filled_box(x1, y1, x2, y2):
+    """Generate vertices for a filled box"""
+    glBegin(GL_QUADS)
+    glVertex(x1, y1)
+    glVertex(x1, y2)
+    glVertex(x2, y2)
+    glVertex(x2, y1)
+    glEnd()
+
+
+def _draw_open_box(x1, y1, x2, y2):
+    """Generate vertices for an open box"""
+    glBegin(GL_LINE_LOOP)
+    glVertex(x1, y1)
+    glVertex(x1, y2)
+    glVertex(x2, y2)
+    glVertex(x2, y1)
+    glEnd()
+
+
+# ----------------------------------------------------------------------------
+
+
+def convert_index_to_coord(index):
+    tileid, elementid = divmod(index, state.each_x * state.each_y)
+    elementx, elementy = divmod(elementid, state.each_y)
+    tilex, tiley = divmod(tileid, state.y_chips)
+    return tilex * state.each_x + elementx, tiley * state.each_y + elementy
+
+
+def convert_coord_to_index(x, y):
+    tilex, elementx = divmod(x, state.each_x)
+    tiley, elementy = divmod(y, state.each_y)
+    elementid = elementx * state.each_y + elementy
+    return (state.each_x * state.each_y * (tilex * state.y_chips + tiley) \
+            + elementid)
+
+
+def coordinate_manipulate(i):
+    if state.xflip or state.yflip or state.vectorflip or state.rotateflip:
+        tileid, elementid = divmod(i, state.each_x * state.each_y)
+        elementx, elementy = divmod(elementid, state.each_y)
+        tilex, tiley = divmod(tileid, state.y_chips)
+
+        # Flip ycoords
+        if state.yflip:
+            elementy = state.each_y - 1 - elementy
+            tiley = state.y_chips - 1 - tiley
+        # Flip xcoords
+        if state.xflip:
+            elementx = state.each_x - 1 - elementx
+            tilex = state.x_chips - 1 - tilex
+
+        elementid = elementx * state.each_y + elementy
+        i = (state.each_x * state.each_y * (tilex * state.x_chips + tiley)
+             + elementid)
+
+        # Go back to front (cumulative)
+        if state.vectorflip:
+            i = state.ydim * state.xdim - 1 - i
+        # Rotate
+        if state.rotateflip:
+            xcoord, ycoord = convert_index_to_coord(i)
+            i = convert_coord_to_index(ycoord, state.xdim - 1 - xcoord)
+    return i
+
+
+# ----------------------------------------------------------------------------
+
+
+def _display_titles_labels():
+    _draw_string(state.windowWidth / 2 - 200, state.windowHeight - 50,
+                 GLUT_BITMAP_TIMES_ROMAN_24, state.title)
+    _draw_string(state.windowWidth / 2 - 250, state.windowHeight - 80,
+                 GLUT_BITMAP_HELVETICA_12, "Menu: right click.")
 
     xlabels = state.xdim
     delta = state.plotwidth / float(state.xdim)
@@ -166,13 +176,13 @@ def display_titles_labels():
     lastxplotted = -100
 
     # X-Axis
-    printglstroke(state.windowWidth / 2 - 25, 20, 0.12, 0, "X Coord")
+    _draw_string_stroke(state.windowWidth / 2 - 25, 20, 0.12, 0, "X Coord")
     for i in xrange(xlabels):
         if i > 100:
             spacing = 32
         xplotted = i * delta + state.windowBorder + (delta - 8) / 2 - 3
         if xplotted > lastxplotted + spacing:
-            printgl(xplotted, 60, GLUT_BITMAP_HELVETICA_18, "%d", i)
+            _draw_string(xplotted, 60, GLUT_BITMAP_HELVETICA_18, "%d", i)
             lastxplotted = xplotted
 
     ylabels = state.ydim
@@ -181,23 +191,23 @@ def display_titles_labels():
     lastyplotted = -100
 
     # Y-Axis
-    printglstroke(25, state.windowHeight / 2 - 50, 0.12, 90, "Y Coord")
+    _draw_string_stroke(25, state.windowHeight / 2 - 50, 0.12, 90, "Y Coord")
     for i in xrange(ylabels):
         yplotted = i * delta + state.windowBorder + (delta - 18) / 2 + 2
         if yplotted > lastyplotted + spacing:
-            printgl(60, yplotted, GLUT_BITMAP_HELVETICA_18, "%d", i)
+            _draw_string(60, yplotted, GLUT_BITMAP_HELVETICA_18, "%d", i)
             lastyplotted = yplotted
 
 
-def display_key():
+def _display_key():
     color(UIColours.BLACK)
     keybase = state.windowBorder + 0.20 * (
         state.windowHeight - state.windowBorder)
-    printgl(state.windowWidth - 55,
-            state.windowHeight - state.windowBorder - 5,
-            GLUT_BITMAP_HELVETICA_12, "%.2f", state.highwatermark)
-    printgl(state.windowWidth - 55, keybase - 5,
-            GLUT_BITMAP_HELVETICA_12, "%.2f", state.lowwatermark)
+    _draw_string(state.windowWidth - 55,
+                 state.windowHeight - state.windowBorder - 5,
+                 GLUT_BITMAP_HELVETICA_12, "%.2f", state.highwatermark)
+    _draw_string(state.windowWidth - 55, keybase - 5,
+                 GLUT_BITMAP_HELVETICA_12, "%.2f", state.lowwatermark)
     interval = 1
     difference = state.highwatermark - state.lowwatermark
     i = 10000
@@ -235,23 +245,21 @@ def display_key():
                 glEnd()
     
                 glLineWidth(1.0)
-                printgl(state.windowWidth - 55, i + keybase - 5,
-                        GLUT_BITMAP_HELVETICA_12, "%.2f",
-                        state.lowwatermark + multipleprinted * interval)
+                _draw_string(state.windowWidth - 55, i + keybase - 5,
+                             GLUT_BITMAP_HELVETICA_12, "%.2f",
+                             state.lowwatermark + multipleprinted * interval)
                 multipleprinted += 1
 
         # draw line loop around the key
         color(UIColours.BLACK)
         glLineWidth(2.0)
-        glBegin(GL_LINE_LOOP)
-        openBoxVertices(state.windowWidth - 65 - KEYWIDTH, keybase,
-                        state.windowWidth - 65,
-                        state.windowHeight - state.windowBorder);
-        glEnd()
+        _draw_open_box(state.windowWidth - 65 - KEYWIDTH, keybase,
+                       state.windowWidth - 65,
+                       state.windowHeight - state.windowBorder);
         glLineWidth(1.0)
 
 
-def display_controls():
+def _display_controls():
     boxsize = BOXSIZE
     gap = 10
     xorigin = state.windowWidth - 3 * (boxsize + gap)
@@ -260,23 +268,22 @@ def display_controls():
         if (not state.freezedisplay and box == 0) \
                 or (state.freezedisplay and box == 1) or box == 2:
             color(UIColours.BLACK)
-            glBegin(GL_QUADS)
-            rectVertices(xorigin + box * (boxsize + gap), yorigin + boxsize,
-                         xorigin + box * (boxsize + gap) + boxsize, yorigin)
-            glEnd()
+            _draw_filled_box(xorigin + box * (boxsize + gap),
+                             yorigin + boxsize,
+                             xorigin + box * (boxsize + gap) + boxsize,
+                             yorigin)
 
             color(UIColours.RED)
             glLineWidth(15.0)
             # now draw shapes on boxes
             if box == 0:
-                glBegin(GL_QUADS)
-                rectVertices(xorigin + gap, yorigin + boxsize - gap,
-                             xorigin + (boxsize + gap) / 2 - gap,
-                             yorigin + gap)
-                rectVertices(xorigin + (boxsize - gap) / 2 + gap,
-                             yorigin + boxsize - gap, xorigin + boxsize - gap,
-                             yorigin + gap)
-                glEnd()
+                _draw_filled_box(xorigin + gap, yorigin + boxsize - gap,
+                                 xorigin + (boxsize + gap) / 2 - gap,
+                                 yorigin + gap)
+                _draw_filled_box(xorigin + (boxsize - gap) / 2 + gap,
+                                 yorigin + boxsize - gap,
+                                 xorigin + boxsize - gap,
+                                 yorigin + gap)
             elif box == 1:
                 glBegin(GL_TRIANGLES)
                 glVertex(xorigin + boxsize + 2 * gap,
@@ -296,7 +303,7 @@ def display_controls():
             glLineWidth(1.0)
 
 
-def display_gridlines(xsize, ysize):
+def _display_gridlines(xsize, ysize):
     color(UIColours.GREY)
     # NB: we only draw if we are not going to completely obscure the data
     if xsize > 3.0:
@@ -317,11 +324,13 @@ def display_gridlines(xsize, ysize):
             glEnd()
 
 
-def display_boxes():
+def _display_boxes():
     for box in xrange(CONTROLBOXES * CONTROLBOXES):
         boxx, boxy = divmod(box, CONTROLBOXES)
         if boxx != 1 and boxy != 1:
             continue
+        x_o = state.windowWidth - (boxx + 1) * (BOXSIZE + GAP)
+        y_o = state.yorigin + boxy * (BOXSIZE + GAP)
         box = Direction(box)
         # only plot NESW+centre
         color(UIColours.BLACK)
@@ -331,18 +340,11 @@ def display_boxes():
             if box == Direction.CENTRE and state.editmode:
                 color(UIColours.GREEN)
     
-            glBegin(GL_QUADS)
-            rectVertices(
-                state.windowWidth - (boxx + 1) * (BOXSIZE + GAP),
-                state.yorigin + boxy * (BOXSIZE + GAP) + BOXSIZE,
-                state.windowWidth - (boxx + 1) * (BOXSIZE + GAP) + BOXSIZE,
-                state.yorigin + boxy * (BOXSIZE + GAP))
-            glEnd()
+            _draw_filled_box(x_o, y_o + BOXSIZE, x_o + BOXSIZE, y_o)
         if box == Direction.CENTRE:
             color(UIColours.WHITE)
-            printgl(state.windowWidth - (boxx + 1) * (BOXSIZE + GAP),
-                    state.yorigin + boxy * (BOXSIZE + GAP) + BOXSIZE / 2 - 5,
-                    GLUT_BITMAP_8_BY_13, " Go!" if state.editmode else "Alter")
+            _draw_string(x_o, y_o + BOXSIZE / 2 - 5, GLUT_BITMAP_8_BY_13,
+                         " Go!" if state.editmode else "Alter")
         else:
             currentvalue = 0.0
             if box == Direction.NORTH:
@@ -355,12 +357,11 @@ def display_boxes():
                 currentvalue = state.alterwest
             color(UIColours.WHITE if state.editmode and box != state.livebox
                   else UIColours.BLACK)
-            printgl(state.windowWidth - (boxx + 1) * (BOXSIZE + GAP),
-                    state.yorigin + boxy * (BOXSIZE + GAP) + BOXSIZE / 2 - 5,
-                    GLUT_BITMAP_8_BY_13, "%3.1f", currentvalue)
+            _draw_string(x_o, y_o + BOXSIZE / 2 - 5, GLUT_BITMAP_8_BY_13,
+                         "%3.1f", currentvalue)
 
 
-def display_mini_pixel(tileratio, i, ii, xcord, ycord):
+def _display_mini_pixel(tileratio, i, ii, xcord, ycord):
     """draw little / mini tiled version in btm left - pixel size"""
     ysize = max(1.0, float(state.windowBorder - 6 * GAP) / state.ydim)
     xsize = max(1.0, ysize * tileratio)
@@ -371,54 +372,46 @@ def display_mini_pixel(tileratio, i, ii, xcord, ycord):
                           state.highwatermark, state.lowwatermark)
 
         # this plots the basic quad box filled as per colour above
-        glBegin(GL_QUADS)
-        rectVertices(2 * GAP + xcord * xsize, 2 * GAP + ycord * ysize,
-                     2 * GAP + (xcord + 1) * xsize,
-                     2 * GAP + (ycord + 1) * ysize)
-        glEnd()
+        _draw_filled_box(2 * GAP + xcord * xsize, 2 * GAP + ycord * ysize,
+                         2 * GAP + (xcord + 1) * xsize,
+                         2 * GAP + (ycord + 1) * ysize)
 
     # draw outlines for selected box in little / mini version
     if state.livebox == i:
         glLineWidth(1.0)
         # this plots the external black outline of the selected tile
         color(UIColours.BLACK)
-        glBegin(GL_LINE_LOOP)
-        openBoxVertices(2 * GAP + xcord * xsize, 2 * GAP + ycord * ysize,
-                        2 * GAP + (xcord + 1) * xsize,
-                        2 * GAP + (ycord + 1) * ysize)
-        glEnd()
+        _draw_open_box(2 * GAP + xcord * xsize, 2 * GAP + ycord * ysize,
+                       2 * GAP + (xcord + 1) * xsize,
+                       2 * GAP + (ycord + 1) * ysize)
 
         # this plots the internal white outline of the selected tile
         color(UIColours.WHITE)
-        glBegin(GL_LINE_LOOP)
-        openBoxVertices(1 + 2 * GAP + xcord * xsize,
-                        1 + 2 * GAP + ycord * ysize,
-                        2 * GAP + (xcord + 1) * xsize - 1,
-                        2 * GAP + (ycord + 1) * ysize - 1)
-        glEnd()
+        _draw_open_box(1 + 2 * GAP + xcord * xsize,
+                       1 + 2 * GAP + ycord * ysize,
+                       2 * GAP + (xcord + 1) * xsize - 1,
+                       2 * GAP + (ycord + 1) * ysize - 1)
 
 
-def display_pixel(xsize, ysize, ii, xcord, ycord):
+def _display_pixel(xsize, ysize, ii, xcord, ycord):
     magnitude = colour_calculator(state.immediate_data[ii],
                                   state.highwatermark, state.lowwatermark)
 
     # basic plot
     if is_defined(state.immediate_data[ii]):
-        glBegin(GL_QUADS)
-        rectVertices(state.windowBorder + xcord * xsize,
-            state.windowBorder + ycord * ysize,
-            state.windowBorder + (xcord + 1) * xsize,
-            state.windowBorder + (ycord + 1) * ysize);
-        glEnd()
+        _draw_filled_box(state.windowBorder + xcord * xsize,
+                         state.windowBorder + ycord * ysize,
+                         state.windowBorder + (xcord + 1) * xsize,
+                         state.windowBorder + (ycord + 1) * ysize);
 
     # if we want to plot values in blocks (and blocks big enough)
     if state.plotvaluesinblocks and xsize > 8 and \
             is_defined(state.immediate_data[ii]):
         # choose if light or dark labels
         color(UIColours.WHITE if magnitude <= 0.6 else UIColours.BLACK)
-        printglstroke(state.windowBorder - 20 + (xcord + 0.5) * xsize,
-                      state.windowBorder - 6 + (ycord + 0.5) * ysize, 0.12, 0,
-                      "%3.2f", state.immediate_data[ii])
+        _draw_string_stroke(state.windowBorder - 20 + (xcord + 0.5) * xsize,
+                            state.windowBorder - 6 + (ycord + 0.5) * ysize,
+                            0.12, 0, "%3.2f", state.immediate_data[ii])
 
 def display():
     glPointSize(0.1)
@@ -430,7 +423,7 @@ def display():
 
     # titles and labels are only printed if border is big enough
     if state.printlabels and not state.fullscreen:
-        display_titles_labels()
+        _display_titles_labels()
 
     # clamp and scale all the values to plottable range
     for i in xrange(state.xdim * state.ydim):
@@ -452,28 +445,28 @@ def display():
         ii = coordinate_manipulate(i)
         xcord, ycord = convert_index_to_coord(i)
         if not state.fullscreen:
-            display_mini_pixel(tileratio, i, ii, xcord, ycord)
-        display_pixel(xsize, ysize, ii, xcord, ycord)
+            _display_mini_pixel(tileratio, i, ii, xcord, ycord)
+        _display_pixel(xsize, ysize, ii, xcord, ycord)
 
     color(UIColours.BLACK)
 
     # Various bits and pieces of overlay information
     if state.gridlines:
-        display_gridlines()
+        _display_gridlines()
     if not state.fullscreen:
-        display_key()
-        display_controls()
+        _display_key()
+        _display_controls()
         if state.pktgone > 0:
             color(UIColours.BLACK)
             if is_board_address_set():
-                printgl(state.windowWidth - 3 * (BOXSIZE + GAP) + 5,
+                _draw_string(state.windowWidth - 3 * (BOXSIZE + GAP) + 5,
                         state.windowHeight - GAP - BOXSIZE - 25,
                         GLUT_BITMAP_8_BY_13, "Packet Sent")
             else:
-                printgl(state.windowWidth - 3 * (BOXSIZE + GAP) - 5,
+                _draw_string(state.windowWidth - 3 * (BOXSIZE + GAP) - 5,
                         state.windowHeight - GAP - BOXSIZE - 25,
                         GLUT_BITMAP_8_BY_13, "Target Unknown")
-        display_boxes()
+        _display_boxes()
 
     glutSwapBuffers()
     state.somethingtoplot = False

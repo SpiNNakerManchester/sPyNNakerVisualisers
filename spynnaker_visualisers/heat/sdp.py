@@ -2,13 +2,10 @@ import socket
 import struct
 import sys
 
-import spynnaker_visualisers.heat.state as state
-from spynnaker_visualisers.heat.constants import MTU, SPINN_HELLO,\
-    TIMEWINDOW, HISTORYSIZE, NOTDEFINED, EACHCHIPX, EACHCHIPY, XDIMENSIONS,\
-    YDIMENSIONS
+from spynnaker_visualisers.heat import state
+from spynnaker_visualisers.heat.constants \
+    import MTU, SPINN_HELLO, TIMEWINDOW, NOTDEFINED
 from spynnaker_visualisers.heat.utils import timestamp
-from spynnaker_visualisers.heat.state import plotwidth, starttime,\
-    immediate_data
 
 
 _board_ip = None
@@ -21,13 +18,13 @@ _last_history_line_updated = 0
 
 
 def send_to_chip(id, port, command, *args):  # @ReservedAssignment
-    x, y = divmod(id, XDIMENSIONS / EACHCHIPX)
+    x, y = divmod(id, state.x_chips)
     dest = 256 * x + y
     sender(dest, port, command, *args)
 
 
 def all_desired_chips():
-    # for i in xrange((XDIMENSIONS * YDIMENSIONS) / (EACHCHIPX * EACHCHIPY)):
+    # for i in xrange(state.x_chips * state.y_chips):
     #     yield i
     yield 1
 
@@ -36,6 +33,15 @@ def set_board_ip_address(address):
     _board_ip = address
     _board_ip_set = True
 
+
+def get_board_ip_address():
+    for _, _, _, _, sockaddr in socket.getaddrinfo(
+            _board_ip, str(_board_port), socket.AF_INET, socket.SOCK_DGRAM):
+        try:
+            return sockaddr[0]
+        except:
+            pass
+    return None
 
 def is_board_address_set():
     return _board_ip_set
@@ -60,6 +66,7 @@ def init_listening():
 
 
 def input_thread():
+    global _board_port
     sdp_header_len = 26
     while True:
         try:
@@ -90,23 +97,28 @@ def input_thread():
         if not state.freezedisplay:
             update_history_data(nowtime)
 
-        timeperindex = TIMEWINDOW / float(plotwidth)
-        updateline = ((nowtime - starttime) / (timeperindex * 1000000)) \
-            % HISTORYSIZE
+        timeperindex = TIMEWINDOW / float(state.plotwidth)
+        updateline = ((nowtime - state.starttime) / timeperindex / 1000000) \
+            % state.history_size
         process_heatmap_packet(buf, num_additional_bytes, updateline)
 
 
 def update_history_data(updateline):
+    global _last_history_line_updated
+
     linestoclear = updateline - _last_history_line_updated
     if linestoclear < 0 and updateline + 500 > _last_history_line_updated:
         linestoclear = 0
     if linestoclear < 0:
-        linestoclear = updateline + HISTORYSIZE - _last_history_line_updated
+        linestoclear = (updateline + state.history_size
+                        - _last_history_line_updated)
+
     num_pts = state.xdim * state.ydim
     for i in xrange(linestoclear):
-        rowid = (1 + i + _last_history_line_updated) % HISTORYSIZE
+        rowid = (1 + i + _last_history_line_updated) % state.history_size
         for j in xrange(num_pts):
             state.history_data[rowid][j] = NOTDEFINED
+
     _last_history_line_updated = updateline
 
 
@@ -121,17 +133,19 @@ def process_heatmap_packet(buf, n_bytes, updateline):
 
     # for all extra data (assuming regular array of 4 byte words)
     for i in xrange(n_bytes / 4):
-        arrayindex = (EACHCHIPX * EACHCHIPY) * \
-            (xsrc * (XDIMENSIONS / EACHCHIPX) + ysrc) + i
-        if arrayindex > XDIMENSIONS * YDIMENSIONS:
+        arrayindex = (state.x_chips * state.y_chips) \
+            * (xsrc * state.x_chips + ysrc) + i
+        if arrayindex > state.xdim * state.ydim:
             continue
-        immediate_data[arrayindex] = struct.unpack_from(
-            "<I", buf, 26 + i * 4)[0] * state.fixed_point_factor
-        state.history_data[updateline][arrayindex] = immediate_data[arrayindex]
+        data = struct.unpack_from("<I", buf, 26 + i * 4)[0] \
+            * state.fixed_point_factor
+        state.immediate_data[arrayindex] = data
+        state.history_data[updateline][arrayindex] = data
         state.somethingtoplot = True
 
 
 def init_sender():
+    global _sock_output, _board_address
     for family, socktype, proto, _, sockaddr in socket.getaddrinfo(
             _board_ip, str(_board_port), socket.AF_INET, socket.SOCK_DGRAM):
         try:

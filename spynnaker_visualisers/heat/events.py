@@ -3,15 +3,12 @@ from OpenGL.GLUT import *  # @UnusedWildImport
 import random
 import time
 
-import spynnaker_visualisers.heat.display as display
-import spynnaker_visualisers.heat.state as state
-from spynnaker_visualisers.heat.constants import KEYWIDTH, BOXSIZE, GAP,\
-    CONTROLBOXES, ALTERSTEPSIZE, Direction, MAXFRAMERATE
-from spynnaker_visualisers.heat import protocol
+from spynnaker_visualisers.heat import display, protocol, state
+from spynnaker_visualisers.heat.constants import \
+    BOXSIZE, CONTROLBOXES, GAP, KEYWIDTH, Direction
 from spynnaker_visualisers.heat.sdp \
     import all_desired_chips, is_board_port_set
 from spynnaker_visualisers.heat.utils import timestamp
-from spynnaker_visualisers.heat.state import cleardown
 
 SCROLL_UP = 3
 SCROLL_DOWN = 4
@@ -88,7 +85,7 @@ def keyDown(key, x, y):  # @UnusedVariable
     if key == 'f':
         toggle_fullscreen()
     elif key == 'c':
-        cleardown()
+        state.cleardown()
     elif key == 'q':
         safelyshut()
     elif key == '"':
@@ -109,22 +106,22 @@ def keyDown(key, x, y):  # @UnusedVariable
         state.yflip = not state.yflip
     elif key == '+':
         if state.livebox == Direction.NORTH:
-            state.alternorth += ALTERSTEPSIZE
+            state.alternorth += state.alter_step
         elif state.livebox == Direction.SOUTH:
-            state.altersouth += ALTERSTEPSIZE
+            state.altersouth += state.alter_step
         elif state.livebox == Direction.EAST:
-            state.altereast += ALTERSTEPSIZE
+            state.altereast += state.alter_step
         elif state.livebox == Direction.WEST:
-            state.alterwest += ALTERSTEPSIZE
+            state.alterwest += state.alter_step
     elif key == '-':
         if state.livebox == Direction.NORTH:
-            state.alternorth -= ALTERSTEPSIZE
+            state.alternorth -= state.alter_step
         elif state.livebox == Direction.SOUTH:
-            state.altersouth -= ALTERSTEPSIZE
+            state.altersouth -= state.alter_step
         elif state.livebox == Direction.EAST:
-            state.altereast -= ALTERSTEPSIZE
+            state.altereast -= state.alter_step
         elif state.livebox == Direction.WEST:
-            state.alterwest -= ALTERSTEPSIZE
+            state.alterwest -= state.alter_step
     elif key == 'n':
         if state.editmode:
             state.livebox = (
@@ -257,35 +254,35 @@ def mouse(button, state, x, y):
             rebuild_menu()
     elif button == SCROLL_UP:
         if state.livebox == Direction.NORTH:
-            state.alternorth += ALTERSTEPSIZE
+            state.alternorth += state.alter_step
             display.trigger_refresh()
         elif state.livebox == Direction.SOUTH:
-            state.altersouth += ALTERSTEPSIZE
+            state.altersouth += state.alter_step
             display.trigger_refresh()
         elif state.livebox == Direction.EAST:
-            state.altereast += ALTERSTEPSIZE
+            state.altereast += state.alter_step
             display.trigger_refresh()
         elif state.livebox == Direction.WEST:
-            state.alterwest += ALTERSTEPSIZE
+            state.alterwest += state.alter_step
             display.trigger_refresh()
     elif button == SCROLL_DOWN:
         if state.livebox == Direction.NORTH:
-            state.alternorth -= ALTERSTEPSIZE
+            state.alternorth -= state.alter_step
             display.trigger_refresh()
         elif state.livebox == Direction.SOUTH:
-            state.altersouth -= ALTERSTEPSIZE
+            state.altersouth -= state.alter_step
             display.trigger_refresh()
         elif state.livebox == Direction.EAST:
-            state.altereast -= ALTERSTEPSIZE
+            state.altereast -= state.alter_step
             display.trigger_refresh()
         elif state.livebox == Direction.WEST:
-            state.alterwest -= ALTERSTEPSIZE
+            state.alterwest -= state.alter_step
             display.trigger_refresh()
 
 
 def idle():
     rebuild_menu_if_needed()
-    frame_us = 1000000 / MAXFRAMERATE
+    frame_us = 1000000 / state.max_frame_rate
     howlongtowait = state.starttime + state.counter * frame_us - timestamp()
     if howlongtowait > 0:
         time.sleep(howlongtowait / 1000000.0)

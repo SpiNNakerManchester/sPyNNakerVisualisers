@@ -1,29 +1,56 @@
+from argparse import ArgumentParser
 import sys
 import threading
 
-from .constants import HISTORYSIZE, NOTDEFINED
-import spynnaker_visualisers.heat.config as config
-import spynnaker_visualisers.heat.events as events
-import spynnaker_visualisers.heat.sdp as sdp
-import spynnaker_visualisers.heat.state as state
-import spynnaker_visualisers.heat.utils as utils
+from spynnaker_visualisers.heat.constants import NOTDEFINED
+from spynnaker_visualisers.heat import events, sdp, state, utils
+
+__version__ = 18
+__date__ = '2017-08-23'
 
 
 # -------------------------------------------------------------------
 
 
-def main(argv):
-    configfile = config.parse_arguments(argv)
-    if configfile is None:
-        configfile = "visparam.json"
-    config.param_load(configfile)
+def parse_arguments(args):
+    program_name = "sudoku_visualiser"
+    program_version = "v%d" % (__version__)
+    program_description = "Visualise the SpiNNaker heat map."
+    program_version_string = '%%prog %s (%s)' % (program_version, __date__)
 
+    # setup option parser
+    parser = ArgumentParser(prog=program_name,
+                            version=program_version_string,
+                            description=program_description)
+    parser.add_argument(
+        "-c", "--config", dest="config", metavar="FILE",
+        help="file path to where the configuration JSON file is located",
+        default="visparam.json")
+    parser.add_argument(
+        "-i", "--board-ip", dest="ip", metavar="ADDRESS",
+        help="the address of the SpiNNaker board running the Heat Demo; if "
+        "omitted, the address of the system that contacts the visualiser "
+        "will be used", type=int, default=None)
+
+    if args is None:
+        args = sys.argv[1:]
+    parsed = parser.parse_args(args)
+    print("Will load configuration from: %s", parsed.config)
+    if parsed.ip is not None:
+        sdp.set_board_ip_address(parsed.ip)
+        print("Waiting for packets only from: %s" % sdp.get_board_ip_address())
+    return parsed.config
+
+
+def main(argv):
+    configfile = parse_arguments(argv)
+    state.param_load(configfile)
     state.cleardown()
-    state.starttimez = utils.timestamp()
+    state.starttime = utils.timestamp()
 
     state.history_data = [
         [NOTDEFINED for _ in xrange(state.xdim * state.ydim)]
-        for _ in xrange(HISTORYSIZE)]
+        for _ in xrange(state.history_size)]
     
     sdp.init_listening()
     threading.Thread(target=sdp.input_thread)

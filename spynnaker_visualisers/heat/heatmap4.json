@@ -1,0 +1,11 @@
+{
+	"title": "Heat Diffusion - Live SpiNNaker 4-Chip Plot",
+	"dimensions": [
+		8,
+		8
+	],
+	"chip_size": [
+		4,
+		4
+	]
+}

@@ -48,8 +48,8 @@ class UIColours(Enum):
 
 
 class Direction(Enum):
-    NORTH = 1
-    WEST = 3
+    EAST = 1
+    SOUTH = 3
     CENTRE = 4
-    EAST = 5
-    SOUTH = 7
+    NORTH = 5
+    WEST = 7
