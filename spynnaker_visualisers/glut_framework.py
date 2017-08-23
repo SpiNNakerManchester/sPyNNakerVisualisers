@@ -192,19 +192,19 @@ class GlutFramework(object):
         """
         if self.frameRateTimer.stopped:
             self.frameRateTimer.start()
-    
+
         # stop the timer and calculate time since last frame
         self.frameRateTimer.stop()
         milliseconds = self.frameRateTimer.elapsedMilliseconds
         self.frameTimeElapsed += milliseconds
-    
+
         if self.frameTimeElapsed >= self.frameTime:
             # If the time exceeds a certain "frame rate" then show the next
             # frame
             GLUT.glutPostRedisplay()
-    
+
             # remove a "frame" and start counting up again
-            self.frameTimeElapsed -= self.frameTime;
+            self.frameTimeElapsed -= self.frameTime
         self.frameRateTimer.start()
 
     def displayFramework(self):
