@@ -105,8 +105,8 @@ class SudokuPlot(GlutFramework):
     def display(self, dTime):  # @UnusedVariable
         self._start_display()
 
-        cell_width = (self.window_width - 2*WINDOW_BORDER) / 9.0
-        cell_height = (self.window_height - 2*WINDOW_BORDER) / 9.0
+        cell_width = (self.window_width - 2 * WINDOW_BORDER) / 9.0
+        cell_height = (self.window_height - 2 * WINDOW_BORDER) / 9.0
         end = self.latest_time
         start = end - self.ms_per_bin
         if start < 0.0:
@@ -204,8 +204,8 @@ class SudokuPlot(GlutFramework):
             for col in xrange(9):
                 if col != x:
                     self._check_cell(values, cell_valid, x, y, y, col)
-            for row in xrange(3 * (y//3), 3 * (y//3 + 1)):
-                for col in xrange(3 * (x//3), 3 * (x//3 + 1)):
+            for row in xrange(3 * (y // 3), 3 * (y // 3 + 1)):
+                for col in xrange(3 * (x // 3), 3 * (x // 3 + 1)):
                     if x != col and y != row:
                         self._check_cell(values, cell_valid, x, y, row, col)
         return cell_valid
@@ -273,9 +273,9 @@ class SudokuPlot(GlutFramework):
         glEnd()
 
     def _check_cell(self, values, correct, x, y, row, col):
-        value = values[y*9 + x]
-        if value == values[row*9 + col]:
-            correct[y*9 + x] = False
+        value = values[y * 9 + x]
+        if value == values[row * 9 + col]:
+            correct[y * 9 + x] = False
 
 
 def sudoku_visualiser(args, port, neurons, ms, database):
