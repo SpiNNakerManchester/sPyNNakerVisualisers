@@ -42,13 +42,14 @@ setup(
         'SpiNNFrontEndCommon >= 1!4.0.0a5, < 1!5.0.0',
     ],
     extras_require={
-        "acceleration":["PyOpenGL_accelerate"]
+        "acceleration": ["PyOpenGL_accelerate"]
     },
 
     # Scripts
     entry_points={
         "gui_scripts": [
-            "spynnaker_sudoku = spynnaker_visualisers.sudoku.sudoku_visualiser:main",
+            "spynnaker_sudoku = "
+            "spynnaker_visualisers.sudoku.sudoku_visualiser:main",
         ],
     }
 )
