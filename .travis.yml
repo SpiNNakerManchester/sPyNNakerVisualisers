@@ -4,8 +4,9 @@ python: 2.7
 virtualenv:
   system_site_packages: true
 
-before_script:
+install:
   - pip install flake8
+
 script:
   # Code quality check
   - flake8 --ignore F403,F405
