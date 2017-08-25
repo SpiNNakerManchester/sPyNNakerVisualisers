@@ -83,7 +83,7 @@ def _draw_string_stroke(x, y, size, rotate, fmt, *args):
     glPushMatrix()
     glEnable(GL_BLEND)
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-    glEnable(GL_SMOOTH)
+    # glEnable(GL_SMOOTH)
     glLineWidth(1.5)
     glTranslate(x, y, 0)
     glScale(size, size, size)
@@ -220,7 +220,8 @@ def _display_key():
         float(state.highwatermark - state.lowwatermark)
     # key is only printed if big enough to print
     if state.windowHeight - state.windowBorder - keybase > 0:
-        for i in xrange(state.windowHeight - state.windowBorder - keybase):
+        for i in xrange(int(
+                state.windowHeight - state.windowBorder - keybase)):
             temperaturehere = 1.0
             if linechunkiness > 0.0:
                 temperaturehere = i / linechunkiness + state.lowwatermark
@@ -479,10 +480,10 @@ def trigger_refresh():
 
 def init():
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB)
-    glutInitWindowSize(state.windowWidth + KEYWIDTH)
+    glutInitWindowSize(state.windowWidth + KEYWIDTH, state.windowHeight)
     glutInitWindowPosition(0, 100)
     glutCreateWindow("VisRT - plotting your network data in real time")
 
-    display.clear(UIColours.BLACK)
-    display.color(UIColours.WHITE)
+    clear(UIColours.BLACK)
+    color(UIColours.WHITE)
     glShadeModel(GL_SMOOTH)

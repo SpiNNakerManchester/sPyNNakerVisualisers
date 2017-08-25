@@ -30,7 +30,7 @@ def parse_arguments(args):
         "-i", "--board-ip", dest="ip", metavar="ADDRESS",
         help="the address of the SpiNNaker board running the Heat Demo; if "
         "omitted, the address of the system that contacts the visualiser "
-        "will be used", type=int, default=None)
+        "will be used", default=None)
 
     if args is None:
         args = sys.argv[1:]
@@ -42,8 +42,8 @@ def parse_arguments(args):
     return parsed.config
 
 
-def main(argv):
-    configfile = parse_arguments(argv)
+def main():
+    configfile = parse_arguments(sys.argv[1:])
     state.param_load(configfile)
     state.cleardown()
     state.starttime = utils.timestamp()
@@ -55,10 +55,10 @@ def main(argv):
     sdp.init_listening()
     threading.Thread(target=sdp.input_thread)
 
-    events.run_GUI(argv)
+    events.run_GUI(sys.argv)
     print("goodbye")
     sys.exit(0)
 
 
 if __name__ == "__main__":
-    main(sys.argv)
+    main()

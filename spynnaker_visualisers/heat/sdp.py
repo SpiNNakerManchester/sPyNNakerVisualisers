@@ -36,13 +36,7 @@ def set_board_ip_address(address):
 
 
 def get_board_ip_address():
-    for _, _, _, _, sockaddr in socket.getaddrinfo(
-            _board_ip, str(_board_port), socket.AF_INET, socket.SOCK_DGRAM):
-        try:
-            return sockaddr[0]
-        except:
-            pass
-    return None
+    return socket.gethostbyname(_board_ip)
 
 
 def is_board_address_set():

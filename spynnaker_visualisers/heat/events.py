@@ -241,8 +241,8 @@ def handle_main_box_click(x, y):
     return True
 
 
-def mouse(button, state, x, y):
-    if state != GLUT_DOWN:
+def mouse(button, mousestate, x, y):
+    if mousestate != GLUT_DOWN:
         return
     if button == GLUT_LEFT_BUTTON:
         acted = handle_control_box_click(x, y) or handle_main_box_click(x, y)
@@ -347,7 +347,8 @@ def menu_callback(option):
 
 def rebuild_menu():
     global _RHMouseMenu
-    glutDestroyMenu(_RHMouseMenu)
+    if _RHMouseMenu is not None:
+        glutDestroyMenu(_RHMouseMenu)
     _RHMouseMenu = glutCreateMenu(menu_callback)
 
     glutAddMenuEntry("(X) Mirror (left to right swap)", XFORM_XFLIP)
@@ -378,7 +379,7 @@ def rebuild_menu():
     return _RHMouseMenu
 
 
-def logifmenuopen(status, x, y):  # @UnusedVariable
+def logifmenuopen(status):  # @UnusedVariable
     global _menuopen
     _menuopen = (status == GLUT_MENU_IN_USE)
     rebuild_menu_if_needed()
