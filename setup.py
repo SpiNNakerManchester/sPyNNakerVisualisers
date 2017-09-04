@@ -48,6 +48,7 @@ setup(
     # Scripts
     entry_points={
         "gui_scripts": [
+            "spynnaker_raytrace = spynnaker_visualisers.raytrace.drawer:main",
             "spynnaker_sudoku = "
             "spynnaker_visualisers.sudoku.sudoku_visualiser:main",
         ],
