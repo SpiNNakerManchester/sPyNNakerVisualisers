@@ -9,7 +9,7 @@ from OpenGL.GLUT import \
     glutInit, glutInitDisplayMode, glutInitWindowPosition, \
     glutInitWindowSize, glutCreateWindow, glutSwapBuffers, glutDisplayFunc, \
     glutReshapeFunc, glutIdleFunc, glutMainLoop, glutKeyboardFunc, \
-    glutKeyboardUpFunc, glutSpecialFunc, glutSpecialUpFunc 
+    glutKeyboardUpFunc, glutSpecialFunc, glutSpecialUpFunc
 from OpenGL.GLUT import \
     GLUT_KEY_UP, GLUT_KEY_DOWN, GLUT_KEY_LEFT, GLUT_KEY_RIGHT, GLUT_DOUBLE
 import numpy
@@ -82,7 +82,7 @@ def display():
     """Called every time OpenGL needs to update the display"""
     global windowWidth, windowHeight, viewingFrame
     glClearColor(1.0, 1.0, 1.0, 0.001)
-    glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT)
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
     glDrawPixels(windowWidth, windowHeight, GL_RGB, GL_UNSIGNED_BYTE,
                  viewingFrame.data)
     glutSwapBuffers()
@@ -111,9 +111,9 @@ def specialDown(key, x, y):  # @UnusedVariable
 def specialUp(key, x, y):  # @UnusedVariable
     global turningUpDown, rolling
     if key == GLUT_KEY_UP or key == GLUT_KEY_DOWN:
-        turningUpDown = 0;
+        turningUpDown = 0
     elif key == GLUT_KEY_RIGHT or key == GLUT_KEY_LEFT:
-        rolling = 0;
+        rolling = 0
 
 
 def keyDown(key, x, y):  # @UnusedVariable
@@ -139,7 +139,7 @@ def keyUp(key, x, y):  # @UnusedVariable
     elif key == 'a' or key == 'd':
         turningLeftRight = 0
     elif key == 'q' or key == 'e':
-        strafing = 0;
+        strafing = 0
 
 
 def vector_rotate(rotated, rotateAbout, theta):
@@ -205,15 +205,15 @@ def input_thread():
     while True:
         msg = sockfd_input.recv(65536)
         sdp_msg = SDP_HEADER.unpack_from(msg)
-        data = msg[26:]
-        if sdp_msg[7] == 3: # command
-            process_one_message(data, sdp_msg[9])
+        data = msg[SDP_HEADER.size:]               # sdp_msg.data
+        if sdp_msg[7] == 3:                        # sdp_msg.command
+            process_one_message(data, sdp_msg[9])  # sdp_msg.arg1
 
 
 def process_one_message(data, number_of_pixels):
     global frameHeight, frameWidth, receivedFrame, viewingFrame
     for i in xrange(number_of_pixels):
-        x, y, r, g, b = PIXEL_FORMAT.unpack_from(data, i * 7)
+        x, y, r, g, b = PIXEL_FORMAT.unpack_from(data, i * PIXEL_FORMAT.size)
         index = (frameHeight - y - 1) * frameWidth + x
         if index < frameWidth * frameHeight:
             num_received_for_pixel = receivedFrame[index]
@@ -235,9 +235,8 @@ def main():
 
     init_udp_server_spinnaker()
 
-    frameHeight = 256                           # Gotta be something!
-    frameWidth = (int) (horizontalFieldOfView * frameHeight /
-                        verticalFieldOfView)
+    frameHeight = 256                            # Gotta be something!
+    frameWidth = int(horizontalFieldOfView * frameHeight / verticalFieldOfView)
 
     timer.start()
     viewingFrame = numpy.zeros(frameWidth * frameHeight * 3, dtype=numpy.uint8)
@@ -245,11 +244,11 @@ def main():
 
     threading.Thread(target=input_thread).start()
 
-    glutInit(sys.argv)                          # Initialise OpenGL
-    glutInitDisplayMode(GLUT_DOUBLE)            # Set the display mode
-    glutInitWindowSize(frameWidth, frameHeight) # Set the window size
-    glutInitWindowPosition(0, 0)                # Set the window position
-    glutCreateWindow("Path Tracer")             # Create the window
+    glutInit(sys.argv)                           # Initialise OpenGL
+    glutInitDisplayMode(GLUT_DOUBLE)             # Set the display mode
+    glutInitWindowSize(frameWidth, frameHeight)  # Set the window size
+    glutInitWindowPosition(0, 0)                 # Set the window position
+    glutCreateWindow("Path Tracer")              # Create the window
 
     glEnable(GL_BLEND)
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
@@ -263,7 +262,7 @@ def main():
     glutKeyboardUpFunc(keyUp)
     glutIdleFunc(idle)
 
-    glutMainLoop()                              # Enter the main OpenGL loop
+    glutMainLoop()                               # Enter the main OpenGL loop
 
     return 0
 
