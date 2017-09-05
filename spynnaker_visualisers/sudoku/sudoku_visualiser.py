@@ -92,7 +92,7 @@ class SudokuPlot(GlutFramework):
                 cell_id = spike / (self.neurons_per_number * 9)
                 neuron_id = spike % (self.neurons_per_number * 9)
                 self.points_to_draw[cell_id].append((time, neuron_id))
-            time_ms = time * self.timestep_ms;
+            time_ms = time * self.timestep_ms
             if time_ms > self.latest_time:
                 self.latest_time = time_ms
 
@@ -105,8 +105,8 @@ class SudokuPlot(GlutFramework):
     def display(self, dTime):  # @UnusedVariable
         self._start_display()
 
-        cell_width = (self.window_width - 2*WINDOW_BORDER) / 9.0
-        cell_height = (self.window_height - 2*WINDOW_BORDER) / 9.0
+        cell_width = (self.window_width - 2 * WINDOW_BORDER) / 9.0
+        cell_height = (self.window_height - 2 * WINDOW_BORDER) / 9.0
         end = self.latest_time
         start = end - self.ms_per_bin
         if start < 0.0:
@@ -204,11 +204,11 @@ class SudokuPlot(GlutFramework):
             for col in xrange(9):
                 if col != x:
                     self._check_cell(values, cell_valid, x, y, y, col)
-            for row in xrange(3 * (y//3), 3 * (y//3 + 1)):
-                for col in xrange(3 * (x//3), 3 * (x//3 + 1)):
+            for row in xrange(3 * (y // 3), 3 * (y // 3 + 1)):
+                for col in xrange(3 * (x // 3), 3 * (x // 3 + 1)):
                     if x != col and y != row:
                         self._check_cell(values, cell_valid, x, y, row, col)
-        return cell_valid;
+        return cell_valid
 
     def _start_display(self):
         glPointSize(1.0)
@@ -226,10 +226,10 @@ class SudokuPlot(GlutFramework):
         glColor4f(0.0, 0.0, 0.0, 1.0)
         for i in range(10):
             glLineWidth(3.0 if i % 3 == 0 else 1.0)
-            pos = WINDOW_BORDER + i *  height
+            pos = WINDOW_BORDER + i * height
             self._line(self.window_width - WINDOW_BORDER, pos,
                        WINDOW_BORDER, pos)
-            pos = WINDOW_BORDER + i *  width
+            pos = WINDOW_BORDER + i * width
             self._line(pos, self.window_height - WINDOW_BORDER,
                        pos, WINDOW_BORDER)
 
@@ -243,7 +243,7 @@ class SudokuPlot(GlutFramework):
             y_spacing = cell_height / (self.neurons_per_number * 9.0)
 
             # Work out how probable the number is and use this for colouring
-            cell_sat = 1 - prob[cell];
+            cell_sat = 1 - prob[cell]
 
             glPointSize(2.0)
             glBegin(GL_POINTS)
@@ -252,8 +252,8 @@ class SudokuPlot(GlutFramework):
             else:
                 glColor4f(1.0, cell_sat, cell_sat, 1.0)
             for (time, n_id) in self.points_to_draw[cell]:
-                x_value = (time - start) * x_spacing + x_start;
-                y_value = n_id * y_spacing + y_start;
+                x_value = (time - start) * x_spacing + x_start
+                y_value = n_id * y_spacing + y_start
                 glVertex2f(x_value, y_value)
             glEnd()
 
@@ -273,9 +273,9 @@ class SudokuPlot(GlutFramework):
         glEnd()
 
     def _check_cell(self, values, correct, x, y, row, col):
-        value = values[y*9 + x]
-        if value == values[row*9 + col]:
-            correct[y*9 + x] = False
+        value = values[y * 9 + x]
+        if value == values[row * 9 + col]:
+            correct[y * 9 + x] = False
 
 
 def sudoku_visualiser(args, port, neurons, ms, database):
