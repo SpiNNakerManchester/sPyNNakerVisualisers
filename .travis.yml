@@ -19,6 +19,5 @@ install:
 
 script:
   # Code quality check
-  - flake8 --ignore F403,F405
+  - flake8 --ignore F403,F405 spynnaker_visualisers
   - support/run-vera.sh spynnaker_visualisers
-  
