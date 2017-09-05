@@ -90,9 +90,10 @@ static inline void process_heatmap_packet(
 		    arrayindex, xsrc, ysrc);        // CPDEBUG
 	} else {
 	    immediate_data[arrayindex] = scanptr->data[i] * FixedPointFactor;
-	    if (immediate_data[arrayindex] > highwatermark)
+	    if (immediate_data[arrayindex] > highwatermark) {
 		printf("new hwm [%d, %d, %d] = %f\n", xsrc, ysrc, i,
 			immediate_data[arrayindex]);
+	    }
 	    if (updateline > HISTORYSIZE) {
 		printf("Updateline is out of bounds: %d\n", updateline);
 	    } else {
@@ -155,7 +156,8 @@ static void* input_thread_SDP(void *ptr)
 		return nullptr;
 	    }
 	    perror("error recvfrom");
-	    exit(-1); // will only get here if there's an error getting the input frame off the Ethernet
+	    // will only get here if there's an error getting the input frame off the Ethernet
+	    exit(-1);
 	}
 
 	// pointers to our packet in the buffer from the Ethernet
@@ -168,16 +170,19 @@ static void* input_thread_SDP(void *ptr)
 	    continue;
 	}
 
-	// record the port number we are being spoken to upon, and open the SDP connection externally.
+	// record the port number we are being spoken to upon, and open the
+	// SDP connection externally.
 	if (!is_board_address_set()) {   // if no ip: set ip,port && init
-	    // if we don't already know the SpiNNaker board IP then we learn that this is our board to listen to
+	    // if we don't already know the SpiNNaker board IP then we learn
+	    // that this is our board to listen to
 	    spinnakerboardport = htons(si_other.sin_port);
 	    set_board_ip_address(&si_other.sin_addr);
 	    init_sdp_sender();
 	    printf("Pkt Received from %s on port: %d\n",
 		    inet_ntoa(si_other.sin_addr), htons(si_other.sin_port));
 	} else if (!is_board_port_set()) {     // if no port: set port && init
-	    // if we don't already know the SpiNNaker port, then we get this dynamically from an incoming message.
+	    // if we don't already know the SpiNNaker port, then we get this
+	    // dynamically from an incoming message.
 	    spinnakerboardport = htons(si_other.sin_port);
 	    init_sdp_sender();
 	    printf("Pkt Received from %s on port: %d\n",
@@ -254,7 +259,8 @@ static void sdp_sender(
     output_packet.pad = 0;		// n/a
     output_packet.flags = 7;		// defaults
     output_packet.tag = 255;		// not used CP Changed 1st November 2011.
-    output_packet.dest_port = dest_port;// dest port supplied externally  Was: 0x21; // core = 1,  port = 1
+    output_packet.dest_port = dest_port;// dest port supplied externally
+					// Was: 0x21 (core = 1, port = 1)
     output_packet.srce_port = 0xFF;	// Ethernet
     output_packet.dest_addr = htons(dest_add); // supplied externally
     output_packet.srce_addr = 0;	// from outside world not a SpiNNaker chip

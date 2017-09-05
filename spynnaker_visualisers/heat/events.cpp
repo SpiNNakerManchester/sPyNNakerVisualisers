@@ -8,8 +8,9 @@ void reshape(int width, int height)
 	    windowWidth += keyWidth;
 	    plotWidth = windowWidth - keyWidth;
 	}
+	// stop the plotting area becoming -ve and crashing
 	if (windowWidth < 2 * windowBorder + keyWidth) {
-	    windowWidth = 2 * windowBorder + keyWidth; // stop the plotting area becoming -ve and crashing
+	    windowWidth = 2 * windowBorder + keyWidth;
 	    plotWidth = 0;
 	}
 	windowHeight = height;
@@ -21,7 +22,8 @@ void reshape(int width, int height)
     glViewport(0, 0, (GLsizei) width, (GLsizei) height); // viewport dimensions
     glMatrixMode (GL_PROJECTION);
     glLoadIdentity();
-    // an orthographic projection. Should probably look into OpenGL perspective projections for 3D if that's your thing
+    // an orthographic projection. Should probably look into OpenGL perspective projections for 3D
+    // if that's your thing
     glOrtho(0.0, width, 0.0, height, -50.0, 50.0);
     glMatrixMode (GL_MODELVIEW);
     glLoadIdentity();
@@ -42,7 +44,7 @@ void keyDown(unsigned char key, int x, int y)
 	    windowWidth -= keyWidth;		// recover the key area
 	    plotWidth = windowWidth - 2 * windowBorder - keyWidth;
 	} else {
-	    oldwindowBorder = windowBorder;// used as border disappears when going full-screen
+	    oldwindowBorder = windowBorder;	// used as border disappears when going full-screen
 	    windowBorder = 0;			// no borders around the plots
 	    windowWidth += keyWidth;// take over the area used for the key too
 	    plotWidth = windowWidth - keyWidth;

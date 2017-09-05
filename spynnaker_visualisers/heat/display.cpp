@@ -157,7 +157,8 @@ float colour_calculator(float inputty, float hiwater, float lowater)
     if (diff <= 0.0001) {
 	fillcolour = 1.0; // if in error, or close to a divide by zero (no intensity plotted)
     } else {
-	scalingfactor = 1 / diff; // work out how to scale the input data depending on low and highwater values
+	// work out how to scale the input data depending on low and highwater values
+	scalingfactor = 1 / diff;
 	fillcolour = scalingfactor * (inputty - lowater); // calculate the colour to plot
     }
     // must always range between 0 and 1 floating point
@@ -186,9 +187,11 @@ static inline void display_titles_labels(void)
 	if (i > 100) {
 	    spacing = 32;
 	}
-	xplotted = i * xspacing + windowBorder + (xspacing - 8) / 2 - 3; // what will be the next x coordinate
+	// what will be the next x coordinate
+	xplotted = i * xspacing + windowBorder + (xspacing - 8) / 2 - 3;
 	if (xplotted > lastxplotted + spacing) { // plot if enough space to not overlap labels.
-	    printgl(xplotted, 60, GLUT_BITMAP_HELVETICA_18, "%d", i); // Print X Axis Labels at required intervals
+	    // Print X Axis Labels at required intervals
+	    printgl(xplotted, 60, GLUT_BITMAP_HELVETICA_18, "%d", i);
 	    lastxplotted = xplotted; // record last x coordinate plotted to
 	}
     }
@@ -199,7 +202,8 @@ static inline void display_titles_labels(void)
 
     printglstroke(25, windowHeight / 2 - 50, 0.12, 90, "Y Coord");
     for (int i = 0 ; i < ylabels ; i++) {                // Y-Axis
-	yplotted = i * yspacing + windowBorder + (yspacing - 18) / 2 + 2; // what will be the next y coordinate
+	// what will be the next y coordinate
+	yplotted = i * yspacing + windowBorder + (yspacing - 18) / 2 + 2;
 	if (yplotted > lastyplotted + 16) { // plot only if enough space to not overlap labels.
 	    printgl(60, i * yspacing + windowBorder + (yspacing - 18) / 2 + 2,
 		    GLUT_BITMAP_HELVETICA_18, "%d", i); // Print Y Axis Label
@@ -410,8 +414,9 @@ static inline void display_mini_pixel(
 	int xcord,
 	int ycord)
 {
+    // draw little / mini tiled version in btm left - pixel size
     float ysize = max(1.0F, float(windowBorder - 6 * gap) / ydim);
-    float xsize = max(1.0F, float(ysize * tileratio)); // draw little / mini tiled version in btm left - pixel size
+    float xsize = max(1.0F, float(ysize * tileratio));
     if (is_defined(immediate_data[ii])) { // only plot if data is valid
 	// work out what colour we should plot - sets 'ink' plotting colour
 	colour_calculator(immediate_data[ii], highwatermark, lowwatermark);
@@ -516,9 +521,11 @@ void display(void)
     float tileratio = xsize / ysize;
 
     for (unsigned i = 0 ; i < xdim * ydim ; i++) {
-	int ii = coordinate_manipulate(i); // if any manipulation of how the data is to be plotted is required, do it
+	// if any manipulation of how the data is to be plotted is required, do it
+	int ii = coordinate_manipulate(i);
 	int xcord, ycord;
-	convert_index_to_coord(i, xcord, ycord); // find out the (x,y) coordinates of where to plot this data
+	// find out the (x,y) coordinates of where to plot this data
+	convert_index_to_coord(i, xcord, ycord);
 
 	// if required, plot tiled mini version in bottom left
 	if (!fullscreen) {

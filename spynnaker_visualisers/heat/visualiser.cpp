@@ -3,23 +3,29 @@
 //
 // compile with:  g++ visualiser.cpp -o visualiser -lGLU -lGL -lglut -lpthread -lconfig
 //
-// NOTE: you will need to have GLUT / freeglut / libconfig-dev libraries installed to use this software.
+// NOTE: you will need to have GLUT / freeglut / libconfig-dev libraries
+// installed to use this software.
 //
 //
 // usage:
 //   visualiser [OPTIONS...]
 //     [-c configfile]
-//          // visualisation settings, if omitted looks for visparam.ini and if not found is a 48-chip heatmap
+//          // visualisation settings, if omitted looks for visparam.ini and
+//          // if not found is a 48-chip heatmap
 //     [-replay savedspinnfile [replaymultiplier]]
-//          // instead of live data you can replay a previous saved .spinn file.  Speed of playback may also
-//          //   be chosen.  e.g. 0.25 = quarter original speed, 1 = original speed, 10 = ten times faster
+//          // instead of live data you can replay a previous saved .spinn
+//          // file.  Speed of playback may also be chosen.
+//          // e.g. 0.25 = quarter original speed, 1 = original speed,
+//          // 10 = ten times faster
 //     [-l2g localtoglobalmapfile]
 //     [-g2l globaltolocalmapfile]
-//       // these options are used together to map split neural populations to aggregated ones (from PACMAN)
+//       // these options are used together to map split neural populations
+//       // to aggregated ones (from PACMAN)
 //     [-ip source machine]
-//          //  specify IP address of machine you want to listen to (if omitted first packet received is source dynamically)
+//          // specify IP address of machine you want to listen to (if
+//          // omitted first packet received is source dynamically)
 //
-// --------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------
 //
 // -------------------------------------------------------------------------
 //  Select your simulation via a specific or visparam.ini file in the local
@@ -44,12 +50,15 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <unistd.h>  // included for Fedora 17 Fedora17  28th September 2012 - CP
-#include <libconfig.h> // included 14/04/13 for file based parameter parsing, (needs libconfig-dev(el))
+
+// included 14/04/13 for file based parameter parsing, (needs libconfig-dev(el))
+#include <libconfig.h>
 using namespace std;
 
-// --------------------------------------------------------------------------------------------------
-// select your visualisation via a specific configuration file (-c filename) or the visparam.ini file
-// --------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------
+// select your visualisation via a specific configuration file (-c filename)
+// or the visparam.ini file
+// -------------------------------------------------------------------------
 
 // -------------------------------------------------------------------------
 // This section checks to see whether the compilation is on a 32- or a 64-bit architecture.
@@ -297,7 +306,8 @@ static inline void run_GUI(int argc, char **argv)
 
     glClearColor(0.0, 0.0, 0.0, 1.0);
     color(WHITE);
-    glShadeModel (GL_SMOOTH); // permits nice shading between plot points for interpolation if required
+    // permits nice shading between plot points for interpolation if required
+    glShadeModel(GL_SMOOTH);
 
     rebuildmenu();
 

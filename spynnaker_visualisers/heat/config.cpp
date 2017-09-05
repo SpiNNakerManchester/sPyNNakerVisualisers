@@ -145,16 +145,16 @@ static void paramload(const char *config_file_name)
 // free up mallocs made for dynamic arrays
 static void finalise_memory(void) {
     for (unsigned i = 0 ; i < HISTORYSIZE ; i++) {
-	delete[] history_data[i];
+	delete [] history_data[i];
     }
-    delete[] history_data;
+    delete [] history_data;
     // ====================================================
     for (unsigned i = 0 ; i < HISTORYSIZE ; i++) {
-	delete[] history_data_set2[i];
+	delete [] history_data_set2[i];
     }
-    delete[] history_data_set2;
+    delete [] history_data_set2;
     // ====================================================
-    delete[] immediate_data;
+    delete [] immediate_data;
 }
 
 static void parse_arguments(int argc, char **argv, const char *&configfn)
