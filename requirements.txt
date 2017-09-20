@@ -1,0 +1,4 @@
+six >= 1.8.0,
+PyOpenGL,
+SpiNNUtilities >= 1!4.0.0, < 1!5.0.0,
+SpiNNFrontEndCommon >= 1!4.0.0, < 1!5.0.0,
