@@ -38,8 +38,14 @@ setup(
     install_requires=[
         'six >= 1.8.0',
         'PyOpenGL',
-        'SpiNNUtilities >= 1!4.0.0, < 1!5.0.0',
-        'SpiNNFrontEndCommon >= 1!4.0.0, < 1!5.0.0',
+        'SpiNNUtilities >= 1!4.0.1, < 1!5.0.0',
+        'SpiNNStorageHandlers >= 1!4.0.1, < 1!5.0.0',
+        'SpiNNMachine >= 1!4.0.1, < 1!5.0.0',
+        'SpiNNMan >= 1!4.0.1, < 1!5.0.0',
+        'SpiNNaker_PACMAN >= 1!4.0.1, < 1!5.0.0',
+        'SpiNNaker_DataSpecification >= 1!4.0.1, < 1!5.0.0',
+        'spalloc >= 1.0.1, < 2.0.0',
+        'SpiNNFrontEndCommon >= 1!4.0.1, < 1!5.0.0',
     ],
     extras_require={
         "acceleration": ["PyOpenGL_accelerate"]
