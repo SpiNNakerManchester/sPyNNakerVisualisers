@@ -260,55 +260,55 @@ class GlutFramework(object):
     def __displayFramework(self, *args):
         try:
             return self.displayFramework(*args)
-        except:
+        except Exception:
             self.__logerror()
 
     def __reshapeFramework(self, *args):
         try:
             return self.reshapeFramework(*args)
-        except:
+        except Exception:
             self.__logerror()
 
     def __run(self, *args):
         try:
             return self.run(*args)
-        except:
+        except Exception:
             self.__logerror()
 
     def __mouseButtonPress(self, *args):
         try:
             return self.mouseButtonPress(*args)
-        except:
+        except Exception:
             self.__logerror()
 
     def __mouseMove(self, *args):
         try:
             return self.mouseMove(*args)
-        except:
+        except Exception:
             self.__logerror()
 
     def __keyboardDown(self, *args):
         try:
             return self.keyboardDown(*args)
-        except:
+        except Exception:
             self.__logerror()
 
     def __keyboardUp(self, *args):
         try:
             return self.keyboardUp(*args)
-        except:
+        except Exception:
             self.__logerror()
 
     def __specialKeyboardDown(self, *args):
         try:
             return self.specialKeyboardDown(*args)
-        except:
+        except Exception:
             self.__logerror()
 
     def __specialKeyboardUp(self, *args):
         try:
             return self.specialKeyboardUp(*args)
-        except:
+        except Exception:
             self.__logerror()
 
     def __logerror(self):
