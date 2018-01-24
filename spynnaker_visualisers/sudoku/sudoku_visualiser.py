@@ -3,13 +3,16 @@
 
 from argparse import ArgumentParser, REMAINDER
 from itertools import repeat
-from OpenGL.GL import *  # @UnusedWildImport
 import sys
 from threading import Condition, RLock
 
 from spinn_utilities.overrides import overrides
 from spinn_front_end_common.utilities.connections import LiveEventConnection
 from spynnaker_visualisers.glut_framework import GlutFramework
+from spynnaker_visualisers.opengl_support import vertex, draw, lines, color,\
+    point_size, points, line_width, clear_color, clear, color_buffer_bit,\
+    load_identity, viewport, matrix_mode, projection, model_view,\
+    orthographic_projction, shade_model, smooth
 
 __all__ = []
 __version__ = 1
@@ -24,8 +27,31 @@ FRAMES_PER_SECOND = 10
 
 
 class SudokuPlot(GlutFramework):
+    __slots__ = [
+        "NPRINT",
+        "args",
+        "cell_id",
+        "cell_labels",
+        "cell_size_map",
+        "database_read",
+        "label_to_cell_map",
+        "latest_time",
+        "ms_per_bin",
+        "n_neurons",
+        "n_populations_to_read",
+        "neurons_per_number",
+        "plot_time_ms",
+        "point_mutex",
+        "points_to_draw",
+        "simulation_started",
+        "start_condition",
+        "timestep_ms",
+        "user_pressed_start",
+        "window_height",
+        "window_width"]
+
     def __init__(self, args, neurons_per_number, ms_per_bin, wait_for_start):
-        GlutFramework.__init__(self)
+        super(SudokuPlot, self).__init__()
         self.window_width = INIT_WINDOW_WIDTH
         self.window_height = INIT_WINDOW_HEIGHT
         self.NPRINT = 0
@@ -56,9 +82,9 @@ class SudokuPlot(GlutFramework):
 
     @overrides(super_class_method=GlutFramework.init)
     def init(self):
-        glClearColor(0.0, 0.0, 0.0, 1.0)
-        glColor3f(1.0, 1.0, 1.0)
-        glShadeModel(GL_SMOOTH)
+        clear_color(0.0, 0.0, 0.0, 1.0)
+        color(1.0, 1.0, 1.0)
+        shade_model(smooth)
 
     def connect_callbacks(self, connection, label):
         connection.add_init_callback(label, self._init_cb)
@@ -86,7 +112,9 @@ class SudokuPlot(GlutFramework):
         with self.start_condition:
             self.simulation_started = True
 
-    def _receive_cb(self, label, time, spikes=[]):  # @UnusedVariable
+    def _receive_cb(self, label, time, spikes=None):  # @UnusedVariable
+        if spikes is None:
+            spikes = []
         with self.point_mutex:
             for spike in spikes:
                 cell_id = spike / (self.neurons_per_number * 9)
@@ -139,15 +167,17 @@ class SudokuPlot(GlutFramework):
     def reshape(self, width, height):
         self.window_width = width
         self.window_height = height
+
         # Viewport dimensions
-        glViewport(0, 0, width, height)
-        glMatrixMode(GL_PROJECTION)
-        glLoadIdentity()
+        viewport(0, 0, width, height)
+        matrix_mode(projection)
+        load_identity()
+
         # An orthographic projection. Should probably look into OpenGL
         # perspective projections for 3D if that's your thing
-        glOrtho(0.0, width, 0.0, height, -50.0, 50.0)
-        glMatrixMode(GL_MODELVIEW)
-        glLoadIdentity()
+        orthographic_projction(0.0, width, 0.0, height, -50.0, 50.0)
+        matrix_mode(model_view)
+        load_identity()
 
     @overrides(super_class_method=GlutFramework.keyboardDown)
     def keyboardDown(self, key, x, y):  # @UnusedVariable
@@ -165,7 +195,7 @@ class SudokuPlot(GlutFramework):
         for cell in xrange(81):
             # Strip off items that are no longer needed
             queue = self.points_to_draw[cell]
-            while len(queue) and queue[0][0] < start_tick:
+            while queue and queue[0][0] < start_tick:
                 queue.pop(0)
 
             # Count the spikes per number
@@ -211,10 +241,10 @@ class SudokuPlot(GlutFramework):
         return cell_valid
 
     def _start_display(self):
-        glPointSize(1.0)
-        glClear(GL_COLOR_BUFFER_BIT)
-        glClearColor(1.0, 1.0, 1.0, 1.0)
-        glColor4f(0.0, 0.0, 0.0, 1.0)
+        point_size(1.0)
+        clear(color_buffer_bit)
+        clear_color(1.0, 1.0, 1.0, 1.0)
+        color(0.0, 0.0, 0.0, 1.0)
 
     def _print_text(self, prompt):  # FIXME positioning
         # Guesstimate of length of prompt in pixels
@@ -223,9 +253,9 @@ class SudokuPlot(GlutFramework):
             self.window_width / 2 - plen, self.window_height - 50, prompt)
 
     def _draw_cells(self, width, height):
-        glColor4f(0.0, 0.0, 0.0, 1.0)
+        color(0.0, 0.0, 0.0, 1.0)
         for i in range(10):
-            glLineWidth(3.0 if i % 3 == 0 else 1.0)
+            line_width(3.0 if i % 3 == 0 else 1.0)
             pos = WINDOW_BORDER + i * height
             self._line(self.window_width - WINDOW_BORDER, pos,
                        WINDOW_BORDER, pos)
@@ -235,6 +265,8 @@ class SudokuPlot(GlutFramework):
 
     def _draw_cell_contents(self, value, valid, prob, start, x_spacing,
                             cell_width, cell_height):
+        # pylint: disable=too-many-arguments, too-many-locals
+
         # Print the spikes
         for cell in xrange(81):
             cell_y, cell_x = divmod(cell, 9)
@@ -245,21 +277,20 @@ class SudokuPlot(GlutFramework):
             # Work out how probable the number is and use this for colouring
             cell_sat = 1 - prob[cell]
 
-            glPointSize(2.0)
-            glBegin(GL_POINTS)
-            if valid[cell]:
-                glColor4f(cell_sat, 1.0, cell_sat, 1.0)
-            else:
-                glColor4f(1.0, cell_sat, cell_sat, 1.0)
-            for (time, n_id) in self.points_to_draw[cell]:
-                x_value = (time - start) * x_spacing + x_start
-                y_value = n_id * y_spacing + y_start
-                glVertex2f(x_value, y_value)
-            glEnd()
+            point_size(2.0)
+            with draw(points):
+                if valid[cell]:
+                    color(cell_sat, 1.0, cell_sat, 1.0)
+                else:
+                    color(1.0, cell_sat, cell_sat, 1.0)
+                for (time, n_id) in self.points_to_draw[cell]:
+                    x_value = (time - start) * x_spacing + x_start
+                    y_value = n_id * y_spacing + y_start
+                    vertex(x_value, y_value)
 
             # Print the number
             if value[cell] != 0:
-                glColor4f(0, 0, 0, 1 - cell_sat)
+                color(0, 0, 0, 1 - cell_sat)
                 size = 0.005 * cell_height
                 self.write_small(
                     x_start + (cell_width / 2.0) - (size * 50.0),
@@ -267,12 +298,13 @@ class SudokuPlot(GlutFramework):
                     size, 0, "%d", value[cell])
 
     def _line(self, x1, y1, x2, y2):
-        glBegin(GL_LINES)
-        glVertex2f(x1, y1)
-        glVertex2f(x2, y2)
-        glEnd()
+        with draw(lines):
+            vertex(x1, y1)
+            vertex(x2, y2)
 
-    def _check_cell(self, values, correct, x, y, row, col):
+    @staticmethod
+    def _check_cell(values, correct, x, y, row, col):
+        # pylint: disable=too-many-arguments
         value = values[y * 9 + x]
         if value == values[row * 9 + col]:
             correct[y * 9 + x] = False

@@ -24,15 +24,20 @@ THE SOFTWARE.
 @author: Converted to Python by Donal Fellows
 '''
 
-import OpenGL.GL as GL
-import OpenGL.GLUT as GLUT
+import OpenGL.GLUT as GLUT  # pylint: disable=import-error
 from datetime import datetime
 from spinn_utilities.abstract_base import AbstractBase, abstractmethod
 from six import add_metaclass
 import traceback
+from spynnaker_visualisers.opengl_support import viewport, save_matrix, enable,\
+    blend, line_smooth, disable, line_width, blend_function, src_alpha,\
+    one_minus_src_alpha, rotate, scale, translate, raster_position
 
 
 class _PerformanceTimer(object):
+    __slots__ = [
+        "_stamp_1", "_stamp_2", "_stopped"]
+
     @staticmethod
     def _now():
         return datetime.now()
@@ -69,6 +74,14 @@ class _PerformanceTimer(object):
 class GlutFramework(object):
     '''Base for code that wants to visualise using an OpenGL surface.
     '''
+    __slots__ = [
+        "displayTimer",
+        "elapsedTimeInSeconds",
+        "frameRateTimer",
+        "frameTime",
+        "frameTimeElapsed",
+        "__loggederrors",
+        "window"]
 
     def __init__(self):
         self.window = None
@@ -83,6 +96,8 @@ class GlutFramework(object):
         """startFramework will initialize framework and start the Glut run\
         loop. It must be called after the GlutFramework class is created to\
         start the application."""
+        # pylint: disable=too-many-arguments
+
         # Sets the instance to this, used in the callback wrapper functions
         self.frameTime = 1.0 / fps * 1000.0
 
@@ -126,7 +141,7 @@ class GlutFramework(object):
         :param width: the width of the window in pixels
         :param height: the height of the window in pixels
         """
-        GL.glViewport(0, 0, width, height)
+        viewport(0, 0, width, height)
 
     def mouseButtonPress(self, button, state, x, y):
         """Called when the mouse buttons are pressed.
@@ -228,86 +243,83 @@ class GlutFramework(object):
     def write_large(self, x, y, string, *args):
         """Utility function: write a string to a given location as a bitmap.
         """
-        if len(args):
+        if args:
             string = string % args
-        GL.glRasterPos2f(x, y)
+        raster_position(x, y)
         for ch in string:
             GLUT.glutBitmapCharacter(GLUT.GLUT_BITMAP_TIMES_ROMAN_24, ord(ch))
 
-    def write_small(self, x, y, size, rotate, string, *args):
+    def write_small(self, x, y, size, rotation, string, *args):
         """Utility function: write a string to a given location as a strokes.
         """
-        if len(args):
+        # pylint: disable=too-many-arguments
+        if args:
             string = string % args
-        GL.glPushMatrix()
 
-        # antialias the font
-        GL.glEnable(GL.GL_BLEND)
-        GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
-        GL.glEnable(GL.GL_LINE_SMOOTH)
-        GL.glLineWidth(1.5)
+        with save_matrix():
+            # antialias the font
+            enable(blend, line_smooth)
+            blend_function(src_alpha, one_minus_src_alpha)
+            line_width(1.5)
 
-        GL.glTranslatef(x, y, 0.0)
-        GL.glScalef(size, size, size)
-        GL.glRotatef(rotate, 0.0, 0.0, 1.0)
-        for ch in string:
-            GLUT.glutStrokeCharacter(GLUT.GLUT_STROKE_ROMAN, ord(ch))
+            translate(x, y, 0.0)
+            scale(size, size, size)
+            rotate(rotation, 0.0, 0.0, 1.0)
+            for ch in string:
+                GLUT.glutStrokeCharacter(GLUT.GLUT_STROKE_ROMAN, ord(ch))
+            disable(blend, line_smooth)
 
-        GL.glDisable(GL.GL_LINE_SMOOTH)
-        GL.glDisable(GL.GL_BLEND)
-        GL.glPopMatrix()
-
-    def __displayFramework(self, *args):
+    def __displayFramework(self):
         try:
-            return self.displayFramework(*args)
+            return self.displayFramework()
         except Exception:
             self.__logerror()
 
-    def __reshapeFramework(self, *args):
+    def __reshapeFramework(self, width, height):
         try:
-            return self.reshapeFramework(*args)
+            return self.reshapeFramework(width, height)
         except Exception:
             self.__logerror()
 
-    def __run(self, *args):
+    def __run(self):
         try:
-            return self.run(*args)
+            return self.run()
         except Exception:
             self.__logerror()
 
-    def __mouseButtonPress(self, *args):
+    def __mouseButtonPress(self, button, state, x, y):
         try:
-            return self.mouseButtonPress(*args)
+            return self.mouseButtonPress(button, state, x, y)
         except Exception:
             self.__logerror()
 
-    def __mouseMove(self, *args):
+    def __mouseMove(self, x, y):
         try:
-            return self.mouseMove(*args)
+            return self.mouseMove(x, y)
         except Exception:
             self.__logerror()
 
-    def __keyboardDown(self, *args):
+    def __keyboardDown(self, key, x, y):
         try:
-            return self.keyboardDown(*args)
+            return self.keyboardDown(key, x, y)
         except Exception:
             self.__logerror()
 
-    def __keyboardUp(self, *args):
+    def __keyboardUp(self, key, x, y):
         try:
-            return self.keyboardUp(*args)
+            return self.keyboardUp(key, x, y)
         except Exception:
             self.__logerror()
 
-    def __specialKeyboardDown(self, *args):
+    def __specialKeyboardDown(self, key, x, y):
         try:
-            return self.specialKeyboardDown(*args)
+            return self.specialKeyboardDown(key, x, y)
         except Exception:
             self.__logerror()
 
-    def __specialKeyboardUp(self, *args):
+    def __specialKeyboardUp(self, key, x, y):
         try:
-            return self.specialKeyboardUp(*args)
+            return self.specialKeyboardUp(key, x, y)
         except Exception:
             self.__logerror()
 
