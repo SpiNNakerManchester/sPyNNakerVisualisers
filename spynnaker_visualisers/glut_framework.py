@@ -29,9 +29,9 @@ from datetime import datetime
 from spinn_utilities.abstract_base import AbstractBase, abstractmethod
 from six import add_metaclass
 import traceback
-from spynnaker_visualisers.opengl_support import viewport, save_matrix, enable,\
-    blend, line_smooth, disable, line_width, blend_function, src_alpha,\
-    one_minus_src_alpha, rotate, scale, translate, raster_position
+from spynnaker_visualisers.opengl_support import viewport, save_matrix, \
+    enable, blend, line_smooth, disable, line_width, blend_function, \
+    src_alpha, one_minus_src_alpha, rotate, scale, translate, raster_position
 
 
 class _PerformanceTimer(object):
