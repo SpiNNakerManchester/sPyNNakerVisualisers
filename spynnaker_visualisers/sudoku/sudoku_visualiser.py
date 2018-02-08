@@ -80,7 +80,7 @@ class SudokuPlot(GlutFramework):
 
         self.start_condition = Condition()
 
-    @overrides(super_class_method=GlutFramework.init)
+    @overrides(GlutFramework.init)
     def init(self):
         clear_color(0.0, 0.0, 0.0, 1.0)
         color(1.0, 1.0, 1.0)
@@ -129,7 +129,7 @@ class SudokuPlot(GlutFramework):
             self.args, "Sudoku", self.window_width, self.window_height,
             INIT_WINDOW_X, INIT_WINDOW_Y, FRAMES_PER_SECOND)
 
-    @overrides(super_class_method=GlutFramework.display)
+    @overrides(GlutFramework.display)
     def display(self, dTime):  # @UnusedVariable
         self._start_display()
 
@@ -163,7 +163,7 @@ class SudokuPlot(GlutFramework):
                 self._draw_cell_contents(values, valid, probs, start_tick,
                                          x_spacing, cell_width, cell_height)
 
-    @overrides(super_class_method=GlutFramework.reshape)
+    @overrides(GlutFramework.reshape)
     def reshape(self, width, height):
         self.window_width = width
         self.window_height = height
@@ -179,7 +179,7 @@ class SudokuPlot(GlutFramework):
         matrix_mode(model_view)
         load_identity()
 
-    @overrides(super_class_method=GlutFramework.keyboardDown)
+    @overrides(GlutFramework.keyboardDown)
     def keyboardDown(self, key, x, y):  # @UnusedVariable
         if key == 32 or key == ' ':
             with self.start_condition:
