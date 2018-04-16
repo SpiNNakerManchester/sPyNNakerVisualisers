@@ -1,8 +1,9 @@
 #!/usr/bin/env python2.7
 # encoding: utf-8
+""" A live plotter for the sPyNNaker Sudoku network.
+"""
 
 from argparse import ArgumentParser, REMAINDER
-from itertools import repeat
 import sys
 from threading import Condition, RLock
 
@@ -27,8 +28,9 @@ FRAMES_PER_SECOND = 10
 
 
 class SudokuPlot(GlutFramework):
+    """ A live plotter for the sPyNNaker Sudoku network.
+    """
     __slots__ = [
-        "NPRINT",
         "args",
         "cell_id",
         "cell_labels",
@@ -51,10 +53,20 @@ class SudokuPlot(GlutFramework):
         "window_width"]
 
     def __init__(self, args, neurons_per_number, ms_per_bin, wait_for_start):
+        """
+        :param args: \
+            Arguments (relating to the display) to pass through to GLUT
+        :param neurons_per_number: \
+            How many neurons are used per number in the Sudoku cells
+        :param ms_per_bin: \
+            How long does a sampling period last
+        :param wait_for_start: \
+            Whether the system should wait for the SpiNNaker simulation to\
+            boot (probably yes!)
+        """
         super(SudokuPlot, self).__init__()
         self.window_width = INIT_WINDOW_WIDTH
         self.window_height = INIT_WINDOW_HEIGHT
-        self.NPRINT = 0
 
         self.cell_id = 0
         self.user_pressed_start = not wait_for_start
@@ -71,7 +83,7 @@ class SudokuPlot(GlutFramework):
 
         self.args = args
 
-        self.points_to_draw = [[] for _ in xrange(81)]
+        self.points_to_draw = [[] for _ in range(81)]
         self.point_mutex = RLock()
 
         self.label_to_cell_map = dict()
@@ -87,6 +99,12 @@ class SudokuPlot(GlutFramework):
         shade_model(smooth)
 
     def connect_callbacks(self, connection, label):
+        """ Arrange so that labels on the given connection report their\
+            goings-on to this class.
+
+        :type connection: LiveEventConnection
+        :type label: str
+        """
         connection.add_init_callback(label, self._init_cb)
         connection.add_receive_callback(label, self._receive_cb)
         connection.add_start_resume_callback(label, self._start_cb)
@@ -125,7 +143,9 @@ class SudokuPlot(GlutFramework):
                 self.latest_time = time_ms
 
     def main_loop(self):
-        self.startFramework(
+        """ Run the GUI.
+        """
+        self.start_framework(
             self.args, "Sudoku", self.window_width, self.window_height,
             INIT_WINDOW_X, INIT_WINDOW_Y, FRAMES_PER_SECOND)
 
@@ -155,7 +175,7 @@ class SudokuPlot(GlutFramework):
         self._draw_cells(cell_width, cell_height)
 
         if self.timestep_ms != 0:
-            x_spacing = cell_width / ((end - start) / self.timestep_ms)
+            x_spacing = cell_width // ((end - start) / self.timestep_ms)
             start_tick = int(start / self.timestep_ms)
             with self.point_mutex:
                 values, probs = self._find_cell_values(start_tick)
@@ -179,41 +199,32 @@ class SudokuPlot(GlutFramework):
         matrix_mode(model_view)
         load_identity()
 
-    @overrides(GlutFramework.keyboardDown)
-    def keyboardDown(self, key, x, y):  # @UnusedVariable
+    @overrides(GlutFramework.keyboard_down)
+    def keyboard_down(self, key, x, y):  # @UnusedVariable
         if key == 32 or key == ' ':
             with self.start_condition:
                 if not self.user_pressed_start:
-                    print "Starting the simulation"
+                    print("Starting the simulation")
                     self.user_pressed_start = True
                     self.start_condition.notify_all()
 
     def _find_cell_values(self, start_tick):
-        cell_value = [0 for _ in repeat(None, 81)]
-        cell_prob = [0.0 for _ in repeat(None, 81)]
+        cell_value = [0] * 81
+        cell_prob = [0.0] * 81
 
-        for cell in xrange(81):
+        for cell in range(81):
             # Strip off items that are no longer needed
             queue = self.points_to_draw[cell]
             while queue and queue[0][0] < start_tick:
                 queue.pop(0)
 
             # Count the spikes per number
-            count = [0, 0, 0, 0, 0, 0, 0, 0, 0]
-            total = 0
-            for (_, n_id) in queue:
-                number = n_id / self.neurons_per_number
-                if number < 9:
-                    count[number] += 1
-                    total += 1
-                else:
-                    sys.stderr.write("Neuron id %d out of range\n" % (n_id))
+            count, total = self._count_spikes_per_number(queue)
 
             # Work out the probability of a given number in a given cell
             max_prob_number = 0
             max_prob = 0.0
-            total = float(total)
-            for i in xrange(9):
+            for i in range(9):
                 if count[i] > 0:
                     prob = count[i] / total
                     if prob > max_prob:
@@ -223,24 +234,37 @@ class SudokuPlot(GlutFramework):
             cell_prob[cell] = max_prob
         return cell_value, cell_prob
 
+    def _count_spikes_per_number(self, queue):
+        count = [0] * 9
+        total = 0
+        for (_, n_id) in queue:
+            number = n_id // self.neurons_per_number
+            if number < 9:
+                count[number] += 1
+                total += 1
+            else:
+                sys.stderr.write("Neuron id %d out of range\n" % (n_id))
+        return count, float(total)
+
     def _find_cell_correctness(self, values):
         # Work out the correctness of each cell
-        cell_valid = [True for _ in repeat(None, 81)]
-        for cell in xrange(81):
+        cell_valid = [True] * 81
+        for cell in range(81):
             y, x = divmod(cell, 9)
-            for row in xrange(9):
+            for row in range(9):
                 if row != y:
                     self._check_cell(values, cell_valid, x, y, row, x)
-            for col in xrange(9):
+            for col in range(9):
                 if col != x:
                     self._check_cell(values, cell_valid, x, y, y, col)
-            for row in xrange(3 * (y // 3), 3 * (y // 3 + 1)):
-                for col in xrange(3 * (x // 3), 3 * (x // 3 + 1)):
+            for row in range(3 * (y // 3), 3 * (y // 3 + 1)):
+                for col in range(3 * (x // 3), 3 * (x // 3 + 1)):
                     if x != col and y != row:
                         self._check_cell(values, cell_valid, x, y, row, col)
         return cell_valid
 
-    def _start_display(self):
+    @staticmethod
+    def _start_display():
         point_size(1.0)
         clear(color_buffer_bit)
         clear_color(1.0, 1.0, 1.0, 1.0)
@@ -265,10 +289,8 @@ class SudokuPlot(GlutFramework):
 
     def _draw_cell_contents(self, value, valid, prob, start, x_spacing,
                             cell_width, cell_height):
-        # pylint: disable=too-many-arguments, too-many-locals
-
         # Print the spikes
-        for cell in xrange(81):
+        for cell in range(81):
             cell_y, cell_x = divmod(cell, 9)
             x_start = WINDOW_BORDER + (cell_x * cell_width) + 1
             y_start = WINDOW_BORDER + (cell_y * cell_height) + 1
@@ -297,20 +319,23 @@ class SudokuPlot(GlutFramework):
                     y_start + (cell_height / 2.0) - (size * 50.0),
                     size, 0, "%d", value[cell])
 
-    def _line(self, x1, y1, x2, y2):
+    @staticmethod
+    def _line(x1, y1, x2, y2):
         with draw(lines):
             vertex(x1, y1)
             vertex(x2, y2)
 
     @staticmethod
     def _check_cell(values, correct, x, y, row, col):
-        # pylint: disable=too-many-arguments
         value = values[y * 9 + x]
         if value == values[row * 9 + col]:
             correct[y * 9 + x] = False
 
 
-def sudoku_visualiser(args, port, neurons, ms, database):
+def sudoku_visualiser(args, port=19999, neurons=5, ms=100, database=None):
+    """ Make a visualiser, connecting a LiveEventConnection that listens to a\
+        population labelled "Cells" to a GLUT GUI.
+    """
     # Set up the application
     cells = ["Cells"]
     connection = LiveEventConnection(
@@ -319,12 +344,16 @@ def sudoku_visualiser(args, port, neurons, ms, database):
     for label in cells:
         plotter.connect_callbacks(connection, label)
     if database is not None:
-        # FIXME - This concept not present on Python side!
-        connection.set_database(database)
+        # FIXME: This concept not present on Python side!
+        # connection.set_database(database)
+        sys.stderr.write("Database setting not currently supported")
     plotter.main_loop()
 
 
 def main(argv=None):
+    """ The main script.\
+        Parses command line arguments and launches the visualiser.
+    """
     program_name = "sudoku_visualiser"
     program_version = "v%d" % (__version__)
     program_description = "Visualise the SpiNNaker sudoku solver."
@@ -332,7 +361,6 @@ def main(argv=None):
 
     # setup option parser
     parser = ArgumentParser(prog=program_name,
-                            version=program_version_string,
                             description=program_description)
     parser.add_argument(
         "-d", "--database", dest="database", metavar="FILE",
@@ -350,6 +378,8 @@ def main(argv=None):
         "-p", "--hand_shake_port", dest="port", default="19999",
         help="optional port which the visualiser will listen to for"
         " database hand shaking", metavar="PORT", type=int)
+    parser.add_argument('--version', action='version',
+                        version=program_version_string)
     parser.add_argument("args", nargs=REMAINDER)
 
     # Set up and run the application
@@ -358,7 +388,7 @@ def main(argv=None):
             argv = sys.argv[1:]
         sudoku_visualiser(**parser.parse_args(argv).__dict__)
         return 0
-    except Exception, e:
+    except Exception as e:  # pylint: disable=broad-except
         indent = len(program_name) * " "
         sys.stderr.write(program_name + ": " + repr(e) + "\n")
         sys.stderr.write(indent + "  for help use --help")
