@@ -201,7 +201,7 @@ def init_udp_server_spinnaker():
 
 def input_thread():
     global sockfd_input
-    print "Drawer running (listening port: %d)..." % (INPUT_PORT_SPINNAKER)
+    print("Drawer running (listening port: %d)..." % (INPUT_PORT_SPINNAKER))
     while True:
         msg = sockfd_input.recv(65536)
         sdp_msg = SDP_HEADER.unpack_from(msg)
@@ -212,19 +212,19 @@ def input_thread():
 
 def process_one_message(data, number_of_pixels):
     global frameHeight, frameWidth, receivedFrame, viewingFrame
-    for i in xrange(number_of_pixels):
+    for i in range(number_of_pixels):
         x, y, r, g, b = PIXEL_FORMAT.unpack_from(data, i * PIXEL_FORMAT.size)
         index = (frameHeight - y - 1) * frameWidth + x
         if index < frameWidth * frameHeight:
             num_received_for_pixel = receivedFrame[index]
             viewingFrame[index * 3] = (
-                (r + num_received_for_pixel * viewingFrame[index * 3]) /
+                (r + num_received_for_pixel * viewingFrame[index * 3]) //
                 (num_received_for_pixel + 1))
             viewingFrame[index * 3 + 1] = (
-                (g + num_received_for_pixel * viewingFrame[index * 3 + 1]) /
+                (g + num_received_for_pixel * viewingFrame[index * 3 + 1]) //
                 (num_received_for_pixel + 1))
             viewingFrame[index * 3 + 2] = (
-                (b + num_received_for_pixel * viewingFrame[index * 3 + 2]) /
+                (b + num_received_for_pixel * viewingFrame[index * 3 + 2]) //
                 (num_received_for_pixel + 1))
             receivedFrame[index] += 1
 
