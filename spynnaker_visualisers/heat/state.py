@@ -69,7 +69,7 @@ def param_load(filename):
     title = data.get("title", title)
     xdim, ydim = data.get("dimensions", [xdim, ydim])
     each_x, each_y = data.get("chip_size", [each_x, each_y])
-    x_chips, y_chips = data.get("num_chips", [xdim / each_x, ydim / each_y])
+    x_chips, y_chips = data.get("num_chips", [xdim // each_x, ydim // each_y])
     history_size = int(data.get("history_size", history_size))
     max_frame_rate = float(data.get("max_frame_rate", max_frame_rate))
     our_port = int(data.get("sdp_port", our_port))
@@ -85,15 +85,15 @@ def param_load(filename):
     xorigin = windowWidth + KEYWIDTH - CONTROLBOXES * (BOXSIZE + GAP)
 
     n_elems = xdim * ydim
-    history_data = [[0.0 for _ in xrange(n_elems)]
-                    for _ in xrange(history_size)]
-    immediate_data = [0.0 for _ in xrange(n_elems)]
+    history_data = [[0.0 for _ in range(n_elems)]
+                    for _ in range(history_size)]
+    immediate_data = [0.0 for _ in range(n_elems)]
 
 
 def cleardown():
     global immediate_data, highwatermark, lowwatermark
     global xflip, yflip, vectorflip, rotateflip
-    for i in xrange(xdim * ydim):
+    for i in range(xdim * ydim):
         immediate_data[i] = NOTDEFINED
     highwatermark = HIWATER
     lowwatermark = LOWATER

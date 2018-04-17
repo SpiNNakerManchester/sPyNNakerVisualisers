@@ -213,7 +213,7 @@ def in_box(boxx, boxy, x, y):
 
 
 def get_box_id(x, y):
-    for boxx in xrange(CONTROLBOXES):
+    for boxx in range(CONTROLBOXES):
         for boxy in range(CONTROLBOXES):
             if in_box(boxx, boxy, x, y) and (boxx == 1 or boxy == 1):
                 return Direction(boxx * CONTROLBOXES + boxy)

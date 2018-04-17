@@ -165,9 +165,9 @@ def coordinate_manipulate(i):
 
 
 def _display_titles_labels():
-    _draw_string(state.windowWidth / 2 - 200, state.windowHeight - 50,
+    _draw_string(state.windowWidth // 2 - 200, state.windowHeight - 50,
                  GLUT_BITMAP_TIMES_ROMAN_24, state.title)
-    _draw_string(state.windowWidth / 2 - 250, state.windowHeight - 80,
+    _draw_string(state.windowWidth // 2 - 250, state.windowHeight - 80,
                  GLUT_BITMAP_HELVETICA_12, "Menu: right click.")
 
     xlabels = state.xdim
@@ -176,11 +176,11 @@ def _display_titles_labels():
     lastxplotted = -100
 
     # X-Axis
-    _draw_string_stroke(state.windowWidth / 2 - 25, 20, 0.12, 0, "X Coord")
-    for i in xrange(xlabels):
+    _draw_string_stroke(state.windowWidth // 2 - 25, 20, 0.12, 0, "X Coord")
+    for i in range(xlabels):
         if i > 100:
             spacing = 32
-        xplotted = i * delta + state.windowBorder + (delta - 8) / 2 - 3
+        xplotted = i * delta + state.windowBorder + (delta - 8) // 2 - 3
         if xplotted > lastxplotted + spacing:
             _draw_string(xplotted, 60, GLUT_BITMAP_HELVETICA_18, "%d", i)
             lastxplotted = xplotted
@@ -191,9 +191,9 @@ def _display_titles_labels():
     lastyplotted = -100
 
     # Y-Axis
-    _draw_string_stroke(25, state.windowHeight / 2 - 50, 0.12, 90, "Y Coord")
-    for i in xrange(ylabels):
-        yplotted = i * delta + state.windowBorder + (delta - 18) / 2 + 2
+    _draw_string_stroke(25, state.windowHeight // 2 - 50, 0.12, 90, "Y Coord")
+    for i in range(ylabels):
+        yplotted = i * delta + state.windowBorder + (delta - 18) // 2 + 2
         if yplotted > lastyplotted + spacing:
             _draw_string(60, yplotted, GLUT_BITMAP_HELVETICA_18, "%d", i)
             lastyplotted = yplotted
@@ -220,7 +220,7 @@ def _display_key():
         float(state.highwatermark - state.lowwatermark)
     # key is only printed if big enough to print
     if state.windowHeight - state.windowBorder - keybase > 0:
-        for i in xrange(int(
+        for i in range(int(
                 state.windowHeight - state.windowBorder - keybase)):
             temperaturehere = 1.0
             if linechunkiness > 0.0:
@@ -265,7 +265,7 @@ def _display_controls():
     gap = 10
     xorigin = state.windowWidth - 3 * (boxsize + gap)
     yorigin = state.windowHeight - gap - boxsize
-    for box in xrange(3):
+    for box in range(3):
         if (not state.freezedisplay and box == 0) \
                 or (state.freezedisplay and box == 1) or box == 2:
             color(UIColours.BLACK)
@@ -279,9 +279,9 @@ def _display_controls():
             # now draw shapes on boxes
             if box == 0:
                 _draw_filled_box(xorigin + gap, yorigin + boxsize - gap,
-                                 xorigin + (boxsize + gap) / 2 - gap,
+                                 xorigin + (boxsize + gap) // 2 - gap,
                                  yorigin + gap)
-                _draw_filled_box(xorigin + (boxsize - gap) / 2 + gap,
+                _draw_filled_box(xorigin + (boxsize - gap) // 2 + gap,
                                  yorigin + boxsize - gap,
                                  xorigin + boxsize - gap,
                                  yorigin + gap)
@@ -289,7 +289,7 @@ def _display_controls():
                 glBegin(GL_TRIANGLES)
                 glVertex(xorigin + boxsize + 2 * gap,
                          yorigin + boxsize - gap)
-                glVertex(xorigin + 2 * boxsize, yorigin + boxsize / 2)
+                glVertex(xorigin + 2 * boxsize, yorigin + boxsize // 2)
                 glVertex(xorigin + boxsize + gap * 2, yorigin + gap)
                 glEnd()
             elif box == 2:
@@ -309,7 +309,7 @@ def _display_gridlines(xsize, ysize):
     # NB: we only draw if we are not going to completely obscure the data
     if xsize > 3.0:
         # vertical grid lines
-        for xcord in xrange(state.xdim):
+        for xcord in range(state.xdim):
             glBegin(GL_LINES)
             glVertex(state.windowBorder + xcord * xsize, state.windowBorder)
             glVertex(state.windowBorder + xcord * xsize,
@@ -317,7 +317,7 @@ def _display_gridlines(xsize, ysize):
             glEnd()
     if ysize > 3.0:
         # horizontal grid lines
-        for ycord in xrange(state.ydim):
+        for ycord in range(state.ydim):
             glBegin(GL_LINES)
             glVertex(state.windowBorder, state.windowBorder + ycord * ysize)
             glVertex(state.windowWidth - state.windowBorder - KEYWIDTH,
@@ -326,7 +326,7 @@ def _display_gridlines(xsize, ysize):
 
 
 def _display_boxes():
-    for box in xrange(CONTROLBOXES * CONTROLBOXES):
+    for box in range(CONTROLBOXES * CONTROLBOXES):
         boxx, boxy = divmod(box, CONTROLBOXES)
         if boxx != 1 and boxy != 1:
             continue
@@ -344,7 +344,7 @@ def _display_boxes():
             _draw_filled_box(x_o, y_o + BOXSIZE, x_o + BOXSIZE, y_o)
         if box == Direction.CENTRE:
             color(UIColours.WHITE)
-            _draw_string(x_o, y_o + BOXSIZE / 2 - 5, GLUT_BITMAP_8_BY_13,
+            _draw_string(x_o, y_o + BOXSIZE // 2 - 5, GLUT_BITMAP_8_BY_13,
                          " Go!" if state.editmode else "Alter")
         else:
             currentvalue = 0.0
@@ -358,7 +358,7 @@ def _display_boxes():
                 currentvalue = state.alterwest
             color(UIColours.WHITE if state.editmode and box != state.livebox
                   else UIColours.BLACK)
-            _draw_string(x_o, y_o + BOXSIZE / 2 - 5, GLUT_BITMAP_8_BY_13,
+            _draw_string(x_o, y_o + BOXSIZE // 2 - 5, GLUT_BITMAP_8_BY_13,
                          "%3.1f", currentvalue)
 
 
@@ -428,7 +428,7 @@ def display():
         _display_titles_labels()
 
     # clamp and scale all the values to plottable range
-    for i in xrange(state.xdim * state.ydim):
+    for i in range(state.xdim * state.ydim):
         if is_defined(state.immediate_data[i]):
             datum = state.immediate_data[i]
             datum = clamp(MINDATA, datum, MAXDATA)
@@ -443,7 +443,7 @@ def display():
     ysize = float(state.windowHeight - 2 * state.windowBorder) / state.ydim
     tileratio = xsize / ysize
     # plot the pixels
-    for i in xrange(state.xdim * state.ydim):
+    for i in range(state.xdim * state.ydim):
         ii = coordinate_manipulate(i)
         xcord, ycord = convert_index_to_coord(i)
         if not state.fullscreen:

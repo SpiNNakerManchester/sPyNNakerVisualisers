@@ -94,7 +94,7 @@ def input_thread():
             update_history_data(nowtime)
 
         timeperindex = TIMEWINDOW / float(state.plotwidth)
-        updateline = ((nowtime - state.starttime) / timeperindex / 1000000) \
+        updateline = int((nowtime - state.starttime) / timeperindex / 1000000) \
             % state.history_size
         process_heatmap_packet(buf, num_additional_bytes, updateline)
 
@@ -110,9 +110,9 @@ def update_history_data(updateline):
                         _last_history_line_updated)
 
     num_pts = state.xdim * state.ydim
-    for i in xrange(linestoclear):
+    for i in range(linestoclear):
         rowid = (1 + i + _last_history_line_updated) % state.history_size
-        for j in xrange(num_pts):
+        for j in range(num_pts):
             state.history_data[rowid][j] = NOTDEFINED
 
     _last_history_line_updated = updateline
@@ -124,11 +124,10 @@ def process_heatmap_packet(buf, n_bytes, updateline):
 
     # take the chip ID and works out the chip X,Y coords
     src_addr = struct.unpack_from("<H", buf, 6)[0]
-    xsrc = src_addr / 256
-    ysrc = src_addr % 256
+    xsrc, ysrc = divmod(src_addr, 256)
 
     # for all extra data (assuming regular array of 4 byte words)
-    for i in xrange(n_bytes / 4):
+    for i in range(n_bytes // 4):
         arrayindex = (state.x_chips * state.y_chips) \
             * (xsrc * state.x_chips + ysrc) + i
         if arrayindex > state.xdim * state.ydim:
