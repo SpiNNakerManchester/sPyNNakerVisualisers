@@ -1,12 +1,15 @@
 language: python
-python: 2.7
-
-virtualenv:
-  system_site_packages: true
+python:
+  - 2.7
+  - 3.6
+dist: trusty
+cache: pip
 
 install:
-  - pip install flake8
+  - pip install -r requirements.txt
+  - pip install flake8 pylint
 
 script:
   # Code quality check
   - flake8 --ignore F403,F405
+  - ( pylint spynnaker_visualisers; exit $(($? & 35)) )
