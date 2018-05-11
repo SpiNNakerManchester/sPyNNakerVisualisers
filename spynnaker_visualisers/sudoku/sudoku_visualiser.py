@@ -2,18 +2,16 @@
 # encoding: utf-8
 """ A live plotter for the sPyNNaker Sudoku network.
 """
-
 from argparse import ArgumentParser, REMAINDER
 import sys
 from threading import Condition, RLock
-
 from spinn_utilities.overrides import overrides
 from spinn_front_end_common.utilities.connections import LiveEventConnection
 from spynnaker_visualisers.glut_framework import GlutFramework
-from spynnaker_visualisers.opengl_support import vertex, draw, lines, color,\
-    point_size, points, line_width, clear_color, clear, color_buffer_bit,\
-    load_identity, viewport, matrix_mode, projection, model_view,\
-    orthographic_projction, shade_model, smooth
+from spynnaker_visualisers.opengl_support import (
+    vertex, draw, lines, color, point_size, points, line_width, clear_color,
+    clear, color_buffer_bit, load_identity, viewport, matrix_mode, projection,
+    model_view, orthographic_projction, shade_model, smooth)
 
 __all__ = []
 __version__ = 1
@@ -135,8 +133,8 @@ class SudokuPlot(GlutFramework):
             spikes = []
         with self.point_mutex:
             for spike in spikes:
-                cell_id = spike / (self.neurons_per_number * 9)
-                neuron_id = spike % (self.neurons_per_number * 9)
+                cell_id, neuron_id = divmod(
+                    spike, self.neurons_per_number * 9)
                 self.points_to_draw[cell_id].append((time, neuron_id))
             time_ms = time * self.timestep_ms
             if time_ms > self.latest_time:
@@ -224,6 +222,7 @@ class SudokuPlot(GlutFramework):
             # Work out the probability of a given number in a given cell
             max_prob_number = 0
             max_prob = 0.0
+            total = float(total)
             for i in range(9):
                 if count[i] > 0:
                     prob = count[i] / total
