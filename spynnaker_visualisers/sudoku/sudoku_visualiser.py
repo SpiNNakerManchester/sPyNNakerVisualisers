@@ -2,6 +2,7 @@
 # encoding: utf-8
 """ A live plotter for the sPyNNaker Sudoku network.
 """
+from __future__ import division
 from argparse import ArgumentParser, REMAINDER
 import sys
 from threading import Condition, RLock
@@ -222,7 +223,6 @@ class SudokuPlot(GlutFramework):
             # Work out the probability of a given number in a given cell
             max_prob_number = 0
             max_prob = 0.0
-            total = float(total)
             for i in range(9):
                 if count[i] > 0:
                     prob = count[i] / total
