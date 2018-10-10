@@ -174,7 +174,7 @@ class SudokuPlot(GlutFramework):
         self._draw_cells(cell_width, cell_height)
 
         if self.timestep_ms != 0:
-            x_spacing = cell_width // ((end - start) / self.timestep_ms)
+            x_spacing = cell_width / ((end - start) / self.timestep_ms)
             start_tick = int(start / self.timestep_ms)
             with self.point_mutex:
                 values, probs = self._find_cell_values(start_tick)
@@ -200,7 +200,8 @@ class SudokuPlot(GlutFramework):
 
     @overrides(GlutFramework.keyboard_down)
     def keyboard_down(self, key, x, y):  # @UnusedVariable
-        if key == 32 or key == ' ':
+        key_str = key.decode()
+        if key_str == 32 or key_str == ' ':
             with self.start_condition:
                 if not self.user_pressed_start:
                     print("Starting the simulation")
