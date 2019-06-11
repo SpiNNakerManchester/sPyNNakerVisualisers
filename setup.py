@@ -51,5 +51,7 @@ setup(
             "spynnaker_sudoku = "
             "spynnaker_visualisers.sudoku.sudoku_visualiser:main",
         ],
-    }
+    },
+    maintainer="SpiNNakerTeam",
+    maintainer_email="spinnakerusers@googlegroups.com"
 )
