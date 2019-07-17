@@ -2,18 +2,17 @@
 # encoding: utf-8
 """ A live plotter for the sPyNNaker Sudoku network.
 """
-
+from __future__ import division
 from argparse import ArgumentParser, REMAINDER
 import sys
 from threading import Condition, RLock
-
 from spinn_utilities.overrides import overrides
 from spinn_front_end_common.utilities.connections import LiveEventConnection
 from spynnaker_visualisers.glut_framework import GlutFramework
-from spynnaker_visualisers.opengl_support import vertex, draw, lines, color,\
-    point_size, points, line_width, clear_color, clear, color_buffer_bit,\
-    load_identity, viewport, matrix_mode, projection, model_view,\
-    orthographic_projction, shade_model, smooth
+from spynnaker_visualisers.opengl_support import (
+    vertex, draw, lines, color, point_size, points, line_width, clear_color,
+    clear, color_buffer_bit, load_identity, viewport, matrix_mode, projection,
+    model_view, orthographic_projction, shade_model, smooth)
 
 __all__ = []
 __version__ = 1
@@ -135,8 +134,8 @@ class SudokuPlot(GlutFramework):
             spikes = []
         with self.point_mutex:
             for spike in spikes:
-                cell_id = spike / (self.neurons_per_number * 9)
-                neuron_id = spike % (self.neurons_per_number * 9)
+                cell_id, neuron_id = divmod(
+                    spike, self.neurons_per_number * 9)
                 self.points_to_draw[cell_id].append((time, neuron_id))
             time_ms = time * self.timestep_ms
             if time_ms > self.latest_time:
@@ -175,7 +174,7 @@ class SudokuPlot(GlutFramework):
         self._draw_cells(cell_width, cell_height)
 
         if self.timestep_ms != 0:
-            x_spacing = cell_width // ((end - start) / self.timestep_ms)
+            x_spacing = cell_width / ((end - start) / self.timestep_ms)
             start_tick = int(start / self.timestep_ms)
             with self.point_mutex:
                 values, probs = self._find_cell_values(start_tick)
@@ -201,7 +200,8 @@ class SudokuPlot(GlutFramework):
 
     @overrides(GlutFramework.keyboard_down)
     def keyboard_down(self, key, x, y):  # @UnusedVariable
-        if key == 32 or key == ' ':
+        key_str = key.decode()
+        if key_str == 32 or key_str == ' ':
             with self.start_condition:
                 if not self.user_pressed_start:
                     print("Starting the simulation")

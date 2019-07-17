@@ -52,5 +52,7 @@ setup(
             "spynnaker_visualisers.sudoku.sudoku_visualiser:main",
             "spinnaker_heatmap = spynnaker_visualisers.heat.visualiser:main",
         ],
-    }
+    },
+    maintainer="SpiNNakerTeam",
+    maintainer_email="spinnakerusers@googlegroups.com"
 )
