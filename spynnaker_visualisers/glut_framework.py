@@ -31,9 +31,10 @@ import traceback
 from six import add_metaclass
 import OpenGL.GLUT as GLUT
 from spinn_utilities.abstract_base import AbstractBase, abstractmethod
-from spynnaker_visualisers.opengl_support import viewport, save_matrix, \
-    enable, blend, line_smooth, disable, line_width, blend_function, \
-    src_alpha, one_minus_src_alpha, rotate, scale, translate, raster_position
+from spynnaker_visualisers.opengl_support import (
+    viewport, save_matrix, enable, blend, line_smooth, disable, line_width,
+    blend_function, src_alpha, one_minus_src_alpha, rotate, scale, translate,
+    raster_position)
 
 
 class _PerformanceTimer(object):
@@ -98,7 +99,7 @@ class GlutFramework(object):
         "frame_rate_timer",
         "frame_time",
         "frame_time_elapsed",
-        "__logged_errors",
+        "_logged_errors",
         "window"]
 
     def __init__(self):
@@ -108,7 +109,7 @@ class GlutFramework(object):
         self.frame_rate_timer = _PerformanceTimer()
         self.display_timer = _PerformanceTimer()
         self.elapsed_time_in_seconds = 0.0
-        self.__logged_errors = set()
+        self._logged_errors = set()
 
     def start_framework(self, args, title, width, height, posx, posy, fps):
         """ start_framework will initialize framework and start the GLUT run\
@@ -342,6 +343,6 @@ class GlutFramework(object):
 
     def __log_error(self):
         tb = traceback.format_exc()
-        if tb not in self.__logged_errors:
-            self.__logged_errors.add(tb)
+        if tb not in self._logged_errors:
+            self._logged_errors.add(tb)
             traceback.print_exc()
