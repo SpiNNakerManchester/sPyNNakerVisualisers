@@ -29,5 +29,5 @@ install:
 
 script:
   # Code quality check
-  - flake8 --ignore F403,F405
+  - flake8 --ignore F403,F405 spynnaker_visualisers
   - ( pylint spynnaker_visualisers; exit $(($? & 35)) )
