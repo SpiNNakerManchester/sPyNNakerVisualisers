@@ -26,11 +26,10 @@ setup(
         "Operating System :: Microsoft :: Windows",
         "Operating System :: MacOS",
 
-        "Programming Language :: Python :: 2",
-        "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.4",
         "Programming Language :: Python :: 3.5",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
     ],
     keywords="spinnaker visualisation pynn",
 
@@ -38,8 +37,8 @@ setup(
     install_requires=[
         'six >= 1.8.0',
         'PyOpenGL',
-        'SpiNNUtilities >= 1!4.0.0, < 1!5.0.0',
-        'SpiNNFrontEndCommon >= 1!4.0.0, < 1!5.0.0',
+        'SpiNNUtilities >= 1!5.0.1, < 1!6.0.0',
+        'SpiNNFrontEndCommon >= 1!5.0.1, < 1!6.0.0',
     ],
     extras_require={
         "acceleration": ["PyOpenGL_accelerate"]
