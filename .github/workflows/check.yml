@@ -29,6 +29,9 @@ jobs:
         install: true
     - name: Setup
       uses: ./support/actions/run-setup
+      with:
+        # No testing, no test requirements
+        test-requirements: false
     - name: Lint with flake8
       run: flake8 --ignore F403,F405 spynnaker_visualisers
     - name: Lint with pylint
