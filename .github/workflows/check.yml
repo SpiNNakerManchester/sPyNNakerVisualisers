@@ -1,6 +1,6 @@
 name: Check
 on: [push]
-job:
+jobs:
   check:
     runs-on: ubuntu-latest
     strategy:
