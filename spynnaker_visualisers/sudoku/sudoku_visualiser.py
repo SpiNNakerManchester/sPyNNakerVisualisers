@@ -1,8 +1,7 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python3.6
 # encoding: utf-8
 """ A live plotter for the sPyNNaker Sudoku network.
 """
-from __future__ import division
 from argparse import ArgumentParser, REMAINDER
 import sys
 from threading import Condition, RLock
@@ -53,13 +52,13 @@ class SudokuPlot(GlutFramework):
 
     def __init__(self, args, neurons_per_number, ms_per_bin, wait_for_start):
         """
-        :param args: \
+        :param args:
             Arguments (relating to the display) to pass through to GLUT
-        :param neurons_per_number: \
+        :param neurons_per_number:
             How many neurons are used per number in the Sudoku cells
-        :param ms_per_bin: \
+        :param ms_per_bin:
             How long does a sampling period last
-        :param wait_for_start: \
+        :param wait_for_start:
             Whether the system should wait for the SpiNNaker simulation to\
             boot (probably yes!)
         """
