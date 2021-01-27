@@ -34,7 +34,6 @@ setup(
 
     # Requirements
     install_requires=[
-        'six >= 1.8.0',
         'PyOpenGL',
         'SpiNNUtilities >= 1!5.0.1, < 1!6.0.0',
         'SpiNNFrontEndCommon >= 1!5.0.1, < 1!6.0.0',
