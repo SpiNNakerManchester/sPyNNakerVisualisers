@@ -28,7 +28,6 @@ application that uses OpenGL and GLUT to do the GUI work.
 
 from datetime import datetime
 import traceback
-from six import add_metaclass
 import OpenGL.GLUT as GLUT
 from spinn_utilities.abstract_base import AbstractBase, abstractmethod
 from spynnaker_visualisers.opengl_support import (
@@ -88,8 +87,7 @@ class _PerformanceTimer(object):
         return float(delta.seconds) + float(delta.microseconds) / 1000000
 
 
-@add_metaclass(AbstractBase)
-class GlutFramework(object):
+class GlutFramework(object, metaclass=AbstractBase):
     ''' Base for code that wants to visualise using an OpenGL surface.
     '''
     # pylint: disable=broad-except

@@ -5,7 +5,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [2.7, 3.6, 3.7, 3.8]
+        python-version: [3.6, 3.7, 3.8]
     steps:
     - name: Checkout
       uses: actions/checkout@v2
@@ -27,12 +27,10 @@ jobs:
           SpiNNUtils SpiNNMachine SpiNNMan PACMAN DataSpecification spalloc
           SpiNNFrontEndCommon
         install: true
-        preinstall: ${{ matrix.python-version == 2.7 }}
     - name: Setup
       uses: ./support/actions/run-setup
       with:
         test-requirements-path: .github/requirements-check.txt
-        preinstall: ${{ matrix.python-version == 2.7 }}
     - name: Lint with flake8
       run: flake8 --ignore F403,F405 spynnaker_visualisers
     - name: Lint with pylint
