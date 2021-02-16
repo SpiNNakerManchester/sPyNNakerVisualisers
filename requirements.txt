@@ -16,7 +16,6 @@
 # This workflow will install Python dependencies, run tests, lint and rat with a variety of Python versions
 # For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
 
-six >= 1.8.0
 PyOpenGL
 SpiNNUtilities >= 1!5.0.1, < 1!6.0.0
 SpiNNFrontEndCommon >= 1!5.0.1, < 1!6.0.0
