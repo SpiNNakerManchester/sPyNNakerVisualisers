@@ -12,7 +12,8 @@ class RaytraceDrawer(glut.GlutFramework):
     __slots__ = (
         "_moving", "_strafing", "_turn_down", "_turn_right", "_rolling",
         "_height", "_width", "_win_height", "_win_width",
-        "_viewing_frame", "_received_frame", "_sockfd_input")
+        "_viewing_frame", "_received_frame", "_sockfd_input",
+        "_look", "_up", "_position")
     moveAmount = 0.00003
     turnAmount = 0.0000003
 
