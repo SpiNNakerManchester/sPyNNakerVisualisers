@@ -2,47 +2,56 @@ import socket
 import struct
 import sys
 import threading
-import numpy
+from numpy import dot, cross, array, zeros, cos, sin, uint8, uint32
+from numpy.linalg import norm
 import spynnaker_visualisers.opengl_support as gl
 import spynnaker_visualisers.glut_framework as glut
 
 
 class RaytraceDrawer(glut.GlutFramework):
+    __slots__ = (
+        "_moving", "_strafing", "_turn_down", "_turn_right", "_rolling",
+        "_height", "_width", "_win_height", "_win_width",
+        "_viewing_frame", "_received_frame", "_sockfd_input")
     moveAmount = 0.00003
     turnAmount = 0.0000003
 
-    verticalFieldOfView = 50.0
-    horizontalFieldOfView = 60.0
+    # Fields of view
+    VERT_FOV = 50.0
+    HORIZ_FOV = 60.0
 
     INPUT_PORT_SPINNAKER = 17894
     SDP_HEADER = struct.Struct("<HBBBBHHHHIII")
     PIXEL_FORMAT = struct.Struct(">HHBBB")
-    RECV_BUFFER_SIZE = 1500  # Ethernet MTU
+    RECV_BUFFER_SIZE = 1500  # Ethernet MTU; SpiNNaker doesn't jumbo
 
     def __init__(self, size=256):
         super().__init__()
-        self.moving = 0
-        self.strafing = 0
-        self.turningLeftRight = 0
-        self.turningUpDown = 0
-        self.rolling = 0
-        self.position = numpy.array([-220.0, 50.0, 0.0])
-        self.look = numpy.array([1.0, 0.0, 0.0])
-        self.up = numpy.array([0.0, 1.0, 0.0])
-        self.frameHeight = size
-        self.frameWidth = int(
-            self.horizontalFieldOfView * self.frameHeight
-            / self.verticalFieldOfView)
-        self.viewingFrame = numpy.zeros(
-            self.frameWidth * self.frameHeight * 3, dtype=numpy.uint8)
-        self.receivedFrame = numpy.zeros(
-            self.frameWidth * self.frameHeight, dtype=numpy.uint32)
-        self._init_udp_server_spinnaker()
+        self._moving = 0
+        self._strafing = 0
+        # Turn left is negative
+        self._turn_right = 0
+        # Turn up is negative
+        self._turn_down = 0
+        self._rolling = 0
+        self.position = array([-220.0, 50.0, 0.0])
+        self.look = array([1.0, 0.0, 0.0])
+        self.up = array([0.0, 1.0, 0.0])
+        self._height = size
+        self._width = int(self.HORIZ_FOV * self._height / self.VERT_FOV)
+        self._win_height = self._height
+        self._win_width = self._width
+        self._viewing_frame = zeros(
+            self._width * self._height * 3, dtype=uint8)
+        self._received_frame = zeros(
+            self._width * self._height, dtype=uint32)
+        self._sockfd_input = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self._sockfd_input.bind(('0.0.0.0', self.INPUT_PORT_SPINNAKER))
 
     def start(self, args):
         threading.Thread(target=self._input_thread, daemon=True).start()
         self.start_framework(
-            args, "Path Tracer", self.frameWidth, self.frameHeight, 0, 0, 10,
+            args, "Path Tracer", self._width, self._height, 0, 0, 10,
             display_mode=glut.displayModeDouble)
 
     def init(self):
@@ -53,107 +62,94 @@ class RaytraceDrawer(glut.GlutFramework):
         gl.clear_color(1.0, 1.0, 1.0, 0.001)
         gl.clear(gl.color_buffer_bit | gl.depth_buffer_bit)
         gl.draw_pixels(
-            self.windowWidth, self.windowHeight, gl.rgb, gl.unsigned_byte,
-            self.viewingFrame.data)
+            self._win_width, self._win_height, gl.rgb, gl.unsigned_byte,
+            self._viewing_frame.data)
 
     def reshape(self, width, height):
-        self.windowWidth = min((width, self.frameWidth))
-        self.windowHeight = min((height, self.frameHeight))
+        self._win_width = min(width, self._width)
+        self._win_height = min(height, self._height)
         gl.viewport(0, 0, width, height)
         gl.load_identity()
 
     def special_keyboard_down(self, key, x, y):  # @UnusedVariable
         if key == glut.keyUp:
-            self.turningUpDown = -1
+            self._turn_down = -1
         elif key == glut.keyDown:
-            self.turningUpDown = 1
+            self._turn_down = 1
         elif key == glut.keyRight:
-            self.rolling = -1
+            self._rolling = -1
         elif key == glut.keyLeft:
-            self.rolling = 1
+            self._rolling = 1
 
     def special_keyboard_up(self, key, x, y):  # @UnusedVariable
         if key == glut.keyUp or key == glut.keyDown:
-            self.turningUpDown = 0
+            self._turn_down = 0
         elif key == glut.keyLeft or key == glut.keyRight:
-            self.rolling = 0
+            self._rolling = 0
 
     def keyboard_down(self, key, x, y):  # @UnusedVariable
         if key == 'w':
-            self.moving = 1
+            self._moving = 1
         elif key == 's':
-            self.moving = -1
+            self._moving = -1
         elif key == 'a':
-            self.turningLeftRight = -1
+            self._turn_right = -1
         elif key == 'd':
-            self.turningLeftRight = 1
+            self._turn_right = 1
         elif key == 'q':
-            self.strafing = 1
+            self._strafing = 1
         elif key == 'e':
-            self.strafing = -1
+            self._strafing = -1
         elif key == '\x1b':  # Escape
             sys.exit()
 
     def keyboard_up(self, key, x, y):  # @UnusedVariable
         if key == 'w' or key == 's':
-            self.moving = 0
+            self._moving = 0
         elif key == 'a' or key == 'd':
-            self.turningLeftRight = 0
+            self._turn_right = 0
         elif key == 'q' or key == 'e':
-            self.strafing = 0
+            self._strafing = 0
 
     @staticmethod
-    def vector_rotate(rotated, rotateAbout, theta):
+    def vector_rotate(rotated, axis, theta):
         """Rotate the first vector around the second"""
         # https://gist.github.com/fasiha/6c331b158d4c40509bd180c5e64f7924
-        par = (numpy.dot(rotated, rotateAbout) /
-               numpy.dot(rotateAbout, rotateAbout) * rotateAbout)
+        par = (dot(rotated, axis) / dot(axis, axis) * axis)
         perp = rotated - par
-        w = numpy.cross(rotateAbout, perp)
-        w = w / numpy.linalg.norm(w)
-        result = (par + perp * numpy.cos(theta) +
-                  numpy.linalg.norm(perp) * w * numpy.sin(theta))
-        return result / numpy.linalg.norm(result)
+        w = cross(axis, perp)
+        w = w / norm(w)
+        result = par + perp * cos(theta) + norm(perp) * w * sin(theta)
+        return result / norm(result)
 
-    def calculate_movement(self, timestep):
+    def calculate_movement(self, dt):
         # Forward movement
-        if self.moving:
-            self.position += self.look * (
-                timestep * self.moveAmount * self.moving)
-        right = numpy.cross(self.up, self.look)
+        if self._moving:
+            self.position += self.look * dt * self.moveAmount * self._moving
+        right = cross(self.up, self.look)
         # Strafing movement
-        if self.strafing:
-            self.position += right * (
-                timestep * self.moveAmount * self.strafing)
+        if self._strafing:
+            self.position += right * dt * self.moveAmount * self._strafing
         # To turn left/right, rotate the look vector around the up vector
-        if self.turningLeftRight:
+        if self._turn_right:
             self.look = self.vector_rotate(
-                self.look, self.up,
-                timestep * self.turnAmount * self.turningLeftRight)
+                self.look, self.up, dt * self.turnAmount * self._turn_right)
         # To turn up/down, rotate the look vector and up vector about the right
         # vector
-        if self.turningUpDown:
+        if self._turn_down:
             self.look = self.vector_rotate(
-                self.look, right,
-                timestep * self.turnAmount * self.turningUpDown)
+                self.look, right, dt * self.turnAmount * self._turn_down)
             self.up = self.vector_rotate(
-                self.up, right,
-                timestep * self.turnAmount * self.turningUpDown)
+                self.up, right, dt * self.turnAmount * self._turn_down)
         # To roll, rotate the up vector around the look vector
-        if self.rolling:
+        if self._rolling:
             self.up = self.vector_rotate(
-                self.up, self.look, timestep *
-                self.turnAmount * self.rolling)
+                self.up, self.look, dt * self.turnAmount * self._rolling)
 
     def run(self):
         """Calculate movement ten times a second"""
         super().run()
         self.calculate_movement(self.frame_time_elapsed * 1000)
-
-    def _init_udp_server_spinnaker(self):
-        """initialization of the port for receiving SpiNNaker frames"""
-        self._sockfd_input = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self._sockfd_input.bind(('0.0.0.0', self.INPUT_PORT_SPINNAKER))
 
     def _input_thread(self):
         print(
@@ -167,25 +163,25 @@ class RaytraceDrawer(glut.GlutFramework):
                         data, sdp_msg[9]):  # sdp_msg.arg1
                     self.process_one_pixel(*pixel_datum)
 
-    @staticmethod
-    def _pixelinfo(data, number_of_pixels):
+    @classmethod
+    def _pixelinfo(cls, data, number_of_pixels):
         for i in range(number_of_pixels):
-            yield self.PIXEL_FORMAT.unpack_from(
-                data, i * self.PIXEL_FORMAT.size)
+            yield cls.PIXEL_FORMAT.unpack_from(
+                data, i * cls.PIXEL_FORMAT.size)
 
     def process_one_pixel(self, x, y, r, g, b):
-        index = (self.frameHeight - y - 1) * self.frameWidth + x
-        if index < self.frameWidth * self.frameHeight:
+        index = (self._height - y - 1) * self._width + x
+        if index < self._width * self._height:
             ix3 = index * 3
-            count = self.receivedFrame[index]
+            count = self._received_frame[index]
             cp1 = count + 1
-            self.viewingFrame[ix3] = (
-                (r + count * self.viewingFrame[ix3]) // cp1)
-            self.viewingFrame[ix3 + 1] = (
-                (g + count * self.viewingFrame[ix3 + 1]) // cp1)
-            self.viewingFrame[ix3 + 2] = (
-                (b + count * self.viewingFrame[ix3 + 2]) // cp1)
-            self.receivedFrame[index] += 1
+            self._viewing_frame[ix3] = (
+                (r + count * self._viewing_frame[ix3]) // cp1)
+            self._viewing_frame[ix3 + 1] = (
+                (g + count * self._viewing_frame[ix3 + 1]) // cp1)
+            self._viewing_frame[ix3 + 2] = (
+                (b + count * self._viewing_frame[ix3 + 2]) // cp1)
+            self._received_frame[index] += 1
 
 
 def main(args):

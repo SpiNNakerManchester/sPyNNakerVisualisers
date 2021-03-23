@@ -20,7 +20,7 @@ massively incomplete; feel free to add to it as required.
 
 from contextlib import contextmanager
 try:
-    import OpenGL.GL   # this fails in <=2020 versions of Python on OS X 11.x
+    import OpenGL.GL as _   # this fails in <=2020 versions of Python on OS X 11.x
 except ImportError:
     # Hack for macOS Big Sur
     from ._bigsurhack import patch_ctypes
