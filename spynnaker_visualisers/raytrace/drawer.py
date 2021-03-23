@@ -17,6 +17,7 @@ class RaytraceDrawer(glut.GlutFramework):
     INPUT_PORT_SPINNAKER = 17894
     SDP_HEADER = struct.Struct("<HBBBBHHHHIII")
     PIXEL_FORMAT = struct.Struct(">HHBBB")
+    RECV_BUFFER_SIZE = 1500  # Ethernet MTU
 
     def __init__(self, size=256):
         super().__init__()
@@ -36,10 +37,10 @@ class RaytraceDrawer(glut.GlutFramework):
             self.frameWidth * self.frameHeight * 3, dtype=numpy.uint8)
         self.receivedFrame = numpy.zeros(
             self.frameWidth * self.frameHeight, dtype=numpy.uint32)
+        self._init_udp_server_spinnaker()
 
     def start(self, args):
-        self.init_udp_server_spinnaker()
-        threading.Thread(target=self.input_thread).start()
+        threading.Thread(target=self._input_thread, daemon=True).start()
         self.start_framework(
             args, "Path Tracer", self.frameWidth, self.frameHeight, 0, 0, 10,
             display_mode=glut.displayModeDouble)
@@ -149,37 +150,42 @@ class RaytraceDrawer(glut.GlutFramework):
         super().run()
         self.calculate_movement(self.frame_time_elapsed * 1000)
 
-    def init_udp_server_spinnaker(self):
+    def _init_udp_server_spinnaker(self):
         """initialization of the port for receiving SpiNNaker frames"""
-        self.sockfd_input = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sockfd_input.bind(('0.0.0.0', self.INPUT_PORT_SPINNAKER))
+        self._sockfd_input = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self._sockfd_input.bind(('0.0.0.0', self.INPUT_PORT_SPINNAKER))
 
-    def input_thread(self):
+    def _input_thread(self):
         print(
             f"Drawer running (listening port: {self.INPUT_PORT_SPINNAKER})...")
         while True:
-            msg = self.sockfd_input.recv(65536)
+            msg = self._sockfd_input.recv(self.RECV_BUFFER_SIZE)
             sdp_msg = self.SDP_HEADER.unpack_from(msg)
             data = msg[self.SDP_HEADER.size:]  # sdp_msg.data
             if sdp_msg[7] == 3:  # sdp_msg.command
-                self.process_one_message(data, sdp_msg[9])  # sdp_msg.arg1
+                for pixel_datum in self._pixelinfo(
+                        data, sdp_msg[9]):  # sdp_msg.arg1
+                    self.process_one_pixel(*pixel_datum)
 
-    def process_one_message(self, data, number_of_pixels):
+    @staticmethod
+    def _pixelinfo(data, number_of_pixels):
         for i in range(number_of_pixels):
-            x, y, r, g, b = self.PIXEL_FORMAT.unpack_from(
+            yield self.PIXEL_FORMAT.unpack_from(
                 data, i * self.PIXEL_FORMAT.size)
-            index = (self.frameHeight - y - 1) * self.frameWidth + x
-            if index < self.frameWidth * self.frameHeight:
-                count = self.receivedFrame[index]
-                self.viewingFrame[index * 3] = (
-                    (r + count * self.viewingFrame[index * 3]) // (count + 1))
-                self.viewingFrame[index * 3 + 1] = (
-                    (g + count * self.viewingFrame[index * 3 + 1]) // (
-                        count + 1))
-                self.viewingFrame[index * 3 + 2] = (
-                    (b + count * self.viewingFrame[index * 3 + 2]) // (
-                        count + 1))
-                self.receivedFrame[index] += 1
+
+    def process_one_pixel(self, x, y, r, g, b):
+        index = (self.frameHeight - y - 1) * self.frameWidth + x
+        if index < self.frameWidth * self.frameHeight:
+            ix3 = index * 3
+            count = self.receivedFrame[index]
+            cp1 = count + 1
+            self.viewingFrame[ix3] = (
+                (r + count * self.viewingFrame[ix3]) // cp1)
+            self.viewingFrame[ix3 + 1] = (
+                (g + count * self.viewingFrame[ix3 + 1]) // cp1)
+            self.viewingFrame[ix3 + 2] = (
+                (b + count * self.viewingFrame[ix3 + 2]) // cp1)
+            self.receivedFrame[index] += 1
 
 
 def main(args):

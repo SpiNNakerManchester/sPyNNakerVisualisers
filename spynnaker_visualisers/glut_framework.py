@@ -29,6 +29,7 @@ application that uses OpenGL and GLUT to do the GUI work.
 from datetime import datetime
 import os
 import traceback
+import OpenGL.error
 from spinn_utilities.abstract_base import AbstractBase, abstractmethod
 from spynnaker_visualisers.opengl_support import (
     viewport, save_matrix, enable, blend, line_smooth, disable, line_width,
@@ -127,6 +128,8 @@ class GlutFramework(object, metaclass=AbstractBase):
         """ start_framework will initialize framework and start the GLUT run\
             loop. It must be called after the GlutFramework class is created\
             to start the application.
+
+        Not expected to return.
         """
         # Sets the instance to this, used in the callback wrapper functions
         self.frame_time = 1.0 / fps * 1000.0
@@ -137,6 +140,11 @@ class GlutFramework(object, metaclass=AbstractBase):
         GLUT.glutInitWindowSize(width, height)
         GLUT.glutInitWindowPosition(posx, posy)
         self.window = GLUT.glutCreateWindow(title)
+        try:
+            GLUT.glutSetOption(GLUT.GLUT_ACTION_ON_WINDOW_CLOSE,
+                               GLUT.GLUT_ACTION_CONTINUE_EXECUTION)
+        except OpenGL.error.NullFunctionError:
+            pass
 
         self.init()  # Initialize
 
@@ -150,6 +158,10 @@ class GlutFramework(object, metaclass=AbstractBase):
         GLUT.glutKeyboardUpFunc(self.__keyboard_up)
         GLUT.glutSpecialFunc(self.__special_keyboard_down)
         GLUT.glutSpecialUpFunc(self.__special_keyboard_up)
+        try:
+            GLUT.glutCloseFunc(self._terminate)
+        except OpenGL.error.NullFunctionError:
+            GLUT.glutWMCloseFunc(self._terminate)
 
         GLUT.glutMainLoop()
 
