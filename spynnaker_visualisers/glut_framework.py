@@ -169,7 +169,6 @@ class GlutFramework(object, metaclass=AbstractBase):
     def init(self):
         """ Initialises GLUT and registers any extra callback functions.
         """
-        pass
 
     @abstractmethod
     def display(self, dTime):

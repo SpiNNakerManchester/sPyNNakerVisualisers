@@ -34,9 +34,9 @@ class RaytraceDrawer(glut.GlutFramework):
         # Turn up is negative
         self._turn_down = 0
         self._rolling = 0
-        self.position = array([-220.0, 50.0, 0.0])
-        self.look = array([1.0, 0.0, 0.0])
-        self.up = array([0.0, 1.0, 0.0])
+        self._position = array([-220.0, 50.0, 0.0])
+        self._look = array([1.0, 0.0, 0.0])
+        self._up = array([0.0, 1.0, 0.0])
         self._height = size
         self._width = int(self.HORIZ_FOV * self._height / self.VERT_FOV)
         self._win_height = self._height
@@ -125,26 +125,26 @@ class RaytraceDrawer(glut.GlutFramework):
     def calculate_movement(self, dt):
         # Forward movement
         if self._moving:
-            self.position += self.look * dt * self.moveAmount * self._moving
-        right = cross(self.up, self.look)
+            self._position += self._look * dt * self.moveAmount * self._moving
+        right = cross(self._up, self._look)
         # Strafing movement
         if self._strafing:
-            self.position += right * dt * self.moveAmount * self._strafing
+            self._position += right * dt * self.moveAmount * self._strafing
         # To turn left/right, rotate the look vector around the up vector
         if self._turn_right:
-            self.look = self.vector_rotate(
-                self.look, self.up, dt * self.turnAmount * self._turn_right)
+            self._look = self.vector_rotate(
+                self._look, self._up, dt * self.turnAmount * self._turn_right)
         # To turn up/down, rotate the look vector and up vector about the right
         # vector
         if self._turn_down:
-            self.look = self.vector_rotate(
-                self.look, right, dt * self.turnAmount * self._turn_down)
-            self.up = self.vector_rotate(
-                self.up, right, dt * self.turnAmount * self._turn_down)
+            self._look = self.vector_rotate(
+                self._look, right, dt * self.turnAmount * self._turn_down)
+            self._up = self.vector_rotate(
+                self._up, right, dt * self.turnAmount * self._turn_down)
         # To roll, rotate the up vector around the look vector
         if self._rolling:
-            self.up = self.vector_rotate(
-                self.up, self.look, dt * self.turnAmount * self._rolling)
+            self._up = self.vector_rotate(
+                self._up, self._look, dt * self.turnAmount * self._rolling)
 
     def run(self):
         """Calculate movement ten times a second"""
