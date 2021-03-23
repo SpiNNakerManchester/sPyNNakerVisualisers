@@ -36,7 +36,8 @@ from spynnaker_visualisers.opengl_support import (
     blend_function, src_alpha, one_minus_src_alpha, rotate, scale, translate,
     raster_position)
 try:
-    import OpenGL.GLUT  # this fails in <=2020 versions of Python on OS X 11.x
+    # this fails in <=2020 versions of Python on OS X 11.x
+    import OpenGL.GLUT  # noqa: F401
 except ImportError:
     # Hack for macOS Big Sur
     from ._bigsurhack import patch_ctypes
