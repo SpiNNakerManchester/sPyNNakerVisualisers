@@ -1,9 +1,24 @@
+# Copyright (c) 2017-2021 The University of Manchester
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 from OpenGL.GL import *  # @UnusedWildImport
 from OpenGL.GLUT import *  # @UnusedWildImport
 
-from spynnaker_visualisers.heat.constants \
-    import MINDATA, MAXDATA, BOXSIZE, GAP, KEYWIDTH, CONTROLBOXES, \
-    UIColours, Direction
+from spynnaker_visualisers.heat.constants import (
+    MINDATA, MAXDATA, BOXSIZE, GAP, KEYWIDTH, CONTROLBOXES,
+    UIColours, Direction)
 from spynnaker_visualisers.heat import state
 from spynnaker_visualisers.heat.sdp import is_board_address_set
 from spynnaker_visualisers.heat.utils import clamp, is_defined

@@ -1,10 +1,25 @@
+# Copyright (c) 2017-2021 The University of Manchester
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 import socket
 import struct
 import sys
 
 from spynnaker_visualisers.heat import state
-from spynnaker_visualisers.heat.constants \
-    import MTU, SPINN_HELLO, TIMEWINDOW, NOTDEFINED
+from spynnaker_visualisers.heat.constants import (
+    MTU, SPINN_HELLO, TIMEWINDOW, NOTDEFINED)
 from spynnaker_visualisers.heat.utils import timestamp
 
 
@@ -55,7 +70,7 @@ def init_listening():
             _sock_input = socket.socket(family, socktype, proto)
             _sock_input.bind(sockaddr)
             return _sock_input
-        except:
+        except Exception:
             print("falling over to next possible address")
     print("failed to bind socket for listening")
     sys.exit(1)
@@ -68,7 +83,7 @@ def input_thread():
         try:
             string, address = _sock_input.recvfrom(MTU)
             host, port = address
-        except:
+        except Exception:
             return
 
         buf = memoryview(string)
@@ -94,7 +109,7 @@ def input_thread():
             update_history_data(nowtime)
 
         timeperindex = TIMEWINDOW / float(state.plotwidth)
-        updateline = int((nowtime - state.starttime) / timeperindex / 1000000) \
+        updateline = int((nowtime - state.starttime) / timeperindex / 1000000)\
             % state.history_size
         process_heatmap_packet(buf, num_additional_bytes, updateline)
 
@@ -147,7 +162,7 @@ def init_sender():
             _sock_output = socket.socket(family, socktype, proto)
             _board_address = sockaddr
             return _sock_output
-        except:
+        except Exception:
             print("falling over to next possible address")
     print("failed to bind socket for listening")
     sys.exit(1)
