@@ -1,8 +1,21 @@
-#!/usr/bin/env python2.7
+# Copyright (c) 2018-2021 The University of Manchester
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 # encoding: utf-8
 """ A live plotter for the sPyNNaker Sudoku network.
 """
-from __future__ import division
 from argparse import ArgumentParser, REMAINDER
 import sys
 from threading import Condition, RLock
@@ -53,13 +66,13 @@ class SudokuPlot(GlutFramework):
 
     def __init__(self, args, neurons_per_number, ms_per_bin, wait_for_start):
         """
-        :param args: \
+        :param args:
             Arguments (relating to the display) to pass through to GLUT
-        :param neurons_per_number: \
+        :param neurons_per_number:
             How many neurons are used per number in the Sudoku cells
-        :param ms_per_bin: \
+        :param ms_per_bin:
             How long does a sampling period last
-        :param wait_for_start: \
+        :param wait_for_start:
             Whether the system should wait for the SpiNNaker simulation to\
             boot (probably yes!)
         """
@@ -200,8 +213,7 @@ class SudokuPlot(GlutFramework):
 
     @overrides(GlutFramework.keyboard_down)
     def keyboard_down(self, key, x, y):  # @UnusedVariable
-        key_str = key.decode()
-        if key_str == 32 or key_str == ' ':
+        if key == 32 or key == ' ':
             with self.start_condition:
                 if not self.user_pressed_start:
                     print("Starting the simulation")
@@ -243,7 +255,7 @@ class SudokuPlot(GlutFramework):
                 count[number] += 1
                 total += 1
             else:
-                sys.stderr.write("Neuron id %d out of range\n" % (n_id))
+                sys.stderr.write(f"Neuron id {n_id} out of range\n")
         return count, float(total)
 
     def _find_cell_correctness(self, values):

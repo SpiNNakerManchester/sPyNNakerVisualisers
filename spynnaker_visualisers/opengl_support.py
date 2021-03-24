@@ -1,14 +1,37 @@
+# Copyright (c) 2018-2021 The University of Manchester
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 """
 This file makes the OpenGL interface a little more python-pretty. It's
 massively incomplete; feel free to add to it as required.
 """
 
 from contextlib import contextmanager
+try:
+    # this fails in <=2020 versions of Python on OS X 11.x
+    import OpenGL.GL  # noqa: F401
+except ImportError:
+    # Hack for macOS Big Sur
+    from ._bigsurhack import patch_ctypes
+    patch_ctypes()
 import OpenGL.GL as GL
 
 # pylint: disable=invalid-name
 blend = GL.GL_BLEND
 color_buffer_bit = GL.GL_COLOR_BUFFER_BIT
+depth_buffer_bit = GL.GL_DEPTH_BUFFER_BIT
 line_smooth = GL.GL_LINE_SMOOTH
 lines = GL.GL_LINES
 model_view = GL.GL_MODELVIEW
@@ -17,6 +40,9 @@ points = GL.GL_POINTS
 projection = GL.GL_PROJECTION
 smooth = GL.GL_SMOOTH
 src_alpha = GL.GL_SRC_ALPHA
+depth_test = GL.GL_DEPTH_TEST
+rgb = GL.GL_RGB
+unsigned_byte = GL.GL_UNSIGNED_BYTE
 # pylint: enable=invalid-name
 
 
@@ -110,6 +136,10 @@ def vertex(*args):
 def viewport(x, y, width, height):
     """ Set up the view port. """
     GL.glViewport(int(x), int(y), int(width), int(height))
+
+
+def draw_pixels(*args):
+    GL.glDrawPixels(*args)
 
 
 @contextmanager

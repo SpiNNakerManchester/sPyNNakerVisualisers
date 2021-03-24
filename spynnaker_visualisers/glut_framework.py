@@ -27,14 +27,28 @@ application that uses OpenGL and GLUT to do the GUI work.
 # @author: Converted to Python by Donal Fellows
 
 from datetime import datetime
+import os
 import traceback
-from six import add_metaclass
-import OpenGL.GLUT as GLUT
+import OpenGL.error
 from spinn_utilities.abstract_base import AbstractBase, abstractmethod
 from spynnaker_visualisers.opengl_support import (
     viewport, save_matrix, enable, blend, line_smooth, disable, line_width,
     blend_function, src_alpha, one_minus_src_alpha, rotate, scale, translate,
     raster_position)
+try:
+    # this fails in <=2020 versions of Python on OS X 11.x
+    import OpenGL.GLUT  # noqa: F401
+except ImportError:
+    # Hack for macOS Big Sur
+    from ._bigsurhack import patch_ctypes
+    patch_ctypes()
+import OpenGL.GLUT as GLUT
+
+keyUp = GLUT.GLUT_KEY_UP
+keyDown = GLUT.GLUT_KEY_DOWN
+keyLeft = GLUT.GLUT_KEY_LEFT
+keyRight = GLUT.GLUT_KEY_RIGHT
+displayModeDouble = GLUT.GLUT_DOUBLE
 
 
 class _PerformanceTimer(object):
@@ -88,8 +102,7 @@ class _PerformanceTimer(object):
         return float(delta.seconds) + float(delta.microseconds) / 1000000
 
 
-@add_metaclass(AbstractBase)
-class GlutFramework(object):
+class GlutFramework(object, metaclass=AbstractBase):
     ''' Base for code that wants to visualise using an OpenGL surface.
     '''
     # pylint: disable=broad-except
@@ -111,20 +124,28 @@ class GlutFramework(object):
         self.elapsed_time_in_seconds = 0.0
         self._logged_errors = set()
 
-    def start_framework(self, args, title, width, height, posx, posy, fps):
+    def start_framework(self, args, title, width, height, posx, posy, fps, *,
+                        display_mode=GLUT.GLUT_RGB | GLUT.GLUT_DOUBLE):
         """ start_framework will initialize framework and start the GLUT run\
             loop. It must be called after the GlutFramework class is created\
             to start the application.
+
+        Not expected to return.
         """
         # Sets the instance to this, used in the callback wrapper functions
         self.frame_time = 1.0 / fps * 1000.0
 
         # Initialize GLUT
         GLUT.glutInit(args)
-        GLUT.glutInitDisplayMode(GLUT.GLUT_RGB | GLUT.GLUT_DOUBLE)
+        GLUT.glutInitDisplayMode(display_mode)
         GLUT.glutInitWindowSize(width, height)
         GLUT.glutInitWindowPosition(posx, posy)
         self.window = GLUT.glutCreateWindow(title)
+        try:
+            GLUT.glutSetOption(GLUT.GLUT_ACTION_ON_WINDOW_CLOSE,
+                               GLUT.GLUT_ACTION_CONTINUE_EXECUTION)
+        except OpenGL.error.NullFunctionError:
+            pass
 
         self.init()  # Initialize
 
@@ -138,13 +159,16 @@ class GlutFramework(object):
         GLUT.glutKeyboardUpFunc(self.__keyboard_up)
         GLUT.glutSpecialFunc(self.__special_keyboard_down)
         GLUT.glutSpecialUpFunc(self.__special_keyboard_up)
+        try:
+            GLUT.glutCloseFunc(self._terminate)
+        except OpenGL.error.NullFunctionError:
+            GLUT.glutWMCloseFunc(self._terminate)
 
         GLUT.glutMainLoop()
 
     def init(self):
         """ Initialises GLUT and registers any extra callback functions.
         """
-        pass
 
     @abstractmethod
     def display(self, dTime):
@@ -287,59 +311,102 @@ class GlutFramework(object):
                 GLUT.glutStrokeCharacter(GLUT.GLUT_STROKE_ROMAN, ord(ch))
             disable(blend, line_smooth)
 
+    @staticmethod
+    def _terminate(exit_code=0):
+        """
+        Because sys.exit() doesn't always work in the ctype-handled callbacks.
+        """
+        os._exit(exit_code)
+
     def __display_framework(self):
+        if not GLUT.glutGetWindow():
+            return
         try:
             return self.display_framework()
         except Exception:
             self.__log_error()
+        except SystemExit:
+            self._terminate()
 
     def __reshape_framework(self, width, height):
+        if not GLUT.glutGetWindow():
+            return
         try:
             return self.reshape_framework(width, height)
         except Exception:
             self.__log_error()
+        except SystemExit:
+            self._terminate()
 
     def __run(self):
+        if not GLUT.glutGetWindow():
+            return
         try:
             return self.run()
         except Exception:
             self.__log_error()
+        except SystemExit:
+            self._terminate()
 
     def __mouse_button_press(self, button, state, x, y):
+        if not GLUT.glutGetWindow():
+            return
         try:
             return self.mouse_button_press(button, state, x, y)
         except Exception:
             self.__log_error()
+        except SystemExit:
+            self._terminate()
 
     def __mouse_move(self, x, y):
+        if not GLUT.glutGetWindow():
+            return
         try:
             return self.mouse_move(x, y)
         except Exception:
             self.__log_error()
+        except SystemExit:
+            self._terminate()
 
     def __keyboard_down(self, key, x, y):
+        if not GLUT.glutGetWindow():
+            return
         try:
-            return self.keyboard_down(key, x, y)
+            return self.keyboard_down(key.decode(), x, y)
         except Exception:
             self.__log_error()
+        except SystemExit:
+            self._terminate()
 
     def __keyboard_up(self, key, x, y):
+        if not GLUT.glutGetWindow():
+            return
         try:
-            return self.keyboard_up(key, x, y)
+            return self.keyboard_up(key.decode(), x, y)
         except Exception:
             self.__log_error()
+        except SystemExit:
+            self._terminate()
 
     def __special_keyboard_down(self, key, x, y):
+        if not GLUT.glutGetWindow():
+            return
         try:
             return self.special_keyboard_down(key, x, y)
         except Exception:
             self.__log_error()
+        except SystemExit:
+            self._terminate()
 
     def __special_keyboard_up(self, key, x, y):
+        if not GLUT.glutGetWindow():
+            return
         try:
             return self.special_keyboard_up(key, x, y)
         except Exception:
             self.__log_error()
+        except SystemExit:
+            self._terminate()
 
     def __log_error(self):
         tb = traceback.format_exc()
