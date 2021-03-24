@@ -43,6 +43,9 @@ src_alpha = GL.GL_SRC_ALPHA
 depth_test = GL.GL_DEPTH_TEST
 rgb = GL.GL_RGB
 unsigned_byte = GL.GL_UNSIGNED_BYTE
+quads = GL.GL_QUADS
+line_loop = GL.GL_LINE_LOOP
+triangles = GL.GL_TRIANGLES
 # pylint: enable=invalid-name
 
 

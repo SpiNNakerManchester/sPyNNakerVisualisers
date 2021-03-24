@@ -71,7 +71,7 @@ def main():
     sdp.init_listening()
     threading.Thread(target=sdp.input_thread)
 
-    events.run_GUI(sys.argv)
+    events.GUI().launch(sys.argv)
     print("goodbye")
     sys.exit(0)
 

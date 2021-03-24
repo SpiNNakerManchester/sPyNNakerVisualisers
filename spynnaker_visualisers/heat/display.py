@@ -13,9 +13,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from OpenGL.GL import *  # @UnusedWildImport
-from OpenGL.GLUT import *  # @UnusedWildImport
-
+import spynnaker_visualisers.opengl_support as gl
+from spynnaker_visualisers.glut_framework import Font, GlutFramework as glut
 from spynnaker_visualisers.heat.constants import (
     MINDATA, MAXDATA, BOXSIZE, GAP, KEYWIDTH, CONTROLBOXES,
     UIColours, Direction)
@@ -29,32 +28,32 @@ from spynnaker_visualisers.heat.utils import clamp, is_defined
 
 def color(colour_id):
     if colour_id == UIColours.BLACK:
-        glColor(0, 0, 0)
+        gl.color(0, 0, 0)
     elif colour_id == UIColours.WHITE:
-        glColor(1, 1, 1)
+        gl.color(1, 1, 1)
     elif colour_id == UIColours.RED:
-        glColor(1, 0, 0)
+        gl.color(1, 0, 0)
     elif colour_id == UIColours.GREEN:
-        glColor(0, 0.6, 0)
+        gl.color(0, 0.6, 0)
     elif colour_id == UIColours.CYAN:
-        glColor(0, 1, 1)
+        gl.color(0, 1, 1)
     elif colour_id == UIColours.GREY:
-        glColor(0.8, 0.8, 0.8)
+        gl.color(0.8, 0.8, 0.8)
 
 
 def clear(colour_id):
     if colour_id == UIColours.BLACK:
-        glClearColor(0, 0, 0, 1)
+        gl.clear_color(0, 0, 0, 1)
     elif colour_id == UIColours.WHITE:
-        glClearColor(1, 1, 1, 1)
+        gl.clear_color(1, 1, 1, 1)
     elif colour_id == UIColours.RED:
-        glClearColor(1, 0, 0, 1)
+        gl.clear_color(1, 0, 0, 1)
     elif colour_id == UIColours.GREEN:
-        glClearColor(0, 0.6, 0, 1)
+        gl.clear_color(0, 0.6, 0, 1)
     elif colour_id == UIColours.CYAN:
-        glClearColor(0, 1, 1, 1)
+        gl.clear_color(0, 1, 1, 1)
     elif colour_id == UIColours.GREY:
-        glClearColor(0.8, 0.8, 0.8, 1)
+        gl.clear_color(0.8, 0.8, 0.8, 1)
 
 
 def _interpolate(gamut, idx, fillcolour):
@@ -77,56 +76,29 @@ def colour_calculator(val, hi, lo):
     r = _interpolate(GAMUT, 0, fillcolour)
     g = _interpolate(GAMUT, 1, fillcolour)
     b = _interpolate(GAMUT, 2, fillcolour)
-    glColor(r, g, b)
+    gl.color(r, g, b)
     return fillcolour
 
 
 # ----------------------------------------------------------------------------
 
 
-def _draw_string(x, y, style, fmt, *args):
-    if len(args):
-        fmt = fmt % tuple(args)
-    glRasterPos(x, y)
-    glutBitmapString(style, fmt)
-
-
-def _draw_string_stroke(x, y, size, rotate, fmt, *args):
-    style = GLUT_STROKE_ROMAN
-    if len(args):
-        fmt = fmt % tuple(args)
-    glPushMatrix()
-    glEnable(GL_BLEND)
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-    # glEnable(GL_SMOOTH)
-    glLineWidth(1.5)
-    glTranslate(x, y, 0)
-    glScale(size, size, size)
-    glRotate(rotate, 0, 0, 1)
-    glutStrokeString(style, fmt)
-    glDisable(GL_LINE_SMOOTH)
-    glDisable(GL_BLEND)
-    glPopMatrix()
-
-
 def _draw_filled_box(x1, y1, x2, y2):
     """Generate vertices for a filled box"""
-    glBegin(GL_QUADS)
-    glVertex(x1, y1)
-    glVertex(x1, y2)
-    glVertex(x2, y2)
-    glVertex(x2, y1)
-    glEnd()
+    with gl.draw(gl.quads):
+        gl.vertex(x1, y1)
+        gl.vertex(x1, y2)
+        gl.vertex(x2, y2)
+        gl.vertex(x2, y1)
 
 
 def _draw_open_box(x1, y1, x2, y2):
     """Generate vertices for an open box"""
-    glBegin(GL_LINE_LOOP)
-    glVertex(x1, y1)
-    glVertex(x1, y2)
-    glVertex(x2, y2)
-    glVertex(x2, y1)
-    glEnd()
+    with gl.draw(gl.line_loop):
+        gl.vertex(x1, y1)
+        gl.vertex(x1, y2)
+        gl.vertex(x2, y2)
+        gl.vertex(x2, y1)
 
 
 # ----------------------------------------------------------------------------
@@ -180,10 +152,11 @@ def coordinate_manipulate(i):
 
 
 def _display_titles_labels():
-    _draw_string(state.windowWidth // 2 - 200, state.windowHeight - 50,
-                 GLUT_BITMAP_TIMES_ROMAN_24, state.title)
-    _draw_string(state.windowWidth // 2 - 250, state.windowHeight - 80,
-                 GLUT_BITMAP_HELVETICA_12, "Menu: right click.")
+    glut.write_large(state.windowWidth // 2 - 200, state.windowHeight - 50,
+                     state.title)
+    glut.write_large(state.windowWidth // 2 - 250, state.windowHeight - 80,
+                     "Menu: right click.",
+                     font=Font.Helvetica12)
 
     xlabels = state.xdim
     delta = state.plotwidth / float(state.xdim)
@@ -191,13 +164,14 @@ def _display_titles_labels():
     lastxplotted = -100
 
     # X-Axis
-    _draw_string_stroke(state.windowWidth // 2 - 25, 20, 0.12, 0, "X Coord")
+    glut.write_small(state.windowWidth // 2 - 25, 20, 0.12, 0, "X Coord")
     for i in range(xlabels):
         if i > 100:
             spacing = 32
         xplotted = i * delta + state.windowBorder + (delta - 8) // 2 - 3
         if xplotted > lastxplotted + spacing:
-            _draw_string(xplotted, 60, GLUT_BITMAP_HELVETICA_18, "%d", i)
+            glut.write_large(xplotted, 60, "%d", i,
+                             font=Font.Helvetica18)
             lastxplotted = xplotted
 
     ylabels = state.ydim
@@ -206,11 +180,12 @@ def _display_titles_labels():
     lastyplotted = -100
 
     # Y-Axis
-    _draw_string_stroke(25, state.windowHeight // 2 - 50, 0.12, 90, "Y Coord")
+    glut.write_small(25, state.windowHeight // 2 - 50, 0.12, 90, "Y Coord")
     for i in range(ylabels):
         yplotted = i * delta + state.windowBorder + (delta - 18) // 2 + 2
         if yplotted > lastyplotted + spacing:
-            _draw_string(60, yplotted, GLUT_BITMAP_HELVETICA_18, "%d", i)
+            glut.write_large(60, yplotted, "%d", i,
+                             font=Font.Helvetica18)
             lastyplotted = yplotted
 
 
@@ -218,11 +193,13 @@ def _display_key():
     color(UIColours.BLACK)
     keybase = state.windowBorder + 0.20 * (
         state.windowHeight - state.windowBorder)
-    _draw_string(state.windowWidth - 55,
-                 state.windowHeight - state.windowBorder - 5,
-                 GLUT_BITMAP_HELVETICA_12, "%.2f", state.highwatermark)
-    _draw_string(state.windowWidth - 55, keybase - 5,
-                 GLUT_BITMAP_HELVETICA_12, "%.2f", state.lowwatermark)
+    glut.write_large(state.windowWidth - 55,
+                     state.windowHeight - state.windowBorder - 5,
+                     "%.2f", state.highwatermark,
+                     font=Font.Helvetica12)
+    glut.write_large(state.windowWidth - 55, keybase - 5,
+                     "%.2f", state.lowwatermark,
+                     font=Font.Helvetica12)
     interval = 1
     difference = state.highwatermark - state.lowwatermark
     i = 10000
@@ -243,36 +220,35 @@ def _display_key():
             colour_calculator(temperaturehere,
                               state.highwatermark, state.lowwatermark)
 
-            glBegin(GL_LINES)
-            glVertex(state.windowWidth - 65, i + keybase)
-            glVertex(state.windowWidth - 65 - KEYWIDTH, i + keybase)
-            glEnd()
+            with gl.draw(gl.lines):
+                gl.vertex(state.windowWidth - 65, i + keybase)
+                gl.vertex(state.windowWidth - 65 - KEYWIDTH, i + keybase)
 
             positiveoffset = temperaturehere - state.lowwatermark
             if positiveoffset >= interval * multipleprinted:
                 color(UIColours.BLACK)
-                glLineWidth(4.0)
+                gl.line_width(4.0)
 
-                glBegin(GL_LINES)
-                glVertex(state.windowWidth - 65, i + keybase)
-                glVertex(state.windowWidth - 75, i + keybase)
-                glVertex(state.windowWidth - 55 - KEYWIDTH, i + keybase)
-                glVertex(state.windowWidth - 65 - KEYWIDTH, i + keybase)
-                glEnd()
+                with gl.draw(gl.lines):
+                    gl.vertex(state.windowWidth - 65, i + keybase)
+                    gl.vertex(state.windowWidth - 75, i + keybase)
+                    gl.vertex(state.windowWidth - 55 - KEYWIDTH, i + keybase)
+                    gl.vertex(state.windowWidth - 65 - KEYWIDTH, i + keybase)
 
-                glLineWidth(1.0)
-                _draw_string(state.windowWidth - 55, i + keybase - 5,
-                             GLUT_BITMAP_HELVETICA_12, "%.2f",
-                             state.lowwatermark + multipleprinted * interval)
+                gl.line_width(1.0)
+                glut.write_large(
+                    state.windowWidth - 55, i + keybase - 5, "%.2f",
+                    state.lowwatermark + multipleprinted * interval,
+                    font=Font.Helvetica12)
                 multipleprinted += 1
 
         # draw line loop around the key
         color(UIColours.BLACK)
-        glLineWidth(2.0)
+        gl.line_width(2.0)
         _draw_open_box(state.windowWidth - 65 - KEYWIDTH, keybase,
                        state.windowWidth - 65,
                        state.windowHeight - state.windowBorder)
-        glLineWidth(1.0)
+        gl.line_width(1.0)
 
 
 def _display_controls():
@@ -290,7 +266,7 @@ def _display_controls():
                              yorigin)
 
             color(UIColours.RED)
-            glLineWidth(15.0)
+            gl.line_width(15.0)
             # now draw shapes on boxes
             if box == 0:
                 _draw_filled_box(xorigin + gap, yorigin + boxsize - gap,
@@ -301,22 +277,20 @@ def _display_controls():
                                  xorigin + boxsize - gap,
                                  yorigin + gap)
             elif box == 1:
-                glBegin(GL_TRIANGLES)
-                glVertex(xorigin + boxsize + 2 * gap,
-                         yorigin + boxsize - gap)
-                glVertex(xorigin + 2 * boxsize, yorigin + boxsize // 2)
-                glVertex(xorigin + boxsize + gap * 2, yorigin + gap)
-                glEnd()
+                with gl.draw(gl.triangles):
+                    gl.vertex(xorigin + boxsize + 2 * gap,
+                              yorigin + boxsize - gap)
+                    gl.vertex(xorigin + 2 * boxsize, yorigin + boxsize // 2)
+                    gl.vertex(xorigin + boxsize + gap * 2, yorigin + gap)
             elif box == 2:
-                glBegin(GL_LINES)
-                glVertex(xorigin + 2 * boxsize + 3 * gap,
-                         yorigin + boxsize - gap)
-                glVertex(xorigin + 3 * boxsize + gap, yorigin + gap)
-                glVertex(xorigin + 3 * boxsize + gap,
-                         yorigin + boxsize - gap)
-                glVertex(xorigin + 2 * boxsize + 3 * gap, yorigin + gap)
-                glEnd()
-            glLineWidth(1.0)
+                with gl.draw(gl.lines):
+                    gl.vertex(xorigin + 2 * boxsize + 3 * gap,
+                              yorigin + boxsize - gap)
+                    gl.vertex(xorigin + 3 * boxsize + gap, yorigin + gap)
+                    gl.vertex(xorigin + 3 * boxsize + gap,
+                              yorigin + boxsize - gap)
+                    gl.vertex(xorigin + 2 * boxsize + 3 * gap, yorigin + gap)
+            gl.line_width(1.0)
 
 
 def _display_gridlines(xsize, ysize):
@@ -325,19 +299,21 @@ def _display_gridlines(xsize, ysize):
     if xsize > 3.0:
         # vertical grid lines
         for xcord in range(state.xdim):
-            glBegin(GL_LINES)
-            glVertex(state.windowBorder + xcord * xsize, state.windowBorder)
-            glVertex(state.windowBorder + xcord * xsize,
-                     state.windowHeight - state.windowBorder)
-            glEnd()
+            with gl.draw(gl.lines):
+                gl.vertex(
+                    state.windowBorder + xcord * xsize, state.windowBorder)
+                gl.vertex(
+                    state.windowBorder + xcord * xsize,
+                    state.windowHeight - state.windowBorder)
     if ysize > 3.0:
         # horizontal grid lines
         for ycord in range(state.ydim):
-            glBegin(GL_LINES)
-            glVertex(state.windowBorder, state.windowBorder + ycord * ysize)
-            glVertex(state.windowWidth - state.windowBorder - KEYWIDTH,
-                     state.windowBorder + ycord * ysize)
-            glEnd()
+            with gl.draw(gl.lines):
+                gl.vertex(
+                    state.windowBorder, state.windowBorder + ycord * ysize)
+                gl.vertex(
+                    state.windowWidth - state.windowBorder - KEYWIDTH,
+                    state.windowBorder + ycord * ysize)
 
 
 def _display_boxes():
@@ -359,8 +335,9 @@ def _display_boxes():
             _draw_filled_box(x_o, y_o + BOXSIZE, x_o + BOXSIZE, y_o)
         if box == Direction.CENTRE:
             color(UIColours.WHITE)
-            _draw_string(x_o, y_o + BOXSIZE // 2 - 5, GLUT_BITMAP_8_BY_13,
-                         " Go!" if state.editmode else "Alter")
+            glut.write_large(x_o, y_o + BOXSIZE // 2 - 5,
+                             " Go!" if state.editmode else "Alter",
+                             font=Font.Bitmap8x13)
         else:
             currentvalue = 0.0
             if box == Direction.NORTH:
@@ -373,8 +350,9 @@ def _display_boxes():
                 currentvalue = state.alterwest
             color(UIColours.WHITE if state.editmode and box != state.livebox
                   else UIColours.BLACK)
-            _draw_string(x_o, y_o + BOXSIZE // 2 - 5, GLUT_BITMAP_8_BY_13,
-                         "%3.1f", currentvalue)
+            glut.write_large(x_o, y_o + BOXSIZE // 2 - 5,
+                             "%3.1f", currentvalue,
+                             font=Font.Bitmap8x13)
 
 
 def _display_mini_pixel(tileratio, i, ii, xcord, ycord):
@@ -394,7 +372,7 @@ def _display_mini_pixel(tileratio, i, ii, xcord, ycord):
 
     # draw outlines for selected box in little / mini version
     if state.livebox == i:
-        glLineWidth(1.0)
+        gl.line_width(1.0)
         # this plots the external black outline of the selected tile
         color(UIColours.BLACK)
         _draw_open_box(2 * GAP + xcord * xsize, 2 * GAP + ycord * ysize,
@@ -425,17 +403,18 @@ def _display_pixel(xsize, ysize, ii, xcord, ycord):
             is_defined(state.immediate_data[ii]):
         # choose if light or dark labels
         color(UIColours.WHITE if magnitude <= 0.6 else UIColours.BLACK)
-        _draw_string_stroke(state.windowBorder - 20 + (xcord + 0.5) * xsize,
-                            state.windowBorder - 6 + (ycord + 0.5) * ysize,
-                            0.12, 0, "%3.2f", state.immediate_data[ii])
+        glut.write_small(
+            state.windowBorder - 20 + (xcord + 0.5) * xsize,
+            state.windowBorder - 6 + (ycord + 0.5) * ysize,
+            0.12, 0, "%3.2f", state.immediate_data[ii])
 
 
 def display():
-    glPointSize(0.1)
+    gl.point_size(0.1)
     state.counter += 1  # how many frames have we plotted in our history
-    glLoadIdentity()
+    gl.load_identity()
     clear(UIColours.GREY)
-    glClear(GL_COLOR_BUFFER_BIT)
+    gl.clear(gl.color_buffer_bit)
     color(UIColours.BLACK)
 
     # titles and labels are only printed if border is big enough
@@ -469,23 +448,24 @@ def display():
 
     # Various bits and pieces of overlay information
     if state.gridlines:
-        _display_gridlines()
+        _display_gridlines(xsize, ysize)
     if not state.fullscreen:
         _display_key()
         _display_controls()
         if state.pktgone > 0:
             color(UIColours.BLACK)
             if is_board_address_set():
-                _draw_string(state.windowWidth - 3 * (BOXSIZE + GAP) + 5,
-                             state.windowHeight - GAP - BOXSIZE - 25,
-                             GLUT_BITMAP_8_BY_13, "Packet Sent")
+                glut.write_large(state.windowWidth - 3 * (BOXSIZE + GAP) + 5,
+                                 state.windowHeight - GAP - BOXSIZE - 25,
+                                 "Packet Sent",
+                                 font=Font.Bitmap8x13)
             else:
-                _draw_string(state.windowWidth - 3 * (BOXSIZE + GAP) - 5,
-                             state.windowHeight - GAP - BOXSIZE - 25,
-                             GLUT_BITMAP_8_BY_13, "Target Unknown")
+                glut.write_large(state.windowWidth - 3 * (BOXSIZE + GAP) - 5,
+                                 state.windowHeight - GAP - BOXSIZE - 25,
+                                 "Target Unknown",
+                                 font=Font.Bitmap8x13)
         _display_boxes()
 
-    glutSwapBuffers()
     state.somethingtoplot = False
 
 
@@ -494,11 +474,6 @@ def trigger_refresh():
 
 
 def init():
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB)
-    glutInitWindowSize(state.windowWidth + KEYWIDTH, state.windowHeight)
-    glutInitWindowPosition(0, 100)
-    glutCreateWindow("VisRT - plotting your network data in real time")
-
     clear(UIColours.BLACK)
     color(UIColours.WHITE)
-    glShadeModel(GL_SMOOTH)
+    gl.shade_model(gl.smooth)
