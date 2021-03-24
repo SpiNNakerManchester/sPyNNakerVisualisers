@@ -178,7 +178,7 @@ def keyDown(key, x, y):  # @UnusedVariable
                                       state.altersouth, state.alterwest)
     elif key == '0':
         state.livebox = -1
-        if (state.alternorth < 1.0 and state.altereast < 1.0 and
+        if state.alternorth < 1.0 and state.altereast < 1.0 and (
                 state.altersouth < 1.0 and state.alterwest < 1.0):
             # If very low, reinitialise
             state.alternorth = 40.0

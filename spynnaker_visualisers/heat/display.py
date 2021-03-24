@@ -143,8 +143,8 @@ def convert_coord_to_index(x, y):
     tilex, elementx = divmod(x, state.each_x)
     tiley, elementy = divmod(y, state.each_y)
     elementid = elementx * state.each_y + elementy
-    return (state.each_x * state.each_y * (tilex * state.y_chips + tiley) +
-            elementid)
+    return elementid + state.each_x * state.each_y * (
+        tilex * state.y_chips + tiley)
 
 
 def coordinate_manipulate(i):
@@ -163,8 +163,8 @@ def coordinate_manipulate(i):
             tilex = state.x_chips - 1 - tilex
 
         elementid = elementx * state.each_y + elementy
-        i = (state.each_x * state.each_y * (tilex * state.x_chips + tiley) +
-             elementid)
+        i = elementid + state.each_x * state.each_y * (
+            tilex * state.x_chips + tiley)
 
         # Go back to front (cumulative)
         if state.vectorflip:

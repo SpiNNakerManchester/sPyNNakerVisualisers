@@ -118,11 +118,12 @@ def update_history_data(updateline):
     global _last_history_line_updated
 
     linestoclear = updateline - _last_history_line_updated
-    if linestoclear < 0 and updateline + 500 > _last_history_line_updated:
-        linestoclear = 0
     if linestoclear < 0:
-        linestoclear = (updateline + state.history_size -
-                        _last_history_line_updated)
+        if updateline + 500 > _last_history_line_updated:
+            linestoclear = 0
+        else:
+            linestoclear = (
+                updateline + state.history_size - _last_history_line_updated)
 
     num_pts = state.xdim * state.ydim
     for i in range(linestoclear):
