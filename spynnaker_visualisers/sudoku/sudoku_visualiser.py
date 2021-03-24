@@ -213,8 +213,7 @@ class SudokuPlot(GlutFramework):
 
     @overrides(GlutFramework.keyboard_down)
     def keyboard_down(self, key, x, y):  # @UnusedVariable
-        key_str = key.decode()
-        if key_str == 32 or key_str == ' ':
+        if key == 32 or key == ' ':
             with self.start_condition:
                 if not self.user_pressed_start:
                     print("Starting the simulation")
@@ -256,7 +255,7 @@ class SudokuPlot(GlutFramework):
                 count[number] += 1
                 total += 1
             else:
-                sys.stderr.write("Neuron id %d out of range\n" % (n_id))
+                sys.stderr.write(f"Neuron id {n_id} out of range\n")
         return count, float(total)
 
     def _find_cell_correctness(self, values):
