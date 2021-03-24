@@ -17,7 +17,7 @@ import socket
 import struct
 import sys
 
-from spynnaker_visualisers.heat import state
+from spynnaker_visualisers.heat.state import state
 from spynnaker_visualisers.heat.constants import (
     MTU, SPINN_HELLO, TIMEWINDOW, NOTDEFINED)
 from spynnaker_visualisers.heat.utils import timestamp

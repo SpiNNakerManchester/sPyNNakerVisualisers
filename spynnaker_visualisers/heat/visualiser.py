@@ -18,7 +18,8 @@ import sys
 import threading
 
 from spynnaker_visualisers.heat.constants import NOTDEFINED
-from spynnaker_visualisers.heat import events, sdp, state, utils
+from spynnaker_visualisers.heat import events, sdp, utils
+from spynnaker_visualisers.heat.state import state
 
 __version__ = 18
 __date__ = '2017-08-23'
@@ -51,10 +52,10 @@ def parse_arguments(args):
     if args is None:
         args = sys.argv[1:]
     parsed = parser.parse_args(args)
-    print("Will load configuration from: %s", parsed.config)
+    print(f"Will load configuration from: {parsed.config}")
     if parsed.ip is not None:
         sdp.set_board_ip_address(parsed.ip)
-        print("Waiting for packets only from: %s" % sdp.get_board_ip_address())
+        print(f"Waiting for packets only from: {sdp.get_board_ip_address()}")
     return parsed.config
 
 
@@ -71,7 +72,7 @@ def main():
     sdp.init_listening()
     threading.Thread(target=sdp.input_thread)
 
-    events.GUI().launch(sys.argv)
+    events.GUI(state).launch(sys.argv)
     print("goodbye")
     sys.exit(0)
 

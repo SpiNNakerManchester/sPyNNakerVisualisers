@@ -15,7 +15,8 @@
 
 # The Heatmap protocol, used for controlling what chips are doing
 
-from spynnaker_visualisers.heat import sdp, state
+from spynnaker_visualisers.heat import sdp
+from spynnaker_visualisers.heat.state import state
 
 
 def stop_heatmap_cell(id):  # @ReservedAssignment

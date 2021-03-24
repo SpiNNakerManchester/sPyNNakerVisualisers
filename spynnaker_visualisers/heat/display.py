@@ -18,7 +18,7 @@ from spynnaker_visualisers.glut_framework import Font, GlutFramework as glut
 from spynnaker_visualisers.heat.constants import (
     MINDATA, MAXDATA, BOXSIZE, GAP, KEYWIDTH, CONTROLBOXES,
     UIColours, Direction)
-from spynnaker_visualisers.heat import state
+from spynnaker_visualisers.heat.state import state
 from spynnaker_visualisers.heat.sdp import is_board_address_set
 from spynnaker_visualisers.heat.utils import clamp, is_defined
 

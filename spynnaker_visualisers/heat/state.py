@@ -20,99 +20,101 @@ from spynnaker_visualisers.heat.constants import (
     BOXSIZE, GAP, EACHCHIPX, EACHCHIPY, FIXEDPOINT, ALTERSTEPSIZE, SDPPORT,
     HISTORYSIZE, XDIMENSIONS, YDIMENSIONS, MAXFRAMERATE, CONTROLBOXES)
 
-title = "NO SIMULATION TITLE SUPPLIED"
 
-xdim, ydim = XDIMENSIONS, YDIMENSIONS
-each_x, each_y = EACHCHIPX, EACHCHIPY
-x_chips, y_chips = 0, 0
-plotwidth = 0
-windowBorder = WINBORDER
-windowHeight = WINHEIGHT
-windowWidth = WINWIDTH + KEYWIDTH
-oldWindowBorder = 0
-xorigin = 0
-yorigin = GAP
-lowwatermark = HIWATER
-highwatermark = LOWATER
+class State:
+    def __init__(self):
+        self.title = "NO SIMULATION TITLE SUPPLIED"
 
-plotvaluesinblocks = False
-somethingtoplot = False
-freezedisplay = False
-safelyshutcalls = False
-gridlines = False
-fullscreen = False
-xflip = False
-yflip = False
-vectorflip = False
-rotateflip = False
-printlabels = False
-editmode = True
+        self.xdim, self.ydim = XDIMENSIONS, YDIMENSIONS
+        self.each_x, self.each_y = EACHCHIPX, EACHCHIPY
+        self.x_chips, self.y_chips = 0, 0
+        self.plotwidth = 0
+        self.windowBorder = WINBORDER
+        self.windowHeight = WINHEIGHT
+        self.windowWidth = WINWIDTH + KEYWIDTH
+        self.oldWindowBorder = 0
+        self.xorigin = 0
+        self.yorigin = GAP
+        self.lowwatermark = HIWATER
+        self.highwatermark = LOWATER
 
-livebox = -1
-alternorth = 40.0
-altersouth = 10.0
-altereast = 10.0
-alterwest = 40.0
-max_frame_rate = MAXFRAMERATE
+        self.plotvaluesinblocks = False
+        self.somethingtoplot = False
+        self.freezedisplay = False
+        self.safelyshutcalls = False
+        self.gridlines = False
+        self.fullscreen = False
+        self.xflip = False
+        self.yflip = False
+        self.vectorflip = False
+        self.rotateflip = False
+        self.printlabels = False
+        self.editmode = True
 
-fixed_point_factor = 0.5 ** FIXEDPOINT
-alter_step = ALTERSTEPSIZE
-our_port = SDPPORT
+        self.livebox = -1
+        self.alternorth = 40.0
+        self.altersouth = 10.0
+        self.altereast = 10.0
+        self.alterwest = 40.0
+        self.max_frame_rate = MAXFRAMERATE
 
-counter = 0
-freezetime = 0
-firstreceivetime = 0
-starttime = 0
-pktgone = 0
+        self.fixed_point_factor = 0.5 ** FIXEDPOINT
+        self.alter_step = ALTERSTEPSIZE
+        self.our_port = SDPPORT
 
-history_size = HISTORYSIZE
-immediate_data = list()
-history_data = list()
+        self.counter = 0
+        self.freezetime = 0
+        self.firstreceivetime = 0
+        self.starttime = 0
+        self.pktgone = 0
+
+        self.history_size = HISTORYSIZE
+        self.immediate_data = list()
+        self.history_data = list()
+
+    def param_load(self, filename):
+        if not os.path.isfile(filename):
+            filename = os.path.join(os.path.dirname(__file__), filename)
+        with open(filename) as f:
+            data = json.load(f)
+
+        self.title = data.get("title", self.title)
+        self.xdim, self.ydim = data.get("dimensions", (self.xdim, self.ydim))
+        self.each_x, self.each_y = data.get(
+            "chip_size", (self.each_x, self.each_y))
+        self.x_chips, self.y_chips = data.get(
+            "num_chips", (self.xdim // self.each_x, self.ydim // self.each_y))
+        self.history_size = int(data.get("history_size", self.history_size))
+        self.max_frame_rate = float(
+            data.get("max_frame_rate", self.max_frame_rate))
+        self.our_port = int(data.get("sdp_port", self.our_port))
+        self.fixed_point_factor = 0.5 ** data.get(
+            "fixed_point_digits", FIXEDPOINT)
+        self.alter_step = data.get("alter_step_size", self.alter_step)
+
+        self.windowBorder = WINBORDER
+        self.windowHeight = WINHEIGHT
+        self.windowWidth = WINWIDTH + KEYWIDTH
+        self.plotwidth = self.windowWidth - 2 * self.windowBorder - KEYWIDTH
+        self.printlabels = (self.windowBorder >= 100)
+
+        self.xorigin = self.windowWidth + KEYWIDTH - CONTROLBOXES * (
+            BOXSIZE + GAP)
+
+        n_elems = self.xdim * self.ydim
+        self.history_data = [[0.0 for _ in range(n_elems)]
+                             for _ in range(self.history_size)]
+        self.immediate_data = [0.0 for _ in range(n_elems)]
+
+    def cleardown(self):
+        for i in range(self.xdim * self.ydim):
+            self.immediate_data[i] = NOTDEFINED
+        self.highwatermark = HIWATER
+        self.lowwatermark = LOWATER
+        self.xflip = False
+        self.yflip = False
+        self.vectorflip = False
+        self.rotateflip = False
 
 
-def param_load(filename):
-    global title, xdim, ydim, each_x, each_y, x_chips, y_chips
-    global max_frame_rate, fixed_point_factor, alter_step, printlabels
-    global history_size, history_data, immediate_data, our_port
-    global windowBorder, windowHeight, windowWidth, plotwidth, xorigin
-
-    if not os.path.isfile(filename):
-        filename = os.path.join(os.path.dirname(__file__), filename)
-    with open(filename) as f:
-        data = json.load(f)
-
-    title = data.get("title", title)
-    xdim, ydim = data.get("dimensions", [xdim, ydim])
-    each_x, each_y = data.get("chip_size", [each_x, each_y])
-    x_chips, y_chips = data.get("num_chips", [xdim // each_x, ydim // each_y])
-    history_size = int(data.get("history_size", history_size))
-    max_frame_rate = float(data.get("max_frame_rate", max_frame_rate))
-    our_port = int(data.get("sdp_port", our_port))
-    fixed_point_factor = 0.5 ** data.get("fixed_point_digits", FIXEDPOINT)
-    alter_step = data.get("alter_step_size", alter_step)
-
-    windowBorder = WINBORDER
-    windowHeight = WINHEIGHT
-    windowWidth = WINWIDTH + KEYWIDTH
-    plotwidth = windowWidth - 2 * windowBorder - KEYWIDTH
-    printlabels = (windowBorder >= 100)
-
-    xorigin = windowWidth + KEYWIDTH - CONTROLBOXES * (BOXSIZE + GAP)
-
-    n_elems = xdim * ydim
-    history_data = [[0.0 for _ in range(n_elems)]
-                    for _ in range(history_size)]
-    immediate_data = [0.0 for _ in range(n_elems)]
-
-
-def cleardown():
-    global immediate_data, highwatermark, lowwatermark
-    global xflip, yflip, vectorflip, rotateflip
-    for i in range(xdim * ydim):
-        immediate_data[i] = NOTDEFINED
-    highwatermark = HIWATER
-    lowwatermark = LOWATER
-    xflip = False
-    yflip = False
-    vectorflip = False
-    rotateflip = False
+state = State()

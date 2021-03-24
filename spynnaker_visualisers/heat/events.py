@@ -19,7 +19,7 @@ import time
 
 import spynnaker_visualisers.opengl_support as gl
 import spynnaker_visualisers.glut_framework as glut
-from spynnaker_visualisers.heat import display, protocol, state
+from spynnaker_visualisers.heat import display, protocol
 from spynnaker_visualisers.heat.constants import (
     BOXSIZE, CONTROLBOXES, GAP, KEYWIDTH, Direction)
 from spynnaker_visualisers.heat.sdp import (
@@ -46,35 +46,36 @@ class MenuItem(IntEnum):
 
 
 class GUI(glut.GlutFramework):
-    def __init__(self):
+    def __init__(self, state):
         super().__init__()
+        self.state = state
         self._RHMouseMenu = None
         self._needtorebuildmenu = False
         self._menuopen = False
 
     def _terminate(self, exit_code=0):
-        if not state.safelyshutcalls:
-            state.safelyshutcalls = True
+        if not self.state.safelyshutcalls:
+            self.state.safelyshutcalls = True
             if is_board_port_set():
                 for i in all_desired_chips():
                     protocol.stop_heatmap_cell(i)
         super()._terminate(exit_code)
 
     def reshape(self, width, height):
-        state.windowWidth = width
-        state.plotwidth = width - 2 * state.windowBorder - KEYWIDTH
-        if state.fullscreen:
-            state.windowWidth += KEYWIDTH
-            state.plotwidth = state.windowWidth - KEYWIDTH
-        if state.windowWidth < 2 * state.windowBorder + KEYWIDTH:
-            state.windowWidth = 2 * state.windowBorder + KEYWIDTH
-            state.plotwidth = 0
-        state.windowHeight = height
+        self.state.windowWidth = width
+        self.state.plotwidth = width - 2 * self.state.windowBorder - KEYWIDTH
+        if self.state.fullscreen:
+            self.state.windowWidth += KEYWIDTH
+            self.state.plotwidth = self.state.windowWidth - KEYWIDTH
+        if self.state.windowWidth < 2 * self.state.windowBorder + KEYWIDTH:
+            self.state.windowWidth = 2 * self.state.windowBorder + KEYWIDTH
+            self.state.plotwidth = 0
+        self.state.windowHeight = height
 
         # turn off label printing if too small, and on if larger than this
         # threshold.
-        state.printlabels = not (
-            state.plotwidth <= 1 or height - 2 * state.windowBorder <= 1)
+        self.state.printlabels = self.state.plotwidth > 1 and (
+            height - 2 * self.state.windowBorder > 1)
 
         gl.viewport(0, 0, width, height)
         gl.matrix_mode(gl.projection)
@@ -89,36 +90,36 @@ class GUI(glut.GlutFramework):
         display.trigger_refresh()
 
     def toggle_fullscreen(self):
-        if state.fullscreen:
-            state.windowBorder = state.oldWindowBorder
-            state.windowWidth -= KEYWIDTH
-            state.plotwidth = \
-                state.windowWidth - 2 * state.windowBorder - KEYWIDTH
+        if self.state.fullscreen:
+            self.state.windowBorder = self.state.oldWindowBorder
+            self.state.windowWidth -= KEYWIDTH
+            self.state.plotwidth = \
+                self.state.windowWidth - 2 * self.state.windowBorder - KEYWIDTH
         else:
-            state.oldWindowBorder = state.windowBorder
-            state.windowBorder = 0
-            state.windowWidth += KEYWIDTH
-            state.plotwidth = state.windowWidth - KEYWIDTH
-        state.fullscreen = not state.fullscreen
+            self.state.oldWindowBorder = self.state.windowBorder
+            self.state.windowBorder = 0
+            self.state.windowWidth += KEYWIDTH
+            self.state.plotwidth = self.state.windowWidth - KEYWIDTH
+        self.state.fullscreen = not self.state.fullscreen
 
     def pause(self):
         for i in all_desired_chips():
             protocol.pause_heatmap_cell(i)
-        state.freezedisplay = True
-        state.freezetime = timestamp()
+        self.state.freezedisplay = True
+        self.state.freezetime = timestamp()
         self.trigger_menu_rebuild()
 
     def resume(self):
         for i in all_desired_chips():
             protocol.resume_heatmap_cell(i)
-        state.freezedisplay = False
+        self.state.freezedisplay = False
         self.trigger_menu_rebuild()
 
     def keyboard_down(self, key, x, y):
         if key == 'f':
             self.toggle_fullscreen()
         elif key == 'c':
-            state.cleardown()
+            self.state.cleardown()
         elif key == 'q':
             self._terminate()
         elif key == '"':
@@ -126,112 +127,114 @@ class GUI(glut.GlutFramework):
         elif key == 'p':
             self.resume()
         elif key == 'b':
-            state.gridlines = not state.gridlines
+            self.state.gridlines = not self.state.gridlines
         elif key == '#':
-            state.plotvaluesinblocks = not state.plotvaluesinblocks
+            self.state.plotvaluesinblocks = not self.state.plotvaluesinblocks
         elif key == 'd':
-            state.rotateflip = not state.rotateflip
+            self.state.rotateflip = not self.state.rotateflip
         elif key == 'v':
-            state.vectorflip = not state.vectorflip
+            self.state.vectorflip = not self.state.vectorflip
         elif key == 'x':
-            state.xflip = not state.xflip
+            self.state.xflip = not self.state.xflip
         elif key == 'y':
-            state.yflip = not state.yflip
+            self.state.yflip = not self.state.yflip
         elif key == '+':
-            if state.livebox == Direction.NORTH:
-                state.alternorth += state.alter_step
-            elif state.livebox == Direction.SOUTH:
-                state.altersouth += state.alter_step
-            elif state.livebox == Direction.EAST:
-                state.altereast += state.alter_step
-            elif state.livebox == Direction.WEST:
-                state.alterwest += state.alter_step
+            if self.state.livebox == Direction.NORTH:
+                self.state.alternorth += self.state.alter_step
+            elif self.state.livebox == Direction.SOUTH:
+                self.state.altersouth += self.state.alter_step
+            elif self.state.livebox == Direction.EAST:
+                self.state.altereast += self.state.alter_step
+            elif self.state.livebox == Direction.WEST:
+                self.state.alterwest += self.state.alter_step
         elif key == '-':
-            if state.livebox == Direction.NORTH:
-                state.alternorth -= state.alter_step
-            elif state.livebox == Direction.SOUTH:
-                state.altersouth -= state.alter_step
-            elif state.livebox == Direction.EAST:
-                state.altereast -= state.alter_step
-            elif state.livebox == Direction.WEST:
-                state.alterwest -= state.alter_step
+            if self.state.livebox == Direction.NORTH:
+                self.state.alternorth -= self.state.alter_step
+            elif self.state.livebox == Direction.SOUTH:
+                self.state.altersouth -= self.state.alter_step
+            elif self.state.livebox == Direction.EAST:
+                self.state.altereast -= self.state.alter_step
+            elif self.state.livebox == Direction.WEST:
+                self.state.alterwest -= self.state.alter_step
         elif key == 'n':
-            if state.editmode:
-                state.livebox = (
-                    -1 if state.livebox == Direction.NORTH
+            if self.state.editmode:
+                self.state.livebox = (
+                    -1 if self.state.livebox == Direction.NORTH
                     else Direction.NORTH)
         elif key == 'e':
-            if state.editmode:
-                state.livebox = (
-                    -1 if state.livebox == Direction.EAST
+            if self.state.editmode:
+                self.state.livebox = (
+                    -1 if self.state.livebox == Direction.EAST
                     else Direction.EAST)
         elif key == 's':
-            if state.editmode:
-                state.livebox = (
-                    -1 if state.livebox == Direction.SOUTH
+            if self.state.editmode:
+                self.state.livebox = (
+                    -1 if self.state.livebox == Direction.SOUTH
                     else Direction.SOUTH)
         elif key == 'w':
-            if state.editmode:
-                state.livebox = (
-                    -1 if state.livebox == Direction.WEST else Direction.WEST)
+            if self.state.editmode:
+                self.state.livebox = (
+                    -1 if self.state.livebox == Direction.WEST
+                    else Direction.WEST)
         elif key == 'a':
-            if not state.editmode:
-                state.editmode = True
-                state.livebox = -1
+            if not self.state.editmode:
+                self.state.editmode = True
+                self.state.livebox = -1
         elif key == 'g':
-            if state.editmode:
-                state.livebox = -1
+            if self.state.editmode:
+                self.state.livebox = -1
                 for i in all_desired_chips():
                     protocol.set_heatmap_cell(
-                        i, state.alternorth, state.altereast,
-                        state.altersouth, state.alterwest)
+                        i, self.state.alternorth, self.state.altereast,
+                        self.state.altersouth, self.state.alterwest)
         elif key == '9':
             for i in all_desired_chips():
-                state.alternorth = random.uniform(
-                    state.lowwatermark, state.highwatermark)
-                state.altereast = random.uniform(
-                    state.lowwatermark, state.highwatermark)
-                state.altersouth = random.uniform(
-                    state.lowwatermark, state.highwatermark)
-                state.alterwest = random.uniform(
-                    state.lowwatermark, state.highwatermark)
+                self.state.alternorth = random.uniform(
+                    self.state.lowwatermark, self.state.highwatermark)
+                self.state.altereast = random.uniform(
+                    self.state.lowwatermark, self.state.highwatermark)
+                self.state.altersouth = random.uniform(
+                    self.state.lowwatermark, self.state.highwatermark)
+                self.state.alterwest = random.uniform(
+                    self.state.lowwatermark, self.state.highwatermark)
                 protocol.set_heatmap_cell(
-                    i, state.alternorth, state.altereast,
-                    state.altersouth, state.alterwest)
+                    i, self.state.alternorth, self.state.altereast,
+                    self.state.altersouth, self.state.alterwest)
         elif key == '0':
-            state.livebox = -1
-            if state.alternorth < 1.0 and state.altereast < 1.0 and (
-                    state.altersouth < 1.0 and state.alterwest < 1.0):
+            self.state.livebox = -1
+            if self.state.alternorth < 1.0 and self.state.altereast < 1.0 and (
+                    self.state.altersouth < 1.0) and (
+                        self.state.alterwest < 1.0):
                 # If very low, reinitialise
-                state.alternorth = 40.0
-                state.altereast = 10.0
-                state.altersouth = 10.0
-                state.alterwest = 40.0
+                self.state.alternorth = 40.0
+                self.state.altereast = 10.0
+                self.state.altersouth = 10.0
+                self.state.alterwest = 40.0
             else:
-                state.alternorth = 0.0
-                state.altereast = 0.0
-                state.altersouth = 0.0
-                state.alterwest = 0.0
+                self.state.alternorth = 0.0
+                self.state.altereast = 0.0
+                self.state.altersouth = 0.0
+                self.state.alterwest = 0.0
             for i in all_desired_chips():
                 protocol.set_heatmap_cell(
-                    i, state.alternorth, state.altereast,
-                    state.altersouth, state.alterwest)
+                    i, self.state.alternorth, self.state.altereast,
+                    self.state.altersouth, self.state.alterwest)
 
     def in_control_box(self, box, x, y):
         boxsize = BOXSIZE
         gap = 10
         sum = boxsize + gap  # @ReservedAssignment
-        xorigin = state.windowWidth - 3 * sum
-        yorigin = state.windowHeight - sum
+        xorigin = self.state.windowWidth - 3 * sum
+        yorigin = self.state.windowHeight - sum
         return xorigin + box * sum <= x < xorigin + box * sum + boxsize \
-            and yorigin <= state.windowHeight - y < yorigin + boxsize
+            and yorigin <= self.state.windowHeight - y < yorigin + boxsize
 
     def handle_control_box_click(self, x, y):
-        if self.in_control_box(0, x, y) and not state.freezedisplay:
+        if self.in_control_box(0, x, y) and not self.state.freezedisplay:
             self.pause()
             display.trigger_refresh()
             return True
-        if self.in_control_box(1, x, y) and state.freezedisplay:
+        if self.in_control_box(1, x, y) and self.state.freezedisplay:
             self.resume()
             display.trigger_refresh()
             return True
@@ -242,10 +245,11 @@ class GUI(glut.GlutFramework):
 
     def in_box(self, boxx, boxy, x, y):
         D = BOXSIZE + GAP
-        x_o = state.windowWidth - (boxx + 1) * D
-        y_o = state.windowHeight - D
+        x_o = self.state.windowWidth - (boxx + 1) * D
+        y_o = self.state.windowHeight - D
         return x_o <= x < x_o + BOXSIZE and \
-            y_o + boxy * D <= state.windowHeight - y < y_o + BOXSIZE + boxy * D
+            y_o + boxy * D <= self.state.windowHeight - y < (
+                y_o + BOXSIZE + boxy * D)
 
     def get_box_id(self, x, y):
         for boxx in range(CONTROLBOXES):
@@ -259,19 +263,19 @@ class GUI(glut.GlutFramework):
         if selectedbox == -1:
             return False
         elif selectedbox == Direction.CENTRE:
-            state.livebox = -1
-            if not state.editmode:
-                state.editmode = True
+            self.state.livebox = -1
+            if not self.state.editmode:
+                self.state.editmode = True
             else:
                 for i in all_desired_chips():
                     protocol.set_heatmap_cell(
-                        i, state.alternorth, state.altereast,
-                        state.altersouth, state.alterwest)
-        elif state.editmode:
-            if selectedbox == state.livebox:
-                state.livebox = -1
+                        i, self.state.alternorth, self.state.altereast,
+                        self.state.altersouth, self.state.alterwest)
+        elif self.state.editmode:
+            if selectedbox == self.state.livebox:
+                self.state.livebox = -1
             else:
-                state.livebox = selectedbox
+                self.state.livebox = selectedbox
         display.trigger_refresh()
         return True
 
@@ -285,78 +289,79 @@ class GUI(glut.GlutFramework):
             # if you didn't manage to do something useful, then likely
             # greyspace around the figure was clicked (should now deselect
             # any selection)
-            if not acted and state.livebox != -1:
-                state.livebox = -1
+            if not acted and self.state.livebox != -1:
+                self.state.livebox = -1
                 display.trigger_refresh()
                 self.rebuild_menu()
         elif button == SCROLL_UP:
-            if state.livebox == Direction.NORTH:
-                state.alternorth += state.alter_step
+            if self.state.livebox == Direction.NORTH:
+                self.state.alternorth += self.state.alter_step
                 display.trigger_refresh()
-            elif state.livebox == Direction.SOUTH:
-                state.altersouth += state.alter_step
+            elif self.state.livebox == Direction.SOUTH:
+                self.state.altersouth += self.state.alter_step
                 display.trigger_refresh()
-            elif state.livebox == Direction.EAST:
-                state.altereast += state.alter_step
+            elif self.state.livebox == Direction.EAST:
+                self.state.altereast += self.state.alter_step
                 display.trigger_refresh()
-            elif state.livebox == Direction.WEST:
-                state.alterwest += state.alter_step
+            elif self.state.livebox == Direction.WEST:
+                self.state.alterwest += self.state.alter_step
                 display.trigger_refresh()
         elif button == SCROLL_DOWN:
-            if state.livebox == Direction.NORTH:
-                state.alternorth -= state.alter_step
+            if self.state.livebox == Direction.NORTH:
+                self.state.alternorth -= self.state.alter_step
                 display.trigger_refresh()
-            elif state.livebox == Direction.SOUTH:
-                state.altersouth -= state.alter_step
+            elif self.state.livebox == Direction.SOUTH:
+                self.state.altersouth -= self.state.alter_step
                 display.trigger_refresh()
-            elif state.livebox == Direction.EAST:
-                state.altereast -= state.alter_step
+            elif self.state.livebox == Direction.EAST:
+                self.state.altereast -= self.state.alter_step
                 display.trigger_refresh()
-            elif state.livebox == Direction.WEST:
-                state.alterwest -= state.alter_step
+            elif self.state.livebox == Direction.WEST:
+                self.state.alterwest -= self.state.alter_step
                 display.trigger_refresh()
 
     def idle(self):
         self.rebuild_menu_if_needed()
-        frame_us = 1000000 / state.max_frame_rate
+        frame_us = 1000000 / self.state.max_frame_rate
         howlongtowait = (
-            state.starttime + state.counter * frame_us - timestamp())
+            self.state.starttime + self.state.counter * frame_us - timestamp())
         if howlongtowait > 0:
             time.sleep(howlongtowait / 1000000.0)
-        if state.pktgone > 0 and timestamp() > state.pktgone + 1000000:
-            state.pktgone = 0
+        if self.state.pktgone > 0 and (
+                timestamp() > self.state.pktgone + 1000000):
+            self.state.pktgone = 0
         display.trigger_refresh()
-        if state.somethingtoplot:
+        if self.state.somethingtoplot:
             display.display()
 
     # -------------------------------------------------------------------------
 
     def menu_callback(self, option):
         if option == MenuItem.XFORM_XFLIP:
-            state.xflip = not state.xflip
+            self.state.xflip = not self.state.xflip
         elif option == MenuItem.XFORM_YFLIP:
-            state.yflip = not state.yflip
+            self.state.yflip = not self.state.yflip
         elif option == MenuItem.XFORM_VECTORFLIP:
-            state.vectorflip = not state.vectorflip
+            self.state.vectorflip = not self.state.vectorflip
         elif option == MenuItem.XFORM_ROTATEFLIP:
-            state.rotateflip = not state.rotateflip
+            self.state.rotateflip = not self.state.rotateflip
         elif option == MenuItem.XFORM_REVERT:
-            state.cleardown()
+            self.state.cleardown()
         elif option == MenuItem.MENU_BORDER_TOGGLE:
-            state.gridlines = not state.gridlines
+            self.state.gridlines = not self.state.gridlines
         elif option == MenuItem.MENU_NUMBER_TOGGLE:
-            state.plotvaluesinblocks = not state.plotvaluesinblocks
+            self.state.plotvaluesinblocks = not self.state.plotvaluesinblocks
         elif option == MenuItem.MENU_FULLSCREEN_TOGGLE:
             self.toggle_fullscreen()
         elif option == MenuItem.MENU_PAUSE:
             for i in all_desired_chips():
                 protocol.pause_heatmap_cell(i)
-            state.freezedisplay = True
-            state.freezetime = timestamp()
+            self.state.freezedisplay = True
+            self.state.freezetime = timestamp()
         elif option == MenuItem.MENU_RESUME:
             for i in all_desired_chips():
                 protocol.resume_heatmap_cell(i)
-            state.freezedisplay = False
+            self.state.freezedisplay = False
         elif option == MenuItem.MENU_QUIT:
             self._terminate()
         self.trigger_menu_rebuild()
@@ -371,16 +376,19 @@ class GUI(glut.GlutFramework):
             ("90 (D)egree Rotate Toggle", MenuItem.XFORM_ROTATEFLIP),
             ("(C) Revert changes back to default", MenuItem.XFORM_REVERT),
             ("-----", MenuItem.MENU_SEPARATOR),
-            ("Grid (B)orders off" if state.gridlines else "Grid (B)orders on",
+            ("Grid (B)orders off" if self.state.gridlines
+             else "Grid (B)orders on",
              MenuItem.MENU_BORDER_TOGGLE),
-            ("Numbers (#) off" if state.plotvaluesinblocks
+            ("Numbers (#) off" if self.state.plotvaluesinblocks
              else "Numbers (#) on",
              MenuItem.MENU_NUMBER_TOGGLE),
-            ("(F)ull Screen off" if state.fullscreen else "(F)ull Screen on",
+            ("(F)ull Screen off" if self.state.fullscreen
+             else "(F)ull Screen on",
              MenuItem.MENU_FULLSCREEN_TOGGLE),
             ("-----", MenuItem.MENU_SEPARATOR),
-            ("(\") Pause Plot", MenuItem.MENU_PAUSE) if not state.freezedisplay
-            else ("(P)lay / Restart Plot", MenuItem.MENU_RESUME),
+            (("(\") Pause Plot", MenuItem.MENU_PAUSE)
+             if not self.state.freezedisplay
+             else ("(P)lay / Restart Plot", MenuItem.MENU_RESUME)),
             ("(Q)uit", MenuItem.MENU_QUIT)])
         self.attach_current_menu(glut.rightButton)
         return self._RHMouseMenu
@@ -405,7 +413,8 @@ class GUI(glut.GlutFramework):
     def launch(self, args):
         self.start_framework(
             args, "VisRT - plotting your network data in real time",
-            state.windowWidth + KEYWIDTH, state.windowHeight, 0, 100, 10)
+            self.state.windowWidth + KEYWIDTH, self.state.windowHeight,
+            0, 100, 10)
 
     def init(self):
         display.init()
