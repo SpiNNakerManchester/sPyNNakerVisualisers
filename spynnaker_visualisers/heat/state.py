@@ -22,7 +22,7 @@ from spynnaker_visualisers.heat.constants import (
 
 
 class State:
-    def __init__(self):
+    def __init__(self, filename=None):
         self.title = "NO SIMULATION TITLE SUPPLIED"
 
         self.xdim, self.ydim = XDIMENSIONS, YDIMENSIONS
@@ -72,6 +72,9 @@ class State:
         self.immediate_data = list()
         self.history_data = list()
 
+        if filename:
+            self.param_load(filename)
+
     def param_load(self, filename):
         if not os.path.isfile(filename):
             filename = os.path.join(os.path.dirname(__file__), filename)
@@ -116,5 +119,7 @@ class State:
         self.vectorflip = False
         self.rotateflip = False
 
-
-state = State()
+    def init_history(self):
+        self.history_data = [
+            [NOTDEFINED for _ in range(self.xdim * self.ydim)]
+            for _ in range(self.history_size)]

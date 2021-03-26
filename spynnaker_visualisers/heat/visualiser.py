@@ -15,11 +15,9 @@
 
 from argparse import ArgumentParser
 import sys
-import threading
 
-from spynnaker_visualisers.heat.constants import NOTDEFINED
-from spynnaker_visualisers.heat import events, sdp, utils
-from spynnaker_visualisers.heat.state import state
+from spynnaker_visualisers.heat import events
+from spynnaker_visualisers.heat.state import State
 
 __version__ = 18
 __date__ = '2017-08-23'
@@ -53,26 +51,20 @@ def parse_arguments(args):
         args = sys.argv[1:]
     parsed = parser.parse_args(args)
     print(f"Will load configuration from: {parsed.config}")
-    if parsed.ip is not None:
-        sdp.set_board_ip_address(parsed.ip)
-        print(f"Waiting for packets only from: {sdp.get_board_ip_address()}")
-    return parsed.config
+    return parsed.config, parsed.ip
 
 
 def main():
-    configfile = parse_arguments(sys.argv[1:])
-    state.param_load(configfile)
+    configfile, ipaddr = parse_arguments(sys.argv[1:])
+    state = State(configfile)
+    state.init_history()
     state.cleardown()
-    state.starttime = utils.timestamp()
 
-    state.history_data = [
-        [NOTDEFINED for _ in range(state.xdim * state.ydim)]
-        for _ in range(state.history_size)]
-
-    sdp.init_listening()
-    threading.Thread(target=sdp.input_thread)
-
-    events.GUI(state).launch(sys.argv)
+    gui = events.GUI(state)
+    if ipaddr is not None:
+        gui.set_board_ip_address(ipaddr)
+        print(f"Waiting for packets only from: {gui.get_board_ip_address()}")
+    gui.launch(sys.argv)
     print("goodbye")
     sys.exit(0)
 
