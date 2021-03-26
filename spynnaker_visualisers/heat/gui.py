@@ -47,8 +47,11 @@ class MenuItem(IntEnum):
 
 
 class GUI(glut.GlutFramework, State, HeatProtocol):
+    """
+    The main class that implements the Heat Map client.
+    """
     def __init__(self, filename=None):
-        State.__init__(filename)
+        State.__init__(self, filename)
         glut.GlutFramework.__init__(self)
         HeatProtocol.__init__(self, self)
         self._RHMouseMenu = None
@@ -406,7 +409,7 @@ class GUI(glut.GlutFramework, State, HeatProtocol):
     # -------------------------------------------------------------------------
 
     def launch(self, args):
-        self.__state.starttime = timestamp()
+        self.starttime = timestamp()
         self._init_listening()
         threading.Thread(target=self.input_thread)
         self.start_framework(
