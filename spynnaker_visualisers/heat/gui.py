@@ -24,6 +24,7 @@ from spynnaker_visualisers.heat.constants import (
     MINDATA, MAXDATA, BOXSIZE, GAP, KEYWIDTH, CONTROLBOXES,
     UIColours, Direction)
 from spynnaker_visualisers.heat.protocol import HeatProtocol
+from spynnaker_visualisers.heat.state import State
 from spynnaker_visualisers.heat.utils import clamp, is_defined, timestamp
 
 SCROLL_UP = 3
@@ -45,38 +46,38 @@ class MenuItem(IntEnum):
     MENU_QUIT = 11
 
 
-class GUI(glut.GlutFramework, HeatProtocol):
-    def __init__(self, state):
+class GUI(glut.GlutFramework, State, HeatProtocol):
+    def __init__(self, filename=None):
+        State.__init__(filename)
         glut.GlutFramework.__init__(self)
-        HeatProtocol.__init__(self, state)
-        self.state = state
+        HeatProtocol.__init__(self, self)
         self._RHMouseMenu = None
         self._needtorebuildmenu = False
         self._menuopen = False
 
     def _terminate(self, exit_code=0):
-        if not self.state.safelyshutcalls:
-            self.state.safelyshutcalls = True
+        if not self.safelyshutcalls:
+            self.safelyshutcalls = True
             if self.is_board_port_set():
                 for i in self.all_desired_chips():
                     self.stop_heatmap_cell(i)
         super()._terminate(exit_code)
 
     def reshape(self, width, height):
-        self.state.windowWidth = width
-        self.state.plotwidth = width - 2 * self.state.windowBorder - KEYWIDTH
-        if self.state.fullscreen:
-            self.state.windowWidth += KEYWIDTH
-            self.state.plotwidth = self.state.windowWidth - KEYWIDTH
-        if self.state.windowWidth < 2 * self.state.windowBorder + KEYWIDTH:
-            self.state.windowWidth = 2 * self.state.windowBorder + KEYWIDTH
-            self.state.plotwidth = 0
-        self.state.windowHeight = height
+        self.windowWidth = width
+        self.plotwidth = width - 2 * self.windowBorder - KEYWIDTH
+        if self.fullscreen:
+            self.windowWidth += KEYWIDTH
+            self.plotwidth = self.windowWidth - KEYWIDTH
+        if self.windowWidth < 2 * self.windowBorder + KEYWIDTH:
+            self.windowWidth = 2 * self.windowBorder + KEYWIDTH
+            self.plotwidth = 0
+        self.windowHeight = height
 
         # turn off label printing if too small, and on if larger than this
         # threshold.
-        self.state.printlabels = self.state.plotwidth > 1 and (
-            height - 2 * self.state.windowBorder > 1)
+        self.printlabels = self.plotwidth > 1 and (
+            height - 2 * self.windowBorder > 1)
 
         gl.viewport(0, 0, width, height)
         gl.matrix_mode(gl.projection)
@@ -91,36 +92,36 @@ class GUI(glut.GlutFramework, HeatProtocol):
         self.trigger_refresh()
 
     def toggle_fullscreen(self):
-        if self.state.fullscreen:
-            self.state.windowBorder = self.state.oldWindowBorder
-            self.state.windowWidth -= KEYWIDTH
-            self.state.plotwidth = \
-                self.state.windowWidth - 2 * self.state.windowBorder - KEYWIDTH
+        if self.fullscreen:
+            self.windowBorder = self.oldWindowBorder
+            self.windowWidth -= KEYWIDTH
+            self.plotwidth = \
+                self.windowWidth - 2 * self.windowBorder - KEYWIDTH
         else:
-            self.state.oldWindowBorder = self.state.windowBorder
-            self.state.windowBorder = 0
-            self.state.windowWidth += KEYWIDTH
-            self.state.plotwidth = self.state.windowWidth - KEYWIDTH
-        self.state.fullscreen = not self.state.fullscreen
+            self.oldWindowBorder = self.windowBorder
+            self.windowBorder = 0
+            self.windowWidth += KEYWIDTH
+            self.plotwidth = self.windowWidth - KEYWIDTH
+        self.fullscreen = not self.fullscreen
 
     def pause(self):
         for i in self.all_desired_chips():
             self.pause_heatmap_cell(i)
-        self.state.freezedisplay = True
-        self.state.freezetime = timestamp()
+        self.freezedisplay = True
+        self.freezetime = timestamp()
         self.trigger_menu_rebuild()
 
     def resume(self):
         for i in self.all_desired_chips():
             self.resume_heatmap_cell(i)
-        self.state.freezedisplay = False
+        self.freezedisplay = False
         self.trigger_menu_rebuild()
 
     def keyboard_down(self, key, x, y):
         if key == 'f':
             self.toggle_fullscreen()
         elif key == 'c':
-            self.state.cleardown()
+            self.cleardown()
         elif key == 'q':
             self._terminate()
         elif key == '"':
@@ -128,114 +129,113 @@ class GUI(glut.GlutFramework, HeatProtocol):
         elif key == 'p':
             self.resume()
         elif key == 'b':
-            self.state.gridlines = not self.state.gridlines
+            self.gridlines = not self.gridlines
         elif key == '#':
-            self.state.plotvaluesinblocks = not self.state.plotvaluesinblocks
+            self.plotvaluesinblocks = not self.plotvaluesinblocks
         elif key == 'd':
-            self.state.rotateflip = not self.state.rotateflip
+            self.rotateflip = not self.rotateflip
         elif key == 'v':
-            self.state.vectorflip = not self.state.vectorflip
+            self.vectorflip = not self.vectorflip
         elif key == 'x':
-            self.state.xflip = not self.state.xflip
+            self.xflip = not self.xflip
         elif key == 'y':
-            self.state.yflip = not self.state.yflip
+            self.yflip = not self.yflip
         elif key == '+':
-            if self.state.livebox == Direction.NORTH:
-                self.state.alternorth += self.state.alter_step
-            elif self.state.livebox == Direction.SOUTH:
-                self.state.altersouth += self.state.alter_step
-            elif self.state.livebox == Direction.EAST:
-                self.state.altereast += self.state.alter_step
-            elif self.state.livebox == Direction.WEST:
-                self.state.alterwest += self.state.alter_step
+            if self.livebox == Direction.NORTH:
+                self.alternorth += self.alter_step
+            elif self.livebox == Direction.SOUTH:
+                self.altersouth += self.alter_step
+            elif self.livebox == Direction.EAST:
+                self.altereast += self.alter_step
+            elif self.livebox == Direction.WEST:
+                self.alterwest += self.alter_step
         elif key == '-':
-            if self.state.livebox == Direction.NORTH:
-                self.state.alternorth -= self.state.alter_step
-            elif self.state.livebox == Direction.SOUTH:
-                self.state.altersouth -= self.state.alter_step
-            elif self.state.livebox == Direction.EAST:
-                self.state.altereast -= self.state.alter_step
-            elif self.state.livebox == Direction.WEST:
-                self.state.alterwest -= self.state.alter_step
+            if self.livebox == Direction.NORTH:
+                self.alternorth -= self.alter_step
+            elif self.livebox == Direction.SOUTH:
+                self.altersouth -= self.alter_step
+            elif self.livebox == Direction.EAST:
+                self.altereast -= self.alter_step
+            elif self.livebox == Direction.WEST:
+                self.alterwest -= self.alter_step
         elif key == 'n':
-            if self.state.editmode:
-                self.state.livebox = (
-                    -1 if self.state.livebox == Direction.NORTH
+            if self.editmode:
+                self.livebox = (
+                    -1 if self.livebox == Direction.NORTH
                     else Direction.NORTH)
         elif key == 'e':
-            if self.state.editmode:
-                self.state.livebox = (
-                    -1 if self.state.livebox == Direction.EAST
+            if self.editmode:
+                self.livebox = (
+                    -1 if self.livebox == Direction.EAST
                     else Direction.EAST)
         elif key == 's':
-            if self.state.editmode:
-                self.state.livebox = (
-                    -1 if self.state.livebox == Direction.SOUTH
+            if self.editmode:
+                self.livebox = (
+                    -1 if self.livebox == Direction.SOUTH
                     else Direction.SOUTH)
         elif key == 'w':
-            if self.state.editmode:
-                self.state.livebox = (
-                    -1 if self.state.livebox == Direction.WEST
+            if self.editmode:
+                self.livebox = (
+                    -1 if self.livebox == Direction.WEST
                     else Direction.WEST)
         elif key == 'a':
-            if not self.state.editmode:
-                self.state.editmode = True
-                self.state.livebox = -1
+            if not self.editmode:
+                self.editmode = True
+                self.livebox = -1
         elif key == 'g':
-            if self.state.editmode:
-                self.state.livebox = -1
+            if self.editmode:
+                self.livebox = -1
                 for i in self.all_desired_chips():
                     self.set_heatmap_cell(
-                        i, self.state.alternorth, self.state.altereast,
-                        self.state.altersouth, self.state.alterwest)
+                        i, self.alternorth, self.altereast,
+                        self.altersouth, self.alterwest)
         elif key == '9':
             for i in self.all_desired_chips():
-                self.state.alternorth = random.uniform(
-                    self.state.lowwatermark, self.state.highwatermark)
-                self.state.altereast = random.uniform(
-                    self.state.lowwatermark, self.state.highwatermark)
-                self.state.altersouth = random.uniform(
-                    self.state.lowwatermark, self.state.highwatermark)
-                self.state.alterwest = random.uniform(
-                    self.state.lowwatermark, self.state.highwatermark)
+                self.alternorth = random.uniform(
+                    self.lowwatermark, self.highwatermark)
+                self.altereast = random.uniform(
+                    self.lowwatermark, self.highwatermark)
+                self.altersouth = random.uniform(
+                    self.lowwatermark, self.highwatermark)
+                self.alterwest = random.uniform(
+                    self.lowwatermark, self.highwatermark)
                 self.set_heatmap_cell(
-                    i, self.state.alternorth, self.state.altereast,
-                    self.state.altersouth, self.state.alterwest)
+                    i, self.alternorth, self.altereast,
+                    self.altersouth, self.alterwest)
         elif key == '0':
-            self.state.livebox = -1
-            if self.state.alternorth < 1.0 and self.state.altereast < 1.0 and (
-                    self.state.altersouth < 1.0) and (
-                        self.state.alterwest < 1.0):
+            self.livebox = -1
+            if self.alternorth < 1.0 and self.altereast < 1.0 and (
+                    self.altersouth < 1.0) and self.alterwest < 1.0:
                 # If very low, reinitialise
-                self.state.alternorth = 40.0
-                self.state.altereast = 10.0
-                self.state.altersouth = 10.0
-                self.state.alterwest = 40.0
+                self.alternorth = 40.0
+                self.altereast = 10.0
+                self.altersouth = 10.0
+                self.alterwest = 40.0
             else:
-                self.state.alternorth = 0.0
-                self.state.altereast = 0.0
-                self.state.altersouth = 0.0
-                self.state.alterwest = 0.0
+                self.alternorth = 0.0
+                self.altereast = 0.0
+                self.altersouth = 0.0
+                self.alterwest = 0.0
             for i in self.all_desired_chips():
                 self.set_heatmap_cell(
-                    i, self.state.alternorth, self.state.altereast,
-                    self.state.altersouth, self.state.alterwest)
+                    i, self.alternorth, self.altereast,
+                    self.altersouth, self.alterwest)
 
     def in_control_box(self, box, x, y):
         boxsize = BOXSIZE
         gap = 10
         sum = boxsize + gap  # @ReservedAssignment
-        xorigin = self.state.windowWidth - 3 * sum
-        yorigin = self.state.windowHeight - sum
-        return xorigin + box * sum <= x < xorigin + box * sum + boxsize \
-            and yorigin <= self.state.windowHeight - y < yorigin + boxsize
+        xorigin = self.windowWidth - 3 * sum
+        yorigin = self.windowHeight - sum
+        return (xorigin + box * sum <= x < xorigin + box * sum + boxsize) and (
+            yorigin <= self.windowHeight - y < yorigin + boxsize)
 
     def handle_control_box_click(self, x, y):
-        if self.in_control_box(0, x, y) and not self.state.freezedisplay:
+        if self.in_control_box(0, x, y) and not self.freezedisplay:
             self.pause()
             self.trigger_refresh()
             return True
-        if self.in_control_box(1, x, y) and self.state.freezedisplay:
+        if self.in_control_box(1, x, y) and self.freezedisplay:
             self.resume()
             self.trigger_refresh()
             return True
@@ -246,11 +246,10 @@ class GUI(glut.GlutFramework, HeatProtocol):
 
     def in_box(self, boxx, boxy, x, y):
         D = BOXSIZE + GAP
-        x_o = self.state.windowWidth - (boxx + 1) * D
-        y_o = self.state.windowHeight - D
-        return x_o <= x < x_o + BOXSIZE and \
-            y_o + boxy * D <= self.state.windowHeight - y < (
-                y_o + BOXSIZE + boxy * D)
+        x_o = self.windowWidth - (boxx + 1) * D
+        y_o = self.windowHeight - D
+        return x_o <= x < x_o + BOXSIZE and (
+            y_o + boxy * D <= self.windowHeight - y < y_o + BOXSIZE + boxy * D)
 
     def get_box_id(self, x, y):
         for boxx in range(CONTROLBOXES):
@@ -264,19 +263,19 @@ class GUI(glut.GlutFramework, HeatProtocol):
         if selectedbox == -1:
             return False
         elif selectedbox == Direction.CENTRE:
-            self.state.livebox = -1
-            if not self.state.editmode:
-                self.state.editmode = True
+            self.livebox = -1
+            if not self.editmode:
+                self.editmode = True
             else:
                 for i in self.all_desired_chips():
                     self.set_heatmap_cell(
-                        i, self.state.alternorth, self.state.altereast,
-                        self.state.altersouth, self.state.alterwest)
-        elif self.state.editmode:
-            if selectedbox == self.state.livebox:
-                self.state.livebox = -1
+                        i, self.alternorth, self.altereast,
+                        self.altersouth, self.alterwest)
+        elif self.editmode:
+            if selectedbox == self.livebox:
+                self.livebox = -1
             else:
-                self.state.livebox = selectedbox
+                self.livebox = selectedbox
         self.trigger_refresh()
         return True
 
@@ -290,79 +289,77 @@ class GUI(glut.GlutFramework, HeatProtocol):
             # if you didn't manage to do something useful, then likely
             # greyspace around the figure was clicked (should now deselect
             # any selection)
-            if not acted and self.state.livebox != -1:
-                self.state.livebox = -1
+            if not acted and self.livebox != -1:
+                self.livebox = -1
                 self.trigger_refresh()
                 self.rebuild_menu()
         elif button == SCROLL_UP:
-            if self.state.livebox == Direction.NORTH:
-                self.state.alternorth += self.state.alter_step
+            if self.livebox == Direction.NORTH:
+                self.alternorth += self.alter_step
                 self.trigger_refresh()
-            elif self.state.livebox == Direction.SOUTH:
-                self.state.altersouth += self.state.alter_step
+            elif self.livebox == Direction.SOUTH:
+                self.altersouth += self.alter_step
                 self.trigger_refresh()
-            elif self.state.livebox == Direction.EAST:
-                self.state.altereast += self.state.alter_step
+            elif self.livebox == Direction.EAST:
+                self.altereast += self.alter_step
                 self.trigger_refresh()
-            elif self.state.livebox == Direction.WEST:
-                self.state.alterwest += self.state.alter_step
+            elif self.livebox == Direction.WEST:
+                self.alterwest += self.alter_step
                 self.trigger_refresh()
         elif button == SCROLL_DOWN:
-            if self.state.livebox == Direction.NORTH:
-                self.state.alternorth -= self.state.alter_step
+            if self.livebox == Direction.NORTH:
+                self.alternorth -= self.alter_step
                 self.trigger_refresh()
-            elif self.state.livebox == Direction.SOUTH:
-                self.state.altersouth -= self.state.alter_step
+            elif self.livebox == Direction.SOUTH:
+                self.altersouth -= self.alter_step
                 self.trigger_refresh()
-            elif self.state.livebox == Direction.EAST:
-                self.state.altereast -= self.state.alter_step
+            elif self.livebox == Direction.EAST:
+                self.altereast -= self.alter_step
                 self.trigger_refresh()
-            elif self.state.livebox == Direction.WEST:
-                self.state.alterwest -= self.state.alter_step
+            elif self.livebox == Direction.WEST:
+                self.alterwest -= self.alter_step
                 self.trigger_refresh()
 
     def idle(self):
         self.rebuild_menu_if_needed()
-        frame_us = 1000000 / self.state.max_frame_rate
-        howlongtowait = (
-            self.state.starttime + self.state.counter * frame_us - timestamp())
+        frame_us = 1000000 / self.max_frame_rate
+        howlongtowait = self.starttime + self.counter * frame_us - timestamp()
         if howlongtowait > 0:
             time.sleep(howlongtowait / 1000000.0)
-        if self.state.pktgone > 0 and (
-                timestamp() > self.state.pktgone + 1000000):
-            self.state.pktgone = 0
+        if self.pktgone > 0 and timestamp() > self.pktgone + 1000000:
+            self.pktgone = 0
         self.trigger_refresh()
-        if self.state.somethingtoplot:
+        if self.somethingtoplot:
             self.display(None)
 
     # -------------------------------------------------------------------------
 
     def menu_callback(self, option):
         if option == MenuItem.XFORM_XFLIP:
-            self.state.xflip = not self.state.xflip
+            self.xflip = not self.xflip
         elif option == MenuItem.XFORM_YFLIP:
-            self.state.yflip = not self.state.yflip
+            self.yflip = not self.yflip
         elif option == MenuItem.XFORM_VECTORFLIP:
-            self.state.vectorflip = not self.state.vectorflip
+            self.vectorflip = not self.vectorflip
         elif option == MenuItem.XFORM_ROTATEFLIP:
-            self.state.rotateflip = not self.state.rotateflip
+            self.rotateflip = not self.rotateflip
         elif option == MenuItem.XFORM_REVERT:
-            self.state.cleardown()
+            self.cleardown()
         elif option == MenuItem.MENU_BORDER_TOGGLE:
-            self.state.gridlines = not self.state.gridlines
+            self.gridlines = not self.gridlines
         elif option == MenuItem.MENU_NUMBER_TOGGLE:
-            self.state.plotvaluesinblocks = not self.state.plotvaluesinblocks
+            self.plotvaluesinblocks = not self.plotvaluesinblocks
         elif option == MenuItem.MENU_FULLSCREEN_TOGGLE:
             self.toggle_fullscreen()
         elif option == MenuItem.MENU_PAUSE:
             for i in self.all_desired_chips():
                 self.pause_heatmap_cell(i)
-            self.state.freezedisplay = True
-            self.state.freezetime = timestamp()
+            self.freezedisplay = True
+            self.freezetime = timestamp()
         elif option == MenuItem.MENU_RESUME:
             for i in self.all_desired_chips():
                 self.resume_heatmap_cell(i)
-            self.state.freezedisplay = False
+            self.freezedisplay = False
         elif option == MenuItem.MENU_QUIT:
             self._terminate()
         self.trigger_menu_rebuild()
@@ -377,18 +374,18 @@ class GUI(glut.GlutFramework, HeatProtocol):
             ("90 (D)egree Rotate Toggle", MenuItem.XFORM_ROTATEFLIP),
             ("(C) Revert changes back to default", MenuItem.XFORM_REVERT),
             ("-----", MenuItem.MENU_SEPARATOR),
-            ("Grid (B)orders off" if self.state.gridlines
+            ("Grid (B)orders off" if self.gridlines
              else "Grid (B)orders on",
              MenuItem.MENU_BORDER_TOGGLE),
-            ("Numbers (#) off" if self.state.plotvaluesinblocks
+            ("Numbers (#) off" if self.plotvaluesinblocks
              else "Numbers (#) on",
              MenuItem.MENU_NUMBER_TOGGLE),
-            ("(F)ull Screen off" if self.state.fullscreen
+            ("(F)ull Screen off" if self.fullscreen
              else "(F)ull Screen on",
              MenuItem.MENU_FULLSCREEN_TOGGLE),
             ("-----", MenuItem.MENU_SEPARATOR),
             (("(\") Pause Plot", MenuItem.MENU_PAUSE)
-             if not self.state.freezedisplay
+             if not self.freezedisplay
              else ("(P)lay / Restart Plot", MenuItem.MENU_RESUME)),
             ("(Q)uit", MenuItem.MENU_QUIT)])
         self.attach_current_menu(glut.rightButton)
@@ -410,11 +407,11 @@ class GUI(glut.GlutFramework, HeatProtocol):
 
     def launch(self, args):
         self.__state.starttime = timestamp()
-        self.init_listening()
+        self._init_listening()
         threading.Thread(target=self.input_thread)
         self.start_framework(
             args, "VisRT - plotting your network data in real time",
-            self.state.windowWidth + KEYWIDTH, self.state.windowHeight,
+            self.windowWidth + KEYWIDTH, self.windowHeight,
             0, 100, 10)
 
     # -------------------------------------------------------------------------
@@ -496,94 +493,86 @@ class GUI(glut.GlutFramework, HeatProtocol):
     # ----------------------------------------------------------------------------
 
     def convert_index_to_coord(self, index):
-        tileid, elementid = divmod(
-            index, self.state.each_x * self.state.each_y)
-        elementx, elementy = divmod(elementid, self.state.each_y)
-        tilex, tiley = divmod(tileid, self.state.y_chips)
-        return (tilex * self.state.each_x + elementx,
-                tiley * self.state.each_y + elementy)
+        tileid, elementid = divmod(index, self.each_x * self.each_y)
+        elementx, elementy = divmod(elementid, self.each_y)
+        tilex, tiley = divmod(tileid, self.y_chips)
+        return (tilex * self.each_x + elementx,
+                tiley * self.each_y + elementy)
 
     def convert_coord_to_index(self, x, y):
-        tilex, elementx = divmod(x, self.state.each_x)
-        tiley, elementy = divmod(y, self.state.each_y)
-        elementid = elementx * self.state.each_y + elementy
-        return elementid + self.state.each_x * self.state.each_y * (
-            tilex * self.state.y_chips + tiley)
+        tilex, elementx = divmod(x, self.each_x)
+        tiley, elementy = divmod(y, self.each_y)
+        elementid = elementx * self.each_y + elementy
+        return elementid + self.each_x * self.each_y * (
+            tilex * self.y_chips + tiley)
 
     def coordinate_manipulate(self, i):
-        if self.state.xflip or self.state.yflip or self.state.vectorflip or \
-                self.state.rotateflip:
+        if self.xflip or self.yflip or self.vectorflip or \
+                self.rotateflip:
             tileid, elementid = divmod(
-                i, self.state.each_x * self.state.each_y)
-            elementx, elementy = divmod(elementid, self.state.each_y)
-            tilex, tiley = divmod(tileid, self.state.y_chips)
+                i, self.each_x * self.each_y)
+            elementx, elementy = divmod(elementid, self.each_y)
+            tilex, tiley = divmod(tileid, self.y_chips)
 
             # Flip ycoords
-            if self.state.yflip:
-                elementy = self.state.each_y - 1 - elementy
-                tiley = self.state.y_chips - 1 - tiley
+            if self.yflip:
+                elementy = self.each_y - 1 - elementy
+                tiley = self.y_chips - 1 - tiley
             # Flip xcoords
-            if self.state.xflip:
-                elementx = self.state.each_x - 1 - elementx
-                tilex = self.state.x_chips - 1 - tilex
+            if self.xflip:
+                elementx = self.each_x - 1 - elementx
+                tilex = self.x_chips - 1 - tilex
 
-            elementid = elementx * self.state.each_y + elementy
-            i = elementid + self.state.each_x * self.state.each_y * (
-                tilex * self.state.x_chips + tiley)
+            elementid = elementx * self.each_y + elementy
+            i = elementid + self.each_x * self.each_y * (
+                tilex * self.x_chips + tiley)
 
             # Go back to front (cumulative)
-            if self.state.vectorflip:
-                i = self.state.ydim * self.state.xdim - 1 - i
+            if self.vectorflip:
+                i = self.ydim * self.xdim - 1 - i
             # Rotate
-            if self.state.rotateflip:
+            if self.rotateflip:
                 xcoord, ycoord = self.convert_index_to_coord(i)
                 i = self.convert_coord_to_index(
-                    ycoord, self.state.xdim - 1 - xcoord)
+                    ycoord, self.xdim - 1 - xcoord)
         return i
 
     # ----------------------------------------------------------------------------
 
     def _display_titles_labels(self):
         self.write_large(
-            self.state.windowWidth // 2 - 200, self.state.windowHeight - 50,
-            self.state.title)
+            self.windowWidth // 2 - 200, self.windowHeight - 50, self.title)
         self.write_large(
-            self.state.windowWidth // 2 - 250, self.state.windowHeight - 80,
+            self.windowWidth // 2 - 250, self.windowHeight - 80,
             "Menu: right click.",
             font=glut.Font.Helvetica12)
 
-        xlabels = self.state.xdim
-        delta = self.state.plotwidth / float(self.state.xdim)
+        xlabels = self.xdim
+        delta = self.plotwidth / float(self.xdim)
         spacing = 24
         lastxplotted = -100
 
         # X-Axis
-        self.write_small(
-            self.state.windowWidth // 2 - 25, 20, 0.12, 0, "X Coord")
+        self.write_small(self.windowWidth // 2 - 25, 20, 0.12, 0, "X Coord")
         for i in range(xlabels):
             if i > 100:
                 spacing = 32
-            xplotted = i * delta + self.state.windowBorder + (
-                delta - 8) // 2 - 3
+            xplotted = i * delta + self.windowBorder + (delta - 8) // 2 - 3
             if xplotted > lastxplotted + spacing:
                 self.write_large(
                     xplotted, 60, "%d", i,
                     font=glut.Font.Helvetica18)
                 lastxplotted = xplotted
 
-        ylabels = self.state.ydim
-        delta = float(
-            self.state.windowHeight - 2 * self.state.windowBorder) / (
-                self.state.ydim)
+        ylabels = self.ydim
+        delta = (self.windowHeight - 2 * self.windowBorder) / self.ydim
         spacing = 16
         lastyplotted = -100
 
         # Y-Axis
-        self.write_small(
-            25, self.state.windowHeight // 2 - 50, 0.12, 90, "Y Coord")
+        self.write_small(25, self.windowHeight // 2 - 50, 0.12, 90, "Y Coord")
         for i in range(ylabels):
-            yplotted = i * delta + self.state.windowBorder + (
-                delta - 18) // 2 + 2
+            yplotted = i * delta + self.windowBorder + (delta - 18) // 2 + 2
             if yplotted > lastyplotted + spacing:
                 self.write_large(
                     60, yplotted, "%d", i,
@@ -592,17 +581,17 @@ class GUI(glut.GlutFramework, HeatProtocol):
 
     def _display_key(self):
         self.color(UIColours.BLACK)
-        keybase = self.state.windowBorder + 0.20 * (
-            self.state.windowHeight - self.state.windowBorder)
-        self.write_large(self.state.windowWidth - 55,
-                         self.state.windowHeight - self.state.windowBorder - 5,
-                         "%.2f", self.state.highwatermark,
+        keybase = self.windowBorder + 0.20 * (
+            self.windowHeight - self.windowBorder)
+        self.write_large(self.windowWidth - 55,
+                         self.windowHeight - self.windowBorder - 5,
+                         "%.2f", self.highwatermark,
                          font=glut.Font.Helvetica12)
-        self.write_large(self.state.windowWidth - 55, keybase - 5,
-                         "%.2f", self.state.lowwatermark,
+        self.write_large(self.windowWidth - 55, keybase - 5,
+                         "%.2f", self.lowwatermark,
                          font=glut.Font.Helvetica12)
         interval = 1
-        difference = self.state.highwatermark - self.state.lowwatermark
+        difference = self.highwatermark - self.lowwatermark
         i = 10000
         while i >= 0.1:
             if difference < i:
@@ -610,43 +599,40 @@ class GUI(glut.GlutFramework, HeatProtocol):
             i /= 10.0
         multipleprinted = 1
         linechunkiness = (
-            self.state.windowHeight - self.state.windowBorder - keybase) / \
-            float(self.state.highwatermark - self.state.lowwatermark)
+            self.windowHeight - self.windowBorder - keybase) / \
+            (self.highwatermark - self.lowwatermark)
         # key is only printed if big enough to print
-        if self.state.windowHeight - self.state.windowBorder - keybase > 0:
+        if self.windowHeight - self.windowBorder - keybase > 0:
             for i in range(int(
-                    self.state.windowHeight - self.state.windowBorder -
-                    keybase)):
+                    self.windowHeight - self.windowBorder - keybase)):
                 temperaturehere = 1.0
                 if linechunkiness > 0.0:
-                    temperaturehere = i / linechunkiness + \
-                        self.state.lowwatermark
+                    temperaturehere = i / linechunkiness + self.lowwatermark
                 self.colour_calculator(
-                    temperaturehere,
-                    self.state.highwatermark, self.state.lowwatermark)
+                    temperaturehere, self.highwatermark, self.lowwatermark)
 
                 with gl.draw(gl.lines):
-                    gl.vertex(self.state.windowWidth - 65, i + keybase)
-                    gl.vertex(self.state.windowWidth - 65 - KEYWIDTH,
+                    gl.vertex(self.windowWidth - 65, i + keybase)
+                    gl.vertex(self.windowWidth - 65 - KEYWIDTH,
                               i + keybase)
 
-                positiveoffset = temperaturehere - self.state.lowwatermark
+                positiveoffset = temperaturehere - self.lowwatermark
                 if positiveoffset >= interval * multipleprinted:
                     self.color(UIColours.BLACK)
                     gl.line_width(4.0)
 
                     with gl.draw(gl.lines):
-                        gl.vertex(self.state.windowWidth - 65, i + keybase)
-                        gl.vertex(self.state.windowWidth - 75, i + keybase)
-                        gl.vertex(self.state.windowWidth - 55 - KEYWIDTH,
+                        gl.vertex(self.windowWidth - 65, i + keybase)
+                        gl.vertex(self.windowWidth - 75, i + keybase)
+                        gl.vertex(self.windowWidth - 55 - KEYWIDTH,
                                   i + keybase)
-                        gl.vertex(self.state.windowWidth - 65 - KEYWIDTH,
+                        gl.vertex(self.windowWidth - 65 - KEYWIDTH,
                                   i + keybase)
 
                     gl.line_width(1.0)
                     self.write_large(
-                        self.state.windowWidth - 55, i + keybase - 5, "%.2f",
-                        self.state.lowwatermark + multipleprinted * interval,
+                        self.windowWidth - 55, i + keybase - 5, "%.2f",
+                        self.lowwatermark + multipleprinted * interval,
                         font=glut.Font.Helvetica12)
                     multipleprinted += 1
 
@@ -654,19 +640,19 @@ class GUI(glut.GlutFramework, HeatProtocol):
             self.color(UIColours.BLACK)
             gl.line_width(2.0)
             self._draw_open_box(
-                self.state.windowWidth - 65 - KEYWIDTH, keybase,
-                self.state.windowWidth - 65,
-                self.state.windowHeight - self.state.windowBorder)
+                self.windowWidth - 65 - KEYWIDTH, keybase,
+                self.windowWidth - 65,
+                self.windowHeight - self.windowBorder)
             gl.line_width(1.0)
 
     def _display_controls(self):
         boxsize = BOXSIZE
         gap = 10
-        xorigin = self.state.windowWidth - 3 * (boxsize + gap)
-        yorigin = self.state.windowHeight - gap - boxsize
+        xorigin = self.windowWidth - 3 * (boxsize + gap)
+        yorigin = self.windowHeight - gap - boxsize
         for box in range(3):
-            if (not self.state.freezedisplay and box == 0) \
-                    or (self.state.freezedisplay and box == 1) or box == 2:
+            if (not self.freezedisplay and box == 0) \
+                    or (self.freezedisplay and box == 1) or box == 2:
                 self.color(UIColours.BLACK)
                 self._draw_filled_box(
                     xorigin + box * (boxsize + gap),
@@ -710,77 +696,75 @@ class GUI(glut.GlutFramework, HeatProtocol):
         # NB: we only draw if we are not going to completely obscure the data
         if xsize > 3.0:
             # vertical grid lines
-            for xcord in range(self.state.xdim):
+            for xcord in range(self.xdim):
                 with gl.draw(gl.lines):
                     gl.vertex(
-                        self.state.windowBorder + xcord * xsize,
-                        self.state.windowBorder)
+                        self.windowBorder + xcord * xsize,
+                        self.windowBorder)
                     gl.vertex(
-                        self.state.windowBorder + xcord * xsize,
-                        self.state.windowHeight - self.state.windowBorder)
+                        self.windowBorder + xcord * xsize,
+                        self.windowHeight - self.windowBorder)
         if ysize > 3.0:
             # horizontal grid lines
-            for ycord in range(self.state.ydim):
+            for ycord in range(self.ydim):
                 with gl.draw(gl.lines):
                     gl.vertex(
-                        self.state.windowBorder,
-                        self.state.windowBorder + ycord * ysize)
+                        self.windowBorder,
+                        self.windowBorder + ycord * ysize)
                     gl.vertex(
-                        self.state.windowWidth - self.state.windowBorder -
-                        KEYWIDTH,
-                        self.state.windowBorder + ycord * ysize)
+                        self.windowWidth - self.windowBorder - KEYWIDTH,
+                        self.windowBorder + ycord * ysize)
 
     def _display_boxes(self):
         for box in range(CONTROLBOXES * CONTROLBOXES):
             boxx, boxy = divmod(box, CONTROLBOXES)
             if boxx != 1 and boxy != 1:
                 continue
-            x_o = self.state.windowWidth - (boxx + 1) * (BOXSIZE + GAP)
-            y_o = self.state.yorigin + boxy * (BOXSIZE + GAP)
+            x_o = self.windowWidth - (boxx + 1) * (BOXSIZE + GAP)
+            y_o = self.yorigin + boxy * (BOXSIZE + GAP)
             box = Direction(box)
             # only plot NESW+centre
             self.color(UIColours.BLACK)
-            if box == self.state.livebox:
+            if box == self.livebox:
                 self.color(UIColours.CYAN)
-            if self.state.editmode or box == Direction.CENTRE:
-                if box == Direction.CENTRE and self.state.editmode:
+            if self.editmode or box == Direction.CENTRE:
+                if box == Direction.CENTRE and self.editmode:
                     self.color(UIColours.GREEN)
-
                 self._draw_filled_box(x_o, y_o + BOXSIZE, x_o + BOXSIZE, y_o)
             if box == Direction.CENTRE:
                 self.color(UIColours.WHITE)
                 self.write_large(
                     x_o, y_o + BOXSIZE // 2 - 5,
-                    " Go!" if self.state.editmode else "Alter",
+                    " Go!" if self.editmode else "Alter",
                     font=glut.Font.Bitmap8x13)
             else:
                 currentvalue = 0.0
                 if box == Direction.NORTH:
-                    currentvalue = self.state.alternorth
+                    currentvalue = self.alternorth
                 elif box == Direction.EAST:
-                    currentvalue = self.state.altereast
+                    currentvalue = self.altereast
                 elif box == Direction.SOUTH:
-                    currentvalue = self.state.altersouth
+                    currentvalue = self.altersouth
                 elif box == Direction.WEST:
-                    currentvalue = self.state.alterwest
+                    currentvalue = self.alterwest
                 self.color(UIColours.WHITE
-                           if self.state.editmode and box != self.state.livebox
+                           if self.editmode and box != self.livebox
                            else UIColours.BLACK)
-                self.write_large(x_o, y_o + BOXSIZE // 2 - 5,
-                                 "%3.1f", currentvalue,
-                                 font=glut.Font.Bitmap8x13)
+                self.write_large(
+                    x_o, y_o + BOXSIZE // 2 - 5,
+                    "%3.1f", currentvalue,
+                    font=glut.Font.Bitmap8x13)
 
     def _display_mini_pixel(self, tileratio, i, ii, xcord, ycord):
         """draw little / mini tiled version in btm left - pixel size"""
-        ysize = max(1.0,
-                    float(self.state.windowBorder - 6 * GAP) / self.state.ydim)
+        ysize = max(1.0, (self.windowBorder - 6 * GAP) / self.ydim)
         xsize = max(1.0, ysize * tileratio)
 
-        if is_defined(self.state.immediate_data[ii]):
+        if is_defined(self.immediate_data[ii]):
             # work out what colour we should plot - sets 'ink' plotting colour
             self.colour_calculator(
-                self.state.immediate_data[ii],
-                self.state.highwatermark, self.state.lowwatermark)
+                self.immediate_data[ii],
+                self.highwatermark, self.lowwatermark)
 
             # this plots the basic quad box filled as per colour above
             self._draw_filled_box(
@@ -789,7 +773,7 @@ class GUI(glut.GlutFramework, HeatProtocol):
                 2 * GAP + (ycord + 1) * ysize)
 
         # draw outlines for selected box in little / mini version
-        if self.state.livebox == i:
+        if self.livebox == i:
             gl.line_width(1.0)
             # this plots the external black outline of the selected tile
             self.color(UIColours.BLACK)
@@ -808,31 +792,31 @@ class GUI(glut.GlutFramework, HeatProtocol):
 
     def _display_pixel(self, xsize, ysize, ii, xcord, ycord):
         magnitude = self.colour_calculator(
-            self.state.immediate_data[ii],
-            self.state.highwatermark, self.state.lowwatermark)
+            self.immediate_data[ii],
+            self.highwatermark, self.lowwatermark)
 
         # basic plot
-        if is_defined(self.state.immediate_data[ii]):
+        if is_defined(self.immediate_data[ii]):
             self._draw_filled_box(
-                self.state.windowBorder + xcord * xsize,
-                self.state.windowBorder + ycord * ysize,
-                self.state.windowBorder + (xcord + 1) * xsize,
-                self.state.windowBorder + (ycord + 1) * ysize)
+                self.windowBorder + xcord * xsize,
+                self.windowBorder + ycord * ysize,
+                self.windowBorder + (xcord + 1) * xsize,
+                self.windowBorder + (ycord + 1) * ysize)
 
         # if we want to plot values in blocks (and blocks big enough)
-        if self.state.plotvaluesinblocks and xsize > 8 and \
-                is_defined(self.state.immediate_data[ii]):
+        if self.plotvaluesinblocks and xsize > 8 and \
+                is_defined(self.immediate_data[ii]):
             # choose if light or dark labels
             self.color(
                 UIColours.WHITE if magnitude <= 0.6 else UIColours.BLACK)
             self.write_small(
-                self.state.windowBorder - 20 + (xcord + 0.5) * xsize,
-                self.state.windowBorder - 6 + (ycord + 0.5) * ysize,
-                0.12, 0, "%3.2f", self.state.immediate_data[ii])
+                self.windowBorder - 20 + (xcord + 0.5) * xsize,
+                self.windowBorder - 6 + (ycord + 0.5) * ysize,
+                0.12, 0, "%3.2f", self.immediate_data[ii])
 
     def display(self, dTime):
         gl.point_size(0.1)
-        self.state.counter += 1
+        self.counter += 1
         # how many frames have we plotted in our history
         gl.load_identity()
         self.clear(UIColours.GREY)
@@ -840,62 +824,62 @@ class GUI(glut.GlutFramework, HeatProtocol):
         self.color(UIColours.BLACK)
 
         # titles and labels are only printed if border is big enough
-        if self.state.printlabels and not self.state.fullscreen:
+        if self.printlabels and not self.fullscreen:
             self._display_titles_labels()
 
         # clamp and scale all the values to plottable range
-        for i in range(self.state.xdim * self.state.ydim):
-            if is_defined(self.state.immediate_data[i]):
-                datum = self.state.immediate_data[i]
+        for i in range(self.xdim * self.ydim):
+            if is_defined(self.immediate_data[i]):
+                datum = self.immediate_data[i]
                 datum = clamp(MINDATA, datum, MAXDATA)
-                self.state.immediate_data[i] = datum
+                self.immediate_data[i] = datum
                 if self.is_board_address_set():
-                    if datum > self.state.highwatermark:
-                        self.state.highwatermark = datum
-                    if datum < self.state.lowwatermark:
-                        self.state.lowwatermark = datum
+                    if datum > self.highwatermark:
+                        self.highwatermark = datum
+                    if datum < self.lowwatermark:
+                        self.lowwatermark = datum
 
-        xsize = max(self.state.plotwidth / self.state.xdim, 1.0)
+        xsize = max(self.plotwidth / self.xdim, 1.0)
         ysize = float(
-            self.state.windowHeight - 2 * self.state.windowBorder) / \
-            self.state.ydim
+            self.windowHeight - 2 * self.windowBorder) / \
+            self.ydim
         tileratio = xsize / ysize
         # plot the pixels
-        for i in range(self.state.xdim * self.state.ydim):
+        for i in range(self.xdim * self.ydim):
             ii = self.coordinate_manipulate(i)
             xcord, ycord = self.convert_index_to_coord(i)
-            if not self.state.fullscreen:
+            if not self.fullscreen:
                 self._display_mini_pixel(tileratio, i, ii, xcord, ycord)
             self._display_pixel(xsize, ysize, ii, xcord, ycord)
 
         self.color(UIColours.BLACK)
 
         # Various bits and pieces of overlay information
-        if self.state.gridlines:
+        if self.gridlines:
             self._display_gridlines(xsize, ysize)
-        if not self.state.fullscreen:
+        if not self.fullscreen:
             self._display_key()
             self._display_controls()
-            if self.state.pktgone > 0:
+            if self.pktgone > 0:
                 self.color(UIColours.BLACK)
                 if self.is_board_address_set():
                     self.write_large(
-                        self.state.windowWidth - 3 * (BOXSIZE + GAP) + 5,
-                        self.state.windowHeight - GAP - BOXSIZE - 25,
+                        self.windowWidth - 3 * (BOXSIZE + GAP) + 5,
+                        self.windowHeight - GAP - BOXSIZE - 25,
                         "Packet Sent",
                         font=glut.Font.Bitmap8x13)
                 else:
                     self.write_large(
-                        self.state.windowWidth - 3 * (BOXSIZE + GAP) - 5,
-                        self.state.windowHeight - GAP - BOXSIZE - 25,
+                        self.windowWidth - 3 * (BOXSIZE + GAP) - 5,
+                        self.windowHeight - GAP - BOXSIZE - 25,
                         "Target Unknown",
                         font=glut.Font.Bitmap8x13)
             self._display_boxes()
 
-        self.state.somethingtoplot = False
+        self.somethingtoplot = False
 
     def trigger_refresh(self):
-        self.state.somethingtoplot = True
+        self.somethingtoplot = True
 
     def init(self):
         self.clear(UIColours.BLACK)

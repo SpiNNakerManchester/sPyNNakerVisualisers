@@ -14,14 +14,15 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from argparse import ArgumentParser
+import re
 import sys
 
-from spynnaker_visualisers.heat import events
-from spynnaker_visualisers.heat.state import State
+from spynnaker_visualisers.heat.gui import GUI
+import spynnaker_visualisers._version as ver
 
-__version__ = 18
-__date__ = '2017-08-23'
-
+__version__ = re.sub(r"^.*!", "", ver.__version__)
+__date__ = \
+    f'{ver.__version_day__} {ver.__version_month__} {ver.__version_year__}'
 
 # -------------------------------------------------------------------
 
@@ -56,11 +57,9 @@ def parse_arguments(args):
 
 def main():
     configfile, ipaddr = parse_arguments(sys.argv[1:])
-    state = State(configfile)
-    state.init_history()
-    state.cleardown()
-
-    gui = events.GUI(state)
+    gui = GUI(configfile)
+    gui.init_history()
+    gui.cleardown()
     if ipaddr is not None:
         gui.set_board_ip_address(ipaddr)
         print(f"Waiting for packets only from: {gui.get_board_ip_address()}")
