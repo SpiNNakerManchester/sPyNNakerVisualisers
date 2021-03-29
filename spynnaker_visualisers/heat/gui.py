@@ -387,7 +387,8 @@ class GUI(glut.GlutFramework, HeatProtocol):
     def idle(self):
         self.rebuild_menu_if_needed()
         frame_us = 1000000 / self.max_frame_rate
-        howlongtowait = self.start_time + self._counter * frame_us - timestamp()
+        howlongtowait = self.start_time + self._counter * frame_us - (
+            timestamp())
         if howlongtowait > 0:
             time.sleep(howlongtowait / 1000000.0)
         if self.pkt_gone > 0 and timestamp() > self.pkt_gone + 1000000:
