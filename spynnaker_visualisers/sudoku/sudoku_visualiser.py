@@ -21,7 +21,8 @@ import sys
 from threading import Condition, RLock
 from spinn_utilities.overrides import overrides
 from spinn_front_end_common.utilities.connections import LiveEventConnection
-from spynnaker_visualisers.glut_framework import GlutFramework
+from spynnaker_visualisers.glut_framework import (
+    GlutFramework, key_press_handler)
 from spynnaker_visualisers.opengl_support import (
     vertex, draw, lines, color, point_size, points, line_width, clear_color,
     clear, color_buffer_bit, load_identity, viewport, matrix_mode, projection,
@@ -211,14 +212,13 @@ class SudokuPlot(GlutFramework):
         matrix_mode(model_view)
         load_identity()
 
-    @overrides(GlutFramework.keyboard_down)
-    def keyboard_down(self, key, x, y):  # @UnusedVariable
-        if key == 32 or key == ' ':
-            with self.start_condition:
-                if not self.user_pressed_start:
-                    print("Starting the simulation")
-                    self.user_pressed_start = True
-                    self.start_condition.notify_all()
+    @key_press_handler(" ")
+    def __start_sim(self):
+        with self.start_condition:
+            if not self.user_pressed_start:
+                print("Starting the simulation")
+                self.user_pressed_start = True
+                self.start_condition.notify_all()
 
     def _find_cell_values(self, start_tick):
         cell_value = [0] * 81
