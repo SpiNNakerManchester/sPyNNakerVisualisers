@@ -16,9 +16,8 @@
 import json
 import os.path
 from spynnaker_visualisers.heat.constants import (
-    WINBORDER, WINHEIGHT, WINWIDTH, KEYWIDTH, HIWATER, LOWATER, NOTDEFINED,
-    BOXSIZE, GAP, EACHCHIPX, EACHCHIPY, FIXEDPOINT, ALTERSTEPSIZE, SDPPORT,
-    HISTORYSIZE, XDIMENSIONS, YDIMENSIONS, MAXFRAMERATE, CONTROLBOXES)
+    NOTDEFINED, EACHCHIPX, EACHCHIPY, FIXEDPOINT, ALTERSTEPSIZE, SDPPORT,
+    HISTORYSIZE, XDIMENSIONS, YDIMENSIONS, MAXFRAMERATE)
 
 
 class State:
@@ -28,45 +27,12 @@ class State:
         self.xdim, self.ydim = XDIMENSIONS, YDIMENSIONS
         self.each_x, self.each_y = EACHCHIPX, EACHCHIPY
         self.x_chips, self.y_chips = 0, 0
-        self.plotwidth = 0
-        self.windowBorder = WINBORDER
-        self.windowHeight = WINHEIGHT
-        self.windowWidth = WINWIDTH + KEYWIDTH
-        self.oldWindowBorder = 0
-        self.xorigin = 0
-        self.yorigin = GAP
-        self.lowwatermark = HIWATER
-        self.highwatermark = LOWATER
 
-        self.plotvaluesinblocks = False
-        self.somethingtoplot = False
-        self.freezedisplay = False
-        self.safelyshutcalls = False
-        self.gridlines = False
-        self.fullscreen = False
-        self.xflip = False
-        self.yflip = False
-        self.vectorflip = False
-        self.rotateflip = False
-        self.printlabels = False
-        self.editmode = True
-
-        self.livebox = -1
-        self.alternorth = 40.0
-        self.altersouth = 10.0
-        self.altereast = 10.0
-        self.alterwest = 40.0
         self.max_frame_rate = MAXFRAMERATE
 
         self.fixed_point_factor = 0.5 ** FIXEDPOINT
         self.alter_step = ALTERSTEPSIZE
         self.our_port = SDPPORT
-
-        self.counter = 0
-        self.freezetime = 0
-        self.firstreceivetime = 0
-        self.starttime = 0
-        self.pktgone = 0
 
         self.history_size = HISTORYSIZE
         self.immediate_data = list()
@@ -95,15 +61,6 @@ class State:
             "fixed_point_digits", FIXEDPOINT)
         self.alter_step = data.get("alter_step_size", self.alter_step)
 
-        self.windowBorder = WINBORDER
-        self.windowHeight = WINHEIGHT
-        self.windowWidth = WINWIDTH + KEYWIDTH
-        self.plotwidth = self.windowWidth - 2 * self.windowBorder - KEYWIDTH
-        self.printlabels = (self.windowBorder >= 100)
-
-        self.xorigin = self.windowWidth + KEYWIDTH - CONTROLBOXES * (
-            BOXSIZE + GAP)
-
         n_elems = self.xdim * self.ydim
         self.history_data = [[0.0 for _ in range(n_elems)]
                              for _ in range(self.history_size)]
@@ -112,12 +69,6 @@ class State:
     def cleardown(self):
         for i in range(self.xdim * self.ydim):
             self.immediate_data[i] = NOTDEFINED
-        self.highwatermark = HIWATER
-        self.lowwatermark = LOWATER
-        self.xflip = False
-        self.yflip = False
-        self.vectorflip = False
-        self.rotateflip = False
 
     def init_history(self):
         self.history_data = [

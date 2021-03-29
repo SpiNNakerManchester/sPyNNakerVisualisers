@@ -53,6 +53,8 @@ keyRight = GLUT.GLUT_KEY_RIGHT
 displayModeDouble = GLUT.GLUT_DOUBLE
 leftButton = GLUT.GLUT_LEFT_BUTTON
 rightButton = GLUT.GLUT_RIGHT_BUTTON
+scrollUp = 3
+scrollDown = 4
 mouseDown = GLUT.GLUT_DOWN
 # pylint: enable=invalid-name
 
@@ -116,7 +118,41 @@ class _PerformanceTimer(object):
         return float(delta.seconds) + float(delta.microseconds) / 1000000
 
 
-class GlutFramework(object, metaclass=AbstractBase):
+def key_press_handler(*args):
+    """
+    Marks a method as being a handler for key presses that do not require the
+    X,Y coordinates of the mouse at the time of pressing.
+    """
+    def wrapper(meth):
+        # pylint: disable=protected-access
+        meth._key_presses = tuple(args)
+        return meth
+    return wrapper
+
+
+def mouse_down_handler(*args):
+    """
+    Marks a method as being a handler for simple mouse presses.
+    """
+    def wrapper(meth):
+        # pylint: disable=protected-access
+        meth._mouse_presses = tuple(args)
+        return meth
+    return wrapper
+
+
+class _Registry(AbstractBase):
+    def __new__(cls, name, bases, namespace, **kwargs):
+        new_cls = AbstractBase.__new__(cls, name, bases, namespace, **kwargs)
+        for meth in namespace.values():
+            for key in getattr(meth, "_key_presses", ()):
+                new_cls._key_press_handlers[key] = meth
+            for button in getattr(meth, "_mouse_presses", ()):
+                new_cls._mouse_press_handlers[button] = meth
+        return new_cls
+
+
+class GlutFramework(object, metaclass=_Registry):
     ''' Base for code that wants to visualise using an OpenGL surface.
     '''
     # pylint: disable=broad-except
@@ -128,6 +164,9 @@ class GlutFramework(object, metaclass=AbstractBase):
         "frame_time_elapsed",
         "_logged_errors",
         "window"]
+
+    _key_press_handlers = dict()
+    _mouse_press_handlers = dict()
 
     def __init__(self):
         self.window = None
@@ -393,7 +432,11 @@ class GlutFramework(object, metaclass=AbstractBase):
         if not GLUT.glutGetWindow():
             return
         try:
-            return self.mouse_button_press(button, state, x, y)
+            handler = self._mouse_press_handlers.get(button, None)
+            if handler and state == mouseDown:
+                handler(self, x, y)
+            else:
+                self.mouse_button_press(button, state, x, y)
         except Exception:
             self.__log_error()
         except SystemExit:
@@ -413,7 +456,12 @@ class GlutFramework(object, metaclass=AbstractBase):
         if not GLUT.glutGetWindow():
             return
         try:
-            return self.keyboard_down(key.decode(), x, y)
+            keychar = key.decode()
+            handler = self._key_press_handlers.get(keychar, None)
+            if handler:
+                return handler(self)
+            else:
+                return self.keyboard_down(keychar, x, y)
         except Exception:
             self.__log_error()
         except SystemExit:
@@ -433,7 +481,11 @@ class GlutFramework(object, metaclass=AbstractBase):
         if not GLUT.glutGetWindow():
             return
         try:
-            return self.special_keyboard_down(key, x, y)
+            handler = self._key_press_handlers.get(key, None)
+            if handler:
+                handler(self)
+            else:
+                return self.special_keyboard_down(key, x, y)
         except Exception:
             self.__log_error()
         except SystemExit:
