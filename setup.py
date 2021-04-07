@@ -30,7 +30,7 @@ setup(
     description="Visualisation clients for special sPyNNaker networks.",
     license="GPLv2",
     classifiers=[
-        "Development Status :: 3 - Alpha",
+        "Development Status :: 4 - Beta",
 
         "Intended Audience :: Developers",
         "Intended Audience :: Science/Research",
@@ -52,8 +52,8 @@ setup(
     # Requirements
     install_requires=[
         'PyOpenGL',
-        'SpiNNUtilities >= 1!5.0.1, < 1!6.0.0',
-        'SpiNNFrontEndCommon >= 1!5.0.1, < 1!6.0.0',
+        'SpiNNUtilities == 1!6.0.0',
+        'SpiNNFrontEndCommon == 1!6.0.0',
     ],
     extras_require={
         "acceleration": ["PyOpenGL_accelerate"]
