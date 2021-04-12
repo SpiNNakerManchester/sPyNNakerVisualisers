@@ -52,8 +52,8 @@ setup(
     # Requirements
     install_requires=[
         'PyOpenGL',
-        'SpiNNUtilities >= 1!5.0.1, < 1!6.0.0',
-        'SpiNNFrontEndCommon >= 1!5.0.1, < 1!6.0.0',
+        'SpiNNUtilities == 1!6.0.1',
+        'SpiNNFrontEndCommon == 1!6.0.1',
     ],
     extras_require={
         "acceleration": ["PyOpenGL_accelerate"]
