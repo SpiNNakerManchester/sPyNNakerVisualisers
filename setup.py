@@ -26,7 +26,6 @@ setup(
 
     # Metadata for PyPi
     url="https://github.com/SpiNNakerManchester/sPyNNakerVisualisers",
-    author="Donal Fellows",
     description="Visualisation clients for special sPyNNaker networks.",
     license="GPLv2",
     classifiers=[
