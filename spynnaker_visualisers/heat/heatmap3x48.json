@@ -1,0 +1,11 @@
+{
+	"title": "Heat Diffusion - Live SpiNNaker Torus Plot",
+	"dimensions": [
+		48,
+		48
+	],
+	"chip_size": [
+		4,
+		4
+	]
+}

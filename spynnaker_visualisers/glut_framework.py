@@ -27,6 +27,7 @@ application that uses OpenGL and GLUT to do the GUI work.
 # @author: Converted to Python by Donal Fellows
 
 from datetime import datetime
+from enum import Enum
 import os
 import traceback
 import OpenGL.error
@@ -44,11 +45,26 @@ except ImportError:
     patch_ctypes()
 import OpenGL.GLUT as GLUT
 
+# pylint: disable=invalid-name
 keyUp = GLUT.GLUT_KEY_UP
 keyDown = GLUT.GLUT_KEY_DOWN
 keyLeft = GLUT.GLUT_KEY_LEFT
 keyRight = GLUT.GLUT_KEY_RIGHT
 displayModeDouble = GLUT.GLUT_DOUBLE
+leftButton = GLUT.GLUT_LEFT_BUTTON
+rightButton = GLUT.GLUT_RIGHT_BUTTON
+scrollUp = 3
+scrollDown = 4
+mouseDown = GLUT.GLUT_DOWN
+# pylint: enable=invalid-name
+
+
+class Font(Enum):
+    # pylint: disable=no-member
+    Bitmap8x13 = GLUT.GLUT_BITMAP_8_BY_13
+    Helvetica12 = GLUT.GLUT_BITMAP_HELVETICA_12
+    Helvetica18 = GLUT.GLUT_BITMAP_HELVETICA_18
+    TimesRoman24 = GLUT.GLUT_BITMAP_TIMES_ROMAN_24
 
 
 class _PerformanceTimer(object):
@@ -102,7 +118,41 @@ class _PerformanceTimer(object):
         return float(delta.seconds) + float(delta.microseconds) / 1000000
 
 
-class GlutFramework(object, metaclass=AbstractBase):
+def key_press_handler(*args):
+    """
+    Marks a method as being a handler for key presses that do not require the
+    X,Y coordinates of the mouse at the time of pressing.
+    """
+    def wrapper(meth):
+        # pylint: disable=protected-access
+        meth._key_presses = tuple(args)
+        return meth
+    return wrapper
+
+
+def mouse_down_handler(*args):
+    """
+    Marks a method as being a handler for simple mouse presses.
+    """
+    def wrapper(meth):
+        # pylint: disable=protected-access
+        meth._mouse_presses = tuple(args)
+        return meth
+    return wrapper
+
+
+class _Registry(AbstractBase):
+    def __new__(cls, name, bases, namespace, **kwargs):
+        new_cls = AbstractBase.__new__(cls, name, bases, namespace, **kwargs)
+        for meth in namespace.values():
+            for key in getattr(meth, "_key_presses", ()):
+                new_cls._key_press_handlers[key] = meth
+            for button in getattr(meth, "_mouse_presses", ()):
+                new_cls._mouse_press_handlers[button] = meth
+        return new_cls
+
+
+class GlutFramework(object, metaclass=_Registry):
     ''' Base for code that wants to visualise using an OpenGL surface.
     '''
     # pylint: disable=broad-except
@@ -114,6 +164,9 @@ class GlutFramework(object, metaclass=AbstractBase):
         "frame_time_elapsed",
         "_logged_errors",
         "window"]
+
+    _key_press_handlers = dict()
+    _mouse_press_handlers = dict()
 
     def __init__(self):
         self.window = None
@@ -159,6 +212,7 @@ class GlutFramework(object, metaclass=AbstractBase):
         GLUT.glutKeyboardUpFunc(self.__keyboard_up)
         GLUT.glutSpecialFunc(self.__special_keyboard_down)
         GLUT.glutSpecialUpFunc(self.__special_keyboard_up)
+        GLUT.glutMenuStateFunc(self.__menu_state)
         try:
             GLUT.glutCloseFunc(self._terminate)
         except OpenGL.error.NullFunctionError:
@@ -238,6 +292,12 @@ class GlutFramework(object, metaclass=AbstractBase):
         :param y: the y coordinate of the mouse
         """
 
+    def menu_state(self, menu_open):
+        """ Reports if a menu is open.
+
+        :param bool menu_open:
+        """
+
     def run(self):
         """ The run method is called by GLUT and contains the logic to set the\
             frame rate of the application.
@@ -280,7 +340,8 @@ class GlutFramework(object, metaclass=AbstractBase):
             self.reshape(width, height)
 
     @staticmethod
-    def write_large(x, y, string, *args):
+    def write_large(
+            x, y, string, *args, font=Font.TimesRoman24):
         """ Utility function: write a string to a given location as a bitmap.
         """
         # pylint: disable=no-member
@@ -288,7 +349,7 @@ class GlutFramework(object, metaclass=AbstractBase):
             string = string % args
         raster_position(x, y)
         for ch in string:
-            GLUT.glutBitmapCharacter(GLUT.GLUT_BITMAP_TIMES_ROMAN_24, ord(ch))
+            GLUT.glutBitmapCharacter(font.value, ord(ch))
 
     @staticmethod
     def write_small(x, y, size, rotation, string, *args):
@@ -317,6 +378,25 @@ class GlutFramework(object, metaclass=AbstractBase):
         Because sys.exit() doesn't always work in the ctype-handled callbacks.
         """
         os._exit(exit_code)
+
+    @staticmethod
+    def menu(callback, items):
+        if not GLUT.glutGetWindow():
+            return None
+        the_menu = GLUT.glutCreateMenu(callback)
+        for label, code in items:
+            GLUT.glutAddMenuEntry(label, code)
+        return the_menu
+
+    @staticmethod
+    def attach_current_menu(to):
+        if GLUT.glutGetWindow():
+            GLUT.glutAttachMenu(to)
+
+    @staticmethod
+    def destroy_menu(menu):
+        if GLUT.glutGetWindow():
+            GLUT.glutDestroyMenu(menu)
 
     def __display_framework(self):
         if not GLUT.glutGetWindow():
@@ -352,7 +432,11 @@ class GlutFramework(object, metaclass=AbstractBase):
         if not GLUT.glutGetWindow():
             return
         try:
-            return self.mouse_button_press(button, state, x, y)
+            handler = self._mouse_press_handlers.get(button, None)
+            if handler and state == mouseDown:
+                handler(self, x, y)
+            else:
+                self.mouse_button_press(button, state, x, y)
         except Exception:
             self.__log_error()
         except SystemExit:
@@ -372,7 +456,12 @@ class GlutFramework(object, metaclass=AbstractBase):
         if not GLUT.glutGetWindow():
             return
         try:
-            return self.keyboard_down(key.decode(), x, y)
+            keychar = key.decode()
+            handler = self._key_press_handlers.get(keychar, None)
+            if handler:
+                return handler(self)
+            else:
+                return self.keyboard_down(keychar, x, y)
         except Exception:
             self.__log_error()
         except SystemExit:
@@ -392,7 +481,11 @@ class GlutFramework(object, metaclass=AbstractBase):
         if not GLUT.glutGetWindow():
             return
         try:
-            return self.special_keyboard_down(key, x, y)
+            handler = self._key_press_handlers.get(key, None)
+            if handler:
+                handler(self)
+            else:
+                return self.special_keyboard_down(key, x, y)
         except Exception:
             self.__log_error()
         except SystemExit:
@@ -403,6 +496,16 @@ class GlutFramework(object, metaclass=AbstractBase):
             return
         try:
             return self.special_keyboard_up(key, x, y)
+        except Exception:
+            self.__log_error()
+        except SystemExit:
+            self._terminate()
+
+    def __menu_state(self, status):
+        if not GLUT.glutGetWindow():
+            return
+        try:
+            self.menu_state(status == GLUT.GLUT_MENU_IN_USE)
         except Exception:
             self.__log_error()
         except SystemExit:
