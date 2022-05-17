@@ -18,8 +18,9 @@ import random
 import threading
 import time
 
-import spynnaker_visualisers.opengl_support as gl
-from spynnaker_visualisers import glut_framework as glut
+import spynnaker_visualisers.opengl as gl
+from spynnaker_visualisers.opengl import (
+    GlutFramework, key_press_handler, mouse_down_handler, draw, vertex)
 from spynnaker_visualisers.heat.constants import (
     MINDATA, MAXDATA, BOXSIZE, GAP, KEYWIDTH, CONTROLBOXES,
     WINBORDER, WINHEIGHT, WINWIDTH, HIWATER, LOWATER,
@@ -43,12 +44,13 @@ class MenuItem(IntEnum):
     MENU_QUIT = 11
 
 
-class GUI(glut.GlutFramework, HeatProtocol):
+# pylint: disable=unused-private-member
+class GUI(GlutFramework, HeatProtocol):
     """
     The main class that implements the Heat Map client.
     """
     def __init__(self, filename=None):
-        glut.GlutFramework.__init__(self)
+        GlutFramework.__init__(self)
         HeatProtocol.__init__(self, filename)
         self._right_mouse_menu = None
         self._need_to_rebuild_menu = False
@@ -79,7 +81,7 @@ class GUI(glut.GlutFramework, HeatProtocol):
         self._counter = 0
         self._freeze_time = 0
 
-    @glut.key_press_handler("q", "Q")
+    @key_press_handler("q", "Q")
     def _terminate(self, exit_code=0):
         if not self._safely_shut_calls:
             self._safely_shut_calls = True
@@ -116,7 +118,7 @@ class GUI(glut.GlutFramework, HeatProtocol):
         # indicate we will need to refresh the screen
         self.trigger_refresh()
 
-    @glut.key_press_handler("f", "F")
+    @key_press_handler("f", "F")
     def toggle_fullscreen(self):
         if self._full_screen:
             self._win_border = self.__old_win_border
@@ -129,7 +131,7 @@ class GUI(glut.GlutFramework, HeatProtocol):
             self.plot_width = self._win_width - KEYWIDTH
         self._full_screen = not self._full_screen
 
-    @glut.key_press_handler('"')
+    @key_press_handler('"')
     def pause(self):
         for i in self.all_desired_chips():
             self.pause_heatmap_cell(i)
@@ -137,14 +139,14 @@ class GUI(glut.GlutFramework, HeatProtocol):
         self._freeze_time = timestamp()
         self.trigger_menu_rebuild()
 
-    @glut.key_press_handler("p", "P")
+    @key_press_handler("p", "P")
     def resume(self):
         for i in self.all_desired_chips():
             self.resume_heatmap_cell(i)
         self.freeze_display = False
         self.trigger_menu_rebuild()
 
-    @glut.key_press_handler("c", "C")
+    @key_press_handler("c", "C")
     def cleardown(self):
         super().cleardown()
         self._x_flip = False
@@ -166,31 +168,31 @@ class GUI(glut.GlutFramework, HeatProtocol):
         self._x_origin = self._win_width + KEYWIDTH - CONTROLBOXES * (
             BOXSIZE + GAP)
 
-    @glut.key_press_handler("b", "B")
+    @key_press_handler("b", "B")
     def __gridlines_toggle(self):
         self._grid_lines = not self._grid_lines
 
-    @glut.key_press_handler("#")
+    @key_press_handler("#")
     def __values_toggle(self):
         self._plot_values_in_blocks = not self._plot_values_in_blocks
 
-    @glut.key_press_handler("d", "D")
+    @key_press_handler("d", "D")
     def __rotate_flip(self):
         self._rotate_flip = not self._rotate_flip
 
-    @glut.key_press_handler("v", "V")
+    @key_press_handler("v", "V")
     def __vector_flip(self):
         self._vector_flip = not self._vector_flip
 
-    @glut.key_press_handler("x", "X")
+    @key_press_handler("x", "X")
     def __x_flip(self):
         self._x_flip = not self._x_flip
 
-    @glut.key_press_handler("y", "Y")
+    @key_press_handler("y", "Y")
     def __y_flip(self):
         self._y_flip = not self._y_flip
 
-    @glut.key_press_handler("+")
+    @key_press_handler("+")
     def __increment(self):
         if self._live_box == Direction.NORTH:
             self._alter_north += self.alter_step
@@ -201,7 +203,7 @@ class GUI(glut.GlutFramework, HeatProtocol):
         elif self._live_box == Direction.WEST:
             self._alter_west += self.alter_step
 
-    @glut.key_press_handler("-")
+    @key_press_handler("-")
     def __decrement(self):
         if self._live_box == Direction.NORTH:
             self._alter_north -= self.alter_step
@@ -212,37 +214,37 @@ class GUI(glut.GlutFramework, HeatProtocol):
         elif self._live_box == Direction.WEST:
             self._alter_west -= self.alter_step
 
-    @glut.key_press_handler("n", "N")
+    @key_press_handler("n", "N")
     def __north(self):
         if self._edit_mode:
             self._live_box = (
                 -1 if self._live_box == Direction.NORTH else Direction.NORTH)
 
-    @glut.key_press_handler("s", "S")
+    @key_press_handler("s", "S")
     def __south(self):
         if self._edit_mode:
             self._live_box = (
                 -1 if self._live_box == Direction.SOUTH else Direction.SOUTH)
 
-    @glut.key_press_handler("e", "E")
+    @key_press_handler("e", "E")
     def __east(self):
         if self._edit_mode:
             self._live_box = (
                 -1 if self._live_box == Direction.EAST else Direction.EAST)
 
-    @glut.key_press_handler("w", "W")
+    @key_press_handler("w", "W")
     def __west(self):
         if self._edit_mode:
             self._live_box = (
                 -1 if self._live_box == Direction.WEST else Direction.WEST)
 
-    @glut.key_press_handler("a", "A")
+    @key_press_handler("a", "A")
     def __alter(self):
         if not self._edit_mode:
             self._edit_mode = True
             self._live_box = -1
 
-    @glut.key_press_handler("g", "G")
+    @key_press_handler("g", "G")
     def __send_edit(self):
         if self._edit_mode:
             self._live_box = -1
@@ -251,7 +253,7 @@ class GUI(glut.GlutFramework, HeatProtocol):
                     i, self._alter_north, self._alter_east,
                     self._alter_south, self._alter_west)
 
-    @glut.key_press_handler("9")
+    @key_press_handler("9")
     def __randomise(self):
         for i in self.all_desired_chips():
             self._alter_north = random.uniform(
@@ -266,7 +268,7 @@ class GUI(glut.GlutFramework, HeatProtocol):
                 i, self._alter_north, self._alter_east,
                 self._alter_south, self._alter_west)
 
-    @glut.key_press_handler("0")
+    @key_press_handler("0")
     def __reset_alterations(self):
         self._live_box = -1
         if self._alter_north < 1.0 and self._alter_east < 1.0 and (
@@ -344,7 +346,7 @@ class GUI(glut.GlutFramework, HeatProtocol):
         self.trigger_refresh()
         return True
 
-    @glut.mouse_down_handler(glut.leftButton)
+    @mouse_down_handler(gl.left_button)
     def __left(self, x, y):
         acted = self.handle_control_box_click(x, y) or \
             self.handle_main_box_click(x, y)
@@ -356,7 +358,7 @@ class GUI(glut.GlutFramework, HeatProtocol):
             self.trigger_refresh()
             self.rebuild_menu()
 
-    @glut.mouse_down_handler(glut.scrollUp)
+    @mouse_down_handler(gl.scroll_up)
     def __scroll_up(self, _x, _y):
         if self._live_box == Direction.NORTH:
             self._alter_north += self.alter_step
@@ -370,7 +372,7 @@ class GUI(glut.GlutFramework, HeatProtocol):
             return
         self.trigger_refresh()
 
-    @glut.mouse_down_handler(glut.scrollDown)
+    @mouse_down_handler(gl.scroll_down)
     def __scroll_down(self, _x, _y):
         if self._live_box == Direction.NORTH:
             self._alter_north -= self.alter_step
@@ -448,7 +450,7 @@ class GUI(glut.GlutFramework, HeatProtocol):
              if not self.freeze_display
              else ("(P)lay / Restart Plot", MenuItem.MENU_RESUME)),
             ("(Q)uit", MenuItem.MENU_QUIT)])
-        self.attach_current_menu(glut.rightButton)
+        self.attach_current_menu(gl.right_button)
         return self._right_mouse_menu
 
     def menu_state(self, menu_open):
@@ -535,20 +537,20 @@ class GUI(glut.GlutFramework, HeatProtocol):
     @staticmethod
     def _draw_filled_box(x1, y1, x2, y2):
         """Generate vertices for a filled box"""
-        with gl.draw(gl.quads):
-            gl.vertex(x1, y1)
-            gl.vertex(x1, y2)
-            gl.vertex(x2, y2)
-            gl.vertex(x2, y1)
+        with draw(gl.quads):
+            vertex(x1, y1)
+            vertex(x1, y2)
+            vertex(x2, y2)
+            vertex(x2, y1)
 
     @staticmethod
     def _draw_open_box(x1, y1, x2, y2):
         """Generate vertices for an open box"""
-        with gl.draw(gl.line_loop):
-            gl.vertex(x1, y1)
-            gl.vertex(x1, y2)
-            gl.vertex(x2, y2)
-            gl.vertex(x2, y1)
+        with draw(gl.line_loop):
+            vertex(x1, y1)
+            vertex(x1, y2)
+            vertex(x2, y2)
+            vertex(x2, y1)
 
     # ----------------------------------------------------------------------------
 
@@ -604,7 +606,7 @@ class GUI(glut.GlutFramework, HeatProtocol):
         self.write_large(
             self._win_width // 2 - 250, self._win_height - 80,
             "Menu: right click.",
-            font=glut.Font.Helvetica12)
+            font=gl.Font.Helvetica12)
 
         xlabels = self.xdim
         delta = self.plot_width / float(self.xdim)
@@ -619,8 +621,7 @@ class GUI(glut.GlutFramework, HeatProtocol):
             xplotted = i * delta + self._win_border + (delta - 8) // 2 - 3
             if xplotted > lastxplotted + spacing:
                 self.write_large(
-                    xplotted, 60, "%d", i,
-                    font=glut.Font.Helvetica18)
+                    xplotted, 60, f"{i}", font=gl.Font.Helvetica18)
                 lastxplotted = xplotted
 
         ylabels = self.ydim
@@ -634,8 +635,7 @@ class GUI(glut.GlutFramework, HeatProtocol):
             yplotted = i * delta + self._win_border + (delta - 18) // 2 + 2
             if yplotted > lastyplotted + spacing:
                 self.write_large(
-                    60, yplotted, "%d", i,
-                    font=glut.Font.Helvetica18)
+                    60, yplotted, f"{i}", font=gl.Font.Helvetica18)
                 lastyplotted = yplotted
 
     def _display_key(self):
@@ -644,11 +644,11 @@ class GUI(glut.GlutFramework, HeatProtocol):
             self._win_height - self._win_border)
         self.write_large(self._win_width - 55,
                          self._win_height - self._win_border - 5,
-                         "%.2f", self._high_water_mark,
-                         font=glut.Font.Helvetica12)
+                         f"{self._high_water_mark:.2f}",
+                         font=gl.Font.Helvetica12)
         self.write_large(self._win_width - 55, keybase - 5,
-                         "%.2f", self._low_water_mark,
-                         font=glut.Font.Helvetica12)
+                         f"{self._low_water_mark:.2f}",
+                         font=gl.Font.Helvetica12)
         interval = 1
         difference = self._high_water_mark - self._low_water_mark
         i = 10000
@@ -662,33 +662,21 @@ class GUI(glut.GlutFramework, HeatProtocol):
                 self._high_water_mark - self._low_water_mark)
         # key is only printed if big enough to print
         if self._win_height - self._win_border - keybase > 0:
-            for i in range(int(
-                    self._win_height - self._win_border - keybase)):
+            for i in range(int(self._win_height - self._win_border - keybase)):
                 temperaturehere = 1.0
                 if linechunkiness > 0.0:
                     temperaturehere = i / linechunkiness + self._low_water_mark
                 self.colour_calculator(temperaturehere)
 
-                with gl.draw(gl.lines):
-                    gl.vertex(self._win_width - 65, i + keybase)
-                    gl.vertex(self._win_width - 65 - KEYWIDTH, i + keybase)
+                with draw(gl.lines):
+                    vertex(self._win_width - 65, i + keybase)
+                    vertex(self._win_width - 65 - KEYWIDTH, i + keybase)
 
                 positiveoffset = temperaturehere - self._low_water_mark
                 if positiveoffset >= interval * multipleprinted:
-                    self.color(UIColours.BLACK)
-                    gl.line_width(4.0)
-
-                    with gl.draw(gl.lines):
-                        gl.vertex(self._win_width - 65, i + keybase)
-                        gl.vertex(self._win_width - 75, i + keybase)
-                        gl.vertex(self._win_width - 55 - KEYWIDTH, i + keybase)
-                        gl.vertex(self._win_width - 65 - KEYWIDTH, i + keybase)
-
-                    gl.line_width(1.0)
-                    self.write_large(
-                        self._win_width - 55, i + keybase - 5, "%.2f",
-                        self._low_water_mark + multipleprinted * interval,
-                        font=glut.Font.Helvetica12)
+                    self.__draw_key_part(
+                        self._win_width - 75, i + keybase,
+                        self._low_water_mark + multipleprinted * interval)
                     multipleprinted += 1
 
             # draw line loop around the key
@@ -700,51 +688,68 @@ class GUI(glut.GlutFramework, HeatProtocol):
                 self._win_height - self._win_border)
             gl.line_width(1.0)
 
-    def _display_controls(self):
-        boxsize = BOXSIZE
-        gap = 10
-        xorigin = self._win_width - 3 * (boxsize + gap)
-        yorigin = self._win_height - gap - boxsize
-        for box in range(3):
-            if (not self.freeze_display and box == 0) or (
-                    self.freeze_display and box == 1) or box == 2:
-                self.color(UIColours.BLACK)
-                self._draw_filled_box(
-                    xorigin + box * (boxsize + gap),
-                    yorigin + boxsize,
-                    xorigin + box * (boxsize + gap) + boxsize,
-                    yorigin)
+    def __draw_key_part(self, x, y, value):
+        self.color(UIColours.BLACK)
+        gl.line_width(4.0)
 
-                self.color(UIColours.RED)
-                gl.line_width(15.0)
-                # now draw shapes on boxes
-                if box == 0:
-                    self._draw_filled_box(
-                        xorigin + gap, yorigin + boxsize - gap,
-                        xorigin + (boxsize + gap) // 2 - gap,
-                        yorigin + gap)
-                    self._draw_filled_box(
-                        xorigin + (boxsize - gap) // 2 + gap,
-                        yorigin + boxsize - gap,
-                        xorigin + boxsize - gap,
-                        yorigin + gap)
-                elif box == 1:
-                    with gl.draw(gl.triangles):
-                        gl.vertex(xorigin + boxsize + 2 * gap,
-                                  yorigin + boxsize - gap)
-                        gl.vertex(
-                            xorigin + 2 * boxsize, yorigin + boxsize // 2)
-                        gl.vertex(xorigin + boxsize + gap * 2, yorigin + gap)
-                elif box == 2:
-                    with gl.draw(gl.lines):
-                        gl.vertex(xorigin + 2 * boxsize + 3 * gap,
-                                  yorigin + boxsize - gap)
-                        gl.vertex(xorigin + 3 * boxsize + gap, yorigin + gap)
-                        gl.vertex(xorigin + 3 * boxsize + gap,
-                                  yorigin + boxsize - gap)
-                        gl.vertex(
-                            xorigin + 2 * boxsize + 3 * gap, yorigin + gap)
-                gl.line_width(1.0)
+        with draw(gl.lines):
+            vertex(x + 10, y)
+            vertex(x, y)
+            vertex(x + 20 - KEYWIDTH, y)
+            vertex(x + 10 - KEYWIDTH, y)
+
+        gl.line_width(1.0)
+        self.write_large(x + 20, y - 5, f"{value:.2f}",
+                         font=gl.Font.Helvetica12)
+
+    def _display_controls(self):
+        gap = 10
+        x = self._win_width - 3 * (BOXSIZE + gap)
+        y = self._win_height - gap - BOXSIZE
+        if not self.freeze_display:
+            self.__draw_pause(x, y, BOXSIZE, gap)
+        x += BOXSIZE + gap
+        if self.freeze_display:
+            self.__draw_play(x, y, BOXSIZE, gap)
+        x += BOXSIZE + gap
+        self.__draw_terminate(x, y, BOXSIZE, gap)
+        gl.line_width(1.0)
+
+    def __draw_button_frame(self, x, y, width, height):
+        gl.line_width(1.0)
+        self.color(UIColours.BLACK)
+        self._draw_filled_box(x, y, x + width, y + height)
+
+    def __draw_pause(self, x, y, size, gap):
+        self.__draw_button_frame(x, y, size, size)
+        self.color(UIColours.RED)
+        gl.line_width(15.0)
+        width = (size + gap) // 2
+        self._draw_filled_box(
+            x + gap, y + size - gap,
+            x + width - gap, y + gap)
+        self._draw_filled_box(
+            x + width + gap, y + size - gap,
+            x + size - gap, y + gap)
+
+    def __draw_play(self, x, y, size, gap):
+        self.__draw_button_frame(x, y, size, size)
+        self.color(UIColours.RED)
+        gl.line_width(15.0)
+        with draw(gl.triangles):
+            vertex(x + gap, y + size - gap)
+            vertex(x + size - gap, y + size // 2)
+            vertex(x + gap, y + gap)
+
+    def __draw_terminate(self, x, y, size, gap):
+        self.__draw_button_frame(x, y, size, size)
+        self.color(UIColours.RED)
+        gl.line_width(15.0)
+        with draw(gl.lines):
+            vertex(x + gap, y + gap)
+            vertex(x + size - gap, y + size - gap)
+            vertex(x + gap, y + size - gap)
+            vertex(x + size - gap, y + gap)
 
     def _display_gridlines(self, xsize, ysize):
         self.color(UIColours.GREY)
@@ -752,31 +757,27 @@ class GUI(glut.GlutFramework, HeatProtocol):
         if xsize > 3.0:
             # vertical grid lines
             for xcord in range(self.xdim):
-                with gl.draw(gl.lines):
-                    gl.vertex(
-                        self._win_border + xcord * xsize,
-                        self._win_border)
-                    gl.vertex(
-                        self._win_border + xcord * xsize,
-                        self._win_height - self._win_border)
+                with draw(gl.lines):
+                    vertex(self._win_border + xcord * xsize,
+                           self._win_border)
+                    vertex(self._win_border + xcord * xsize,
+                           self._win_height - self._win_border)
         if ysize > 3.0:
             # horizontal grid lines
             for ycord in range(self.ydim):
-                with gl.draw(gl.lines):
-                    gl.vertex(
-                        self._win_border,
-                        self._win_border + ycord * ysize)
-                    gl.vertex(
-                        self._win_width - self._win_border - KEYWIDTH,
-                        self._win_border + ycord * ysize)
+                with draw(gl.lines):
+                    vertex(self._win_border,
+                           self._win_border + ycord * ysize)
+                    vertex(self._win_width - self._win_border - KEYWIDTH,
+                           self._win_border + ycord * ysize)
 
     def _display_boxes(self):
         for box in range(CONTROLBOXES * CONTROLBOXES):
             boxx, boxy = divmod(box, CONTROLBOXES)
             if boxx != 1 and boxy != 1:
                 continue
-            x_o = self._win_width - (boxx + 1) * (BOXSIZE + GAP)
-            y_o = self._y_origin + boxy * (BOXSIZE + GAP)
+            x = self._win_width - (boxx + 1) * (BOXSIZE + GAP)
+            y = self._y_origin + boxy * (BOXSIZE + GAP)
             box = Direction(box)
             # only plot NESW+centre
             self.color(UIColours.BLACK)
@@ -785,13 +786,13 @@ class GUI(glut.GlutFramework, HeatProtocol):
             if self._edit_mode or box == Direction.CENTRE:
                 if box == Direction.CENTRE and self._edit_mode:
                     self.color(UIColours.GREEN)
-                self._draw_filled_box(x_o, y_o + BOXSIZE, x_o + BOXSIZE, y_o)
+                self._draw_filled_box(x, y + BOXSIZE, x + BOXSIZE, y)
             if box == Direction.CENTRE:
                 self.color(UIColours.WHITE)
                 self.write_large(
-                    x_o, y_o + BOXSIZE // 2 - 5,
+                    x, y + BOXSIZE // 2 - 5,
                     " Go!" if self._edit_mode else "Alter",
-                    font=glut.Font.Bitmap8x13)
+                    font=gl.Font.Bitmap8x13)
             else:
                 currentvalue = 0.0
                 if box == Direction.NORTH:
@@ -806,9 +807,8 @@ class GUI(glut.GlutFramework, HeatProtocol):
                            if self._edit_mode and box != self._live_box
                            else UIColours.BLACK)
                 self.write_large(
-                    x_o, y_o + BOXSIZE // 2 - 5,
-                    "%3.1f", currentvalue,
-                    font=glut.Font.Bitmap8x13)
+                    x, y + BOXSIZE // 2 - 5, f"{currentvalue:%3.1f}",
+                    font=gl.Font.Bitmap8x13)
 
     def _display_mini_pixel(self, tileratio, i, ii, xcord, ycord):
         """draw little / mini tiled version in btm left - pixel size"""
@@ -863,7 +863,7 @@ class GUI(glut.GlutFramework, HeatProtocol):
             self.write_small(
                 self._win_border - 20 + (xcord + 0.5) * xsize,
                 self._win_border - 6 + (ycord + 0.5) * ysize,
-                0.12, 0, "%3.2f", self.immediate_data[ii])
+                0.12, 0, f"{self.immediate_data[ii]:3.2f}")
 
     def display(self, dTime):
         gl.point_size(0.1)
@@ -917,13 +917,13 @@ class GUI(glut.GlutFramework, HeatProtocol):
                         self._win_width - 3 * (BOXSIZE + GAP) + 5,
                         self._win_height - GAP - BOXSIZE - 25,
                         "Packet Sent",
-                        font=glut.Font.Bitmap8x13)
+                        font=gl.Font.Bitmap8x13)
                 else:
                     self.write_large(
                         self._win_width - 3 * (BOXSIZE + GAP) - 5,
                         self._win_height - GAP - BOXSIZE - 25,
                         "Target Unknown",
-                        font=glut.Font.Bitmap8x13)
+                        font=gl.Font.Bitmap8x13)
             self._display_boxes()
 
         self.something_to_plot = False

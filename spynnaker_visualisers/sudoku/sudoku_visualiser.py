@@ -21,9 +21,8 @@ import sys
 from threading import Condition, RLock
 from spinn_utilities.overrides import overrides
 from spinn_front_end_common.utilities.connections import LiveEventConnection
-from spynnaker_visualisers.glut_framework import (
-    GlutFramework, key_press_handler)
-from spynnaker_visualisers.opengl_support import (
+from spynnaker_visualisers.opengl import (
+    GlutFramework, key_press_handler,
     vertex, draw, lines, color, point_size, points, line_width, clear_color,
     clear, color_buffer_bit, load_identity, viewport, matrix_mode, projection,
     model_view, orthographic_projction, shade_model, smooth)
@@ -38,6 +37,10 @@ INIT_WINDOW_HEIGHT = 600
 INIT_WINDOW_X = 100
 INIT_WINDOW_Y = 100
 FRAMES_PER_SECOND = 10
+
+
+def _first(x):
+    return x[0]
 
 
 class SudokuPlot(GlutFramework):
@@ -213,7 +216,7 @@ class SudokuPlot(GlutFramework):
         load_identity()
 
     @key_press_handler(" ")
-    def __start_sim(self):
+    def __start_sim(self):  # pylint: disable=unused-private-member
         with self.start_condition:
             if not self.user_pressed_start:
                 print("Starting the simulation")
@@ -234,16 +237,9 @@ class SudokuPlot(GlutFramework):
             count, total = self._count_spikes_per_number(queue)
 
             # Work out the probability of a given number in a given cell
-            max_prob_number = 0
-            max_prob = 0.0
-            for i in range(9):
-                if count[i] > 0:
-                    prob = count[i] / total
-                    if prob > max_prob:
-                        max_prob = prob
-                        max_prob_number = i + 1
-            cell_value[cell] = max_prob_number
-            cell_prob[cell] = max_prob
+            cell_prob[cell], cell_value[cell] = max(
+                ((count[i] / total, i + 1) for i in range(9)),
+                key=_first)
         return cell_value, cell_prob
 
     def _count_spikes_per_number(self, queue):
@@ -282,11 +278,10 @@ class SudokuPlot(GlutFramework):
         clear_color(1.0, 1.0, 1.0, 1.0)
         color(0.0, 0.0, 0.0, 1.0)
 
-    def _print_text(self, prompt):  # FIXME positioning
-        # Guesstimate of length of prompt in pixels
-        plen = len(prompt) * 4
+    def _print_text(self, prompt):
+        plen = self.measure_text(prompt)
         self.write_large(
-            self.window_width / 2 - plen, self.window_height - 50, prompt)
+            (self.window_width - plen) / 2, self.window_height - 50, prompt)
 
     def _draw_cells(self, width, height):
         color(0.0, 0.0, 0.0, 1.0)
@@ -329,7 +324,7 @@ class SudokuPlot(GlutFramework):
                 self.write_small(
                     x_start + (cell_width / 2.0) - (size * 50.0),
                     y_start + (cell_height / 2.0) - (size * 50.0),
-                    size, 0, "%d", value[cell])
+                    size, 0, f"{value[cell]}")
 
     @staticmethod
     def _line(x1, y1, x2, y2):

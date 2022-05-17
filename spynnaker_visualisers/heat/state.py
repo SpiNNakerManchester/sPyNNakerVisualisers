@@ -44,7 +44,7 @@ class State:
     def param_load(self, filename):
         if not os.path.isfile(filename):
             filename = os.path.join(os.path.dirname(__file__), filename)
-        with open(filename) as f:
+        with open(filename, encoding="utf-8") as f:
             data = json.load(f)
 
         self.title = data.get("title", self.title)
