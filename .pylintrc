@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2021 The University of Manchester
+# Copyright (c) 2019-2022 The University of Manchester
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,11 +18,11 @@
 # A comma-separated list of package or module names from where C extensions may
 # be loaded. Extensions are loading into the active Python interpreter and may
 # run arbitrary code
-extension-pkg-whitelist=
+extension-pkg-whitelist=numpy
 
 # Add files or directories to the blacklist. They should be base names, not
 # paths.
-ignore=.git
+ignore=CVS
 
 # Add files or directories matching the regex patterns to the blacklist. The
 # regex matches against base names, not paths.
@@ -69,68 +69,7 @@ confidence=
 # --enable=similarities". If you want to run only the classes checker, but have
 # no Warning level messages displayed, use"--disable=all --enable=classes
 # --disable=W"
-disable=parameter-unpacking,
-        unpacking-in-except,
-        old-raise-syntax,
-        long-suffix,
-        old-ne-operator,
-        old-octal-literal,
-        import-star-module-level,
-        non-ascii-bytes-literal,
-        raw-checker-failed,
-        bad-inline-option,
-        locally-disabled,
-        locally-enabled,
-        file-ignored,
-        suppressed-message,
-        useless-suppression,
-        deprecated-pragma,
-        apply-builtin,
-        buffer-builtin,
-        coerce-builtin,
-        execfile-builtin,
-        raw_input-builtin,
-        standarderror-builtin,
-        unicode-builtin,
-        coerce-method,
-        delslice-method,
-        getslice-method,
-        setslice-method,
-        no-absolute-import,
-        old-division,
-        dict-iter-method,
-        dict-view-method,
-        metaclass-assignment,
-        indexing-exception,
-        raising-string,
-        reload-builtin,
-        oct-method,
-        hex-method,
-        nonzero-method,
-        cmp-method,
-        input-builtin,
-        round-builtin,
-        intern-builtin,
-        unichr-builtin,
-        map-builtin-not-iterating,
-        zip-builtin-not-iterating,
-        range-builtin-not-iterating,
-        filter-builtin-not-iterating,
-        using-cmp-argument,
-        div-method,
-        idiv-method,
-        rdiv-method,
-        exception-message-attribute,
-        invalid-str-codec,
-        bad-python3-import,
-        deprecated-string-function,
-        deprecated-str-translate-call,
-        deprecated-itertools-function,
-        deprecated-types-field,
-        next-method-defined,
-        dict-items-not-iterating,
-        dict-keys-not-iterating,
-        dict-values-not-iterating
+disable=
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option
@@ -155,7 +94,7 @@ evaluation=10.0 - ((float(5 * error + warning + refactor + convention) / stateme
 # Set the output format. Available formats are text, parseable, colorized, json
 # and msvs (visual studio).You can also give a reporter class, eg
 # mypackage.mymodule.MyReporterClass.
-output-format=colorized
+output-format=text
 
 # Tells whether to display a full report or only the messages
 reports=no
@@ -179,7 +118,7 @@ never-returning-functions=optparse.Values,sys.exit
 [BASIC]
 
 # Naming style matching correct argument names
-argument-naming-style=any
+argument-naming-style=snake_case
 
 # Regular expression matching correct argument names. Overrides argument-
 # naming-style
@@ -280,7 +219,7 @@ variable-naming-style=snake_case
 
 # Regular expression matching correct variable names. Overrides variable-
 # naming-style
-variable-rgx=^_{0,2}[a-z][a-zA-Z0-9]*(_[a-zA-Z0-9]+)*$
+#variable-rgx=
 
 
 [FORMAT]
@@ -317,15 +256,15 @@ single-line-if-stmt=no
 
 # Logging modules to check that the string format arguments are in logging
 # function parameter format
-logging-modules=logging
+logging-modules=logging,FormatAdapter
 
 
 [MISCELLANEOUS]
 
 # List of note tags to take in consideration, separated by a comma.
 notes=FIXME,
-      XXX,
-      TODO
+      XXX
+
 
 
 [SIMILARITIES]
@@ -373,7 +312,7 @@ contextmanager-decorators=contextlib.contextmanager
 # List of members which are set dynamically and missed by pylint inference
 # system, and so shouldn't trigger E1101 when accessed. Python regular
 # expressions are accepted.
-generated-members=
+generated-members=numpy.*
 
 # Tells whether missing members accessed in mixin class should be ignored. A
 # mixin class is detected if its name ends with "mixin" (case insensitive).
@@ -390,13 +329,13 @@ ignore-on-opaque-inference=yes
 # List of class names for which member attributes should not be checked (useful
 # for classes with dynamically set attributes). This supports the use of
 # qualified names.
-ignored-classes=optparse.Values,thread._local,_thread._local
+ignored-classes=optparse.Values,thread._local,_thread._local,numpy
 
 # List of module names for which member attributes should not be checked
 # (useful for modules/projects where namespaces are manipulated during runtime
 # and thus existing member attributes cannot be deduced by static analysis. It
 # supports qualified module names, as well as Unix pattern matching.
-ignored-modules=
+ignored-modules=numpy
 
 # Show a hint with possible names when a member name was not found. The aspect
 # of finding the hint is based on edit distance.
@@ -441,7 +380,8 @@ init-import=no
 # List of method names used to declare (i.e. assign) instance attributes.
 defining-attr-methods=__init__,
                       __new__,
-                      setUp
+                      _new_run_clear,
+                      _machine_clear
 
 # List of member names, which should be excluded from the protected access
 # warning.
@@ -461,10 +401,10 @@ valid-metaclass-classmethod-first-arg=mcs
 [DESIGN]
 
 # Maximum number of arguments for function / method
-max-args=10
+max-args=5
 
 # Maximum number of attributes for a class (see R0902).
-max-attributes=25
+max-attributes=7
 
 # Maximum number of boolean expressions in a if statement
 max-bool-expr=5
@@ -473,7 +413,7 @@ max-bool-expr=5
 max-branches=12
 
 # Maximum number of locals for function / method body
-max-locals=25
+max-locals=15
 
 # Maximum number of parents for a class (see R0901).
 max-parents=7
