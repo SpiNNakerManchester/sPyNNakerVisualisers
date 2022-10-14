@@ -60,10 +60,11 @@ setup(
 
     # Scripts
     entry_points={
-        "gui_scripts": [
+        "console_scripts": [
             "spynnaker_raytrace = spynnaker_visualisers.raytrace.drawer:main",
             "spynnaker_sudoku = "
             "spynnaker_visualisers.sudoku.sudoku_visualiser:main",
+            "spinnaker_heatmap = spynnaker_visualisers.heat.visualiser:main",
         ],
     },
     maintainer="SpiNNakerTeam",

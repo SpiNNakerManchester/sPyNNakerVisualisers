@@ -1,0 +1,20 @@
+{
+	"title": "Heat Diffusion - Live SpiNNaker 48-Chip Plot",
+	"dimensions": [
+		32,
+		32
+	],
+	"chip_size": [
+		4,
+		4
+	],
+	"@@@COMMENTED_OUT:num_chips": [
+		8,
+		8
+	],
+	"history_size": 3500,
+	"max_frame_rate": 25,
+	"sdp_port": 17894,
+	"fixed_point_digits": 16,
+	"alter_step_size": 1.0
+}

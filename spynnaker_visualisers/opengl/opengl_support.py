@@ -28,7 +28,6 @@ except ImportError:
     patch_ctypes()
 import OpenGL.GL as GL
 
-# pylint: disable=invalid-name
 blend = GL.GL_BLEND
 color_buffer_bit = GL.GL_COLOR_BUFFER_BIT
 depth_buffer_bit = GL.GL_DEPTH_BUFFER_BIT
@@ -43,7 +42,9 @@ src_alpha = GL.GL_SRC_ALPHA
 depth_test = GL.GL_DEPTH_TEST
 rgb = GL.GL_RGB
 unsigned_byte = GL.GL_UNSIGNED_BYTE
-# pylint: enable=invalid-name
+quads = GL.GL_QUADS
+line_loop = GL.GL_LINE_LOOP
+triangles = GL.GL_TRIANGLES
 
 
 def blend_function(sfactor, dfactor):

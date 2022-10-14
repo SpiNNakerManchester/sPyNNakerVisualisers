@@ -19,11 +19,16 @@ import sys
 import threading
 from numpy import dot, cross, array, zeros, cos, sin, uint8, uint32
 from numpy.linalg import norm
-import spynnaker_visualisers.opengl_support as gl
-import spynnaker_visualisers.glut_framework as glut
+from spynnaker_visualisers.opengl import (
+    GlutFramework, key_press_handler, key_release_handler,
+    key_up, key_down, key_left, key_right,
+    display_mode_double, blend, depth_test, src_alpha, one_minus_src_alpha,
+    color_buffer_bit, depth_buffer_bit, rgb, unsigned_byte,
+    blend_function, enable, clear_color, clear, draw_pixels,
+    viewport, load_identity)
 
 
-class RaytraceDrawer(glut.GlutFramework):
+class RaytraceDrawer(GlutFramework):
     __slots__ = (
         "_moving", "_strafing", "_turn_down", "_turn_right", "_rolling",
         "_height", "_width", "_win_height", "_win_width",
@@ -40,6 +45,7 @@ class RaytraceDrawer(glut.GlutFramework):
     SDP_HEADER = struct.Struct("<HBBBBHHHHIII")
     PIXEL_FORMAT = struct.Struct(">HHBBB")
     RECV_BUFFER_SIZE = 1500  # Ethernet MTU; SpiNNaker doesn't jumbo
+    PIXEL_DATA_CMD = 3
 
     def __init__(self, size=256):
         super().__init__()
@@ -68,65 +74,89 @@ class RaytraceDrawer(glut.GlutFramework):
         threading.Thread(target=self._input_thread, daemon=True).start()
         self.start_framework(
             args, "Path Tracer", self._width, self._height, 0, 0, 10,
-            display_mode=glut.displayModeDouble)
+            display_mode=display_mode_double)
 
     def init(self):
-        gl.enable(gl.blend, gl.depth_test)
-        gl.blend_function(gl.src_alpha, gl.one_minus_src_alpha)
+        enable(blend, depth_test)
+        blend_function(src_alpha, one_minus_src_alpha)
 
     def display(self, dTime):
-        gl.clear_color(1.0, 1.0, 1.0, 0.001)
+        clear_color(1.0, 1.0, 1.0, 0.001)
         # pylint: disable=unsupported-binary-operation
-        gl.clear(gl.color_buffer_bit | gl.depth_buffer_bit)
-        gl.draw_pixels(
-            self._win_width, self._win_height, gl.rgb, gl.unsigned_byte,
+        clear(color_buffer_bit | depth_buffer_bit)
+        draw_pixels(
+            self._win_width, self._win_height, rgb, unsigned_byte,
             self._viewing_frame.data)
 
     def reshape(self, width, height):
         self._win_width = min(width, self._width)
         self._win_height = min(height, self._height)
-        gl.viewport(0, 0, width, height)
-        gl.load_identity()
+        viewport(0, 0, width, height)
+        load_identity()
 
-    def special_keyboard_down(self, key, x, y):  # @UnusedVariable
-        if key == glut.keyUp:
-            self._turn_down = -1
-        elif key == glut.keyDown:
-            self._turn_down = 1
-        elif key == glut.keyRight:
-            self._rolling = -1
-        elif key == glut.keyLeft:
-            self._rolling = 1
+    @key_press_handler(key_up)
+    def _look_up(self):
+        self._turn_down = -1
 
-    def special_keyboard_up(self, key, x, y):  # @UnusedVariable
-        if key == glut.keyUp or key == glut.keyDown:
-            self._turn_down = 0
-        elif key == glut.keyLeft or key == glut.keyRight:
-            self._rolling = 0
+    @key_press_handler(key_down)
+    def _look_down(self):
+        self._turn_down = 1
 
-    def keyboard_down(self, key, x, y):  # @UnusedVariable
-        if key == 'w':
-            self._moving = 1
-        elif key == 's':
-            self._moving = -1
-        elif key == 'a':
-            self._turn_right = -1
-        elif key == 'd':
-            self._turn_right = 1
-        elif key == 'q':
-            self._strafing = 1
-        elif key == 'e':
-            self._strafing = -1
-        elif key == '\x1b':  # Escape
-            sys.exit()
+    @key_release_handler(key_up, key_down)
+    def _not_up_down(self):
+        self._turn_down = 0
 
-    def keyboard_up(self, key, x, y):  # @UnusedVariable
-        if key == 'w' or key == 's':
-            self._moving = 0
-        elif key == 'a' or key == 'd':
-            self._turn_right = 0
-        elif key == 'q' or key == 'e':
-            self._strafing = 0
+    @key_press_handler(key_left)
+    def _roll_left(self):
+        self._turn_down = -1
+
+    @key_press_handler(key_right)
+    def _roll_right(self):
+        self._turn_down = 1
+
+    @key_release_handler(key_left, key_right)
+    def _not_roll(self):
+        self._turn_down = 0
+
+    @key_press_handler('w')
+    def _go_forward(self):
+        self._moving = 1
+
+    @key_press_handler('s')
+    def _go_backward(self):
+        self._moving = -1
+
+    @key_release_handler('w', 's')
+    def _not_forward_backward(self):
+        self._moving = 0
+
+    @key_press_handler('a')
+    def _left(self):
+        self._turn_right = -1
+
+    @key_press_handler('d')
+    def _right(self):
+        self._turn_right = 1
+
+    @key_release_handler('a', 'd')
+    def _not_left_right(self):
+        self._turn_right = 0
+
+    @key_press_handler('q')
+    def _strafe_left(self):
+        self._strafing = 1
+
+    @key_press_handler('e')
+    def _strafe_right(self):
+        self._strafing = -1
+
+    @key_release_handler('q', 'e')
+    def _not_strafe(self):
+        self._strafing = 0
+
+    @key_press_handler('\x1b')  # Escape
+    def _done(self):
+        sys.exit()
 
     @staticmethod
     def vector_rotate(rotated, axis, theta):
@@ -175,7 +205,7 @@ class RaytraceDrawer(glut.GlutFramework):
             msg = self._sockfd_input.recv(self.RECV_BUFFER_SIZE)
             sdp_msg = self.SDP_HEADER.unpack_from(msg)
             data = msg[self.SDP_HEADER.size:]  # sdp_msg.data
-            if sdp_msg[7] == 3:  # sdp_msg.command
+            if sdp_msg[7] == self.PIXEL_DATA_CMD:  # sdp_msg.command
                 for pixel_datum in self._pixelinfo(
                         data, sdp_msg[9]):  # sdp_msg.arg1
                     self.process_one_pixel(*pixel_datum)
@@ -200,12 +230,12 @@ class RaytraceDrawer(glut.GlutFramework):
                 (b + count * self._viewing_frame[ix3 + 2]) // cp1)
             self._received_frame[index] += 1
 
-
-def main(args):
-    drawer = RaytraceDrawer()
-    drawer.start(args)
-    return 0
+    @staticmethod
+    def run_application(args):
+        drawer = RaytraceDrawer()
+        drawer.start(args)
+        return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv))
+    sys.exit(RaytraceDrawer.run_application(sys.argv))
