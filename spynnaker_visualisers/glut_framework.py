@@ -124,6 +124,7 @@ class GlutFramework(object, metaclass=AbstractBase):
         self.elapsed_time_in_seconds = 0.0
         self._logged_errors = set()
 
+    # pylint: disable=unsupported-binary-operation
     def start_framework(self, args, title, width, height, posx, posy, fps, *,
                         display_mode=GLUT.GLUT_RGB | GLUT.GLUT_DOUBLE):
         """ start_framework will initialize framework and start the GLUT run\
