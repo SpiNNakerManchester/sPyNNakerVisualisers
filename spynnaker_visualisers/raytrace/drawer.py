@@ -82,6 +82,7 @@ class RaytraceDrawer(GlutFramework):
 
     def display(self, dTime):
         clear_color(1.0, 1.0, 1.0, 0.001)
+        # pylint: disable=unsupported-binary-operation
         clear(color_buffer_bit | depth_buffer_bit)
         draw_pixels(
             self._win_width, self._win_height, rgb, unsigned_byte,
