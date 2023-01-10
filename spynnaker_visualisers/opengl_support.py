@@ -26,7 +26,7 @@ except ImportError:
     # Hack for macOS Big Sur
     from ._bigsurhack import patch_ctypes
     patch_ctypes()
-import OpenGL.GL as GL
+import OpenGL.GL as GL  # pylint: disable=unused-import
 
 # pylint: disable=invalid-name
 blend = GL.GL_BLEND

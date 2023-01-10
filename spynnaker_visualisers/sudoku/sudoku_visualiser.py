@@ -282,7 +282,7 @@ class SudokuPlot(GlutFramework):
         clear_color(1.0, 1.0, 1.0, 1.0)
         color(0.0, 0.0, 0.0, 1.0)
 
-    def _print_text(self, prompt):  # FIXME positioning
+    def _print_text(self, prompt):  # TODO positioning
         # Guesstimate of length of prompt in pixels
         plen = len(prompt) * 4
         self.write_large(

@@ -317,7 +317,7 @@ class GlutFramework(object, metaclass=AbstractBase):
         """
         Because sys.exit() doesn't always work in the ctype-handled callbacks.
         """
-        os._exit(exit_code)
+        os._exit(exit_code)  # pylint: disable=protected-access
 
     def __display_framework(self):
         if not GLUT.glutGetWindow():
