@@ -284,6 +284,7 @@ class SudokuPlot(GlutFramework):
 
     def _print_text(self, prompt):  # TODO positioning
         # Guesstimate of length of prompt in pixels
+        #https://github.com/SpiNNakerManchester/sPyNNakerVisualisers/issues/23
         plen = len(prompt) * 4
         self.write_large(
             self.window_width / 2 - plen, self.window_height - 50, prompt)
@@ -356,7 +357,8 @@ def sudoku_visualiser(args, port=19999, neurons=5, ms=100, database=None):
     for label in cells:
         plotter.connect_callbacks(connection, label)
     if database is not None:
-        # FIXME: This concept not present on Python side!
+        # TODO: This concept not present on Python side!
+        #https://github.com/SpiNNakerManchester/sPyNNakerVisualisers/issues/24
         # connection.set_database(database)
         sys.stderr.write("Database setting not currently supported")
     plotter.main_loop()
