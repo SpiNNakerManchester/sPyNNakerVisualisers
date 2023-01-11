@@ -282,7 +282,9 @@ class SudokuPlot(GlutFramework):
         clear_color(1.0, 1.0, 1.0, 1.0)
         color(0.0, 0.0, 0.0, 1.0)
 
-    def _print_text(self, prompt):  # FIXME positioning
+    # TODO positioning
+    # https://github.com/SpiNNakerManchester/sPyNNakerVisualisers/issues/23
+    def _print_text(self, prompt):
         # Guesstimate of length of prompt in pixels
         plen = len(prompt) * 4
         self.write_large(
@@ -344,6 +346,7 @@ class SudokuPlot(GlutFramework):
             correct[y * 9 + x] = False
 
 
+# https://github.com/SpiNNakerManchester/sPyNNakerVisualisers/issues/24
 def sudoku_visualiser(args, port=19999, neurons=5, ms=100, database=None):
     """ Make a visualiser, connecting a LiveEventConnection that listens to a\
         population labelled "Cells" to a GLUT GUI.
@@ -356,7 +359,7 @@ def sudoku_visualiser(args, port=19999, neurons=5, ms=100, database=None):
     for label in cells:
         plotter.connect_callbacks(connection, label)
     if database is not None:
-        # FIXME: This concept not present on Python side!
+        # TODO: This concept not present on Python side!
         # connection.set_database(database)
         sys.stderr.write("Database setting not currently supported")
     plotter.main_loop()
