@@ -58,6 +58,8 @@ jobs:
       with:
         package: spynnaker_visualisers
         exitcheck: 39
+      with:
+        config_file: asl20.xml
 
     - name: Run rat copyright enforcement
       if: matrix.python-version == 3.8
