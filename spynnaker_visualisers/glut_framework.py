@@ -3,7 +3,7 @@ A basic framework that implements the basic system handling for a GUI
 application that uses OpenGL and GLUT to do the GUI work.
 """
 #
-# Copyright (c) 2010-2023 The University of Manchester
+# Copyright (c) 2017 The University of Manchester
 # Based on work Copyright (c) 2010 Paul Solt, PaulSolt@gmail.com
 # Originally released under the MIT License
 #
