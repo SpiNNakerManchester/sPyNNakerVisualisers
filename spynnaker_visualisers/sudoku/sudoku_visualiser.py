@@ -117,7 +117,7 @@ class SudokuPlot(GlutFramework):
         :type label: str
         """
         connection.add_init_callback(label, self._init_cb)
-        connection.add_receive_callback(label, self._receive_cb)
+        connection.add_receive_time_callback(label, self._receive_cb)
         connection.add_start_resume_callback(label, self._start_cb)
 
     def _init_cb(self, label, n_neurons, run_time_ms, machine_time_step_ms):
