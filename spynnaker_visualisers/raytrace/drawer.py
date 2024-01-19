@@ -87,7 +87,7 @@ class RaytraceDrawer(glut.GlutFramework):
         gl.viewport(0, 0, width, height)
         gl.load_identity()
 
-    def special_keyboard_down(self, key, x, y):  # @UnusedVariable
+    def special_keyboard_down(self, key, x, y):
         if key == glut.keyUp:
             self._turn_down = -1
         elif key == glut.keyDown:
@@ -97,13 +97,13 @@ class RaytraceDrawer(glut.GlutFramework):
         elif key == glut.keyLeft:
             self._rolling = 1
 
-    def special_keyboard_up(self, key, x, y):  # @UnusedVariable
+    def special_keyboard_up(self, key, x, y):
         if key == glut.keyUp or key == glut.keyDown:
             self._turn_down = 0
         elif key == glut.keyLeft or key == glut.keyRight:
             self._rolling = 0
 
-    def keyboard_down(self, key, x, y):  # @UnusedVariable
+    def keyboard_down(self, key, x, y):
         if key == 'w':
             self._moving = 1
         elif key == 's':
@@ -119,7 +119,7 @@ class RaytraceDrawer(glut.GlutFramework):
         elif key == '\x1b':  # Escape
             sys.exit()
 
-    def keyboard_up(self, key, x, y):  # @UnusedVariable
+    def keyboard_up(self, key, x, y):
         if key == 'w' or key == 's':
             self._moving = 0
         elif key == 'a' or key == 'd':
