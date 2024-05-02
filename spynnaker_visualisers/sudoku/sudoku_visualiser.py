@@ -137,11 +137,11 @@ class SudokuPlot(GlutFramework):
                 while not self.user_pressed_start:
                     self.start_condition.wait()
 
-    def _start_cb(self, *args):  # @UnusedVariable
+    def _start_cb(self, *args):
         with self.start_condition:
             self.simulation_started = True
 
-    def _receive_cb(self, label, time, spikes=None):  # @UnusedVariable
+    def _receive_cb(self, label, time, spikes=None):
         if spikes is None:
             spikes = []
         with self.point_mutex:
@@ -161,7 +161,7 @@ class SudokuPlot(GlutFramework):
             INIT_WINDOW_X, INIT_WINDOW_Y, FRAMES_PER_SECOND)
 
     @overrides(GlutFramework.display)
-    def display(self, dTime):  # @UnusedVariable
+    def display(self, dTime):
         self._start_display()
 
         cell_width = (self.window_width - 2 * WINDOW_BORDER) / 9.0
@@ -211,7 +211,7 @@ class SudokuPlot(GlutFramework):
         load_identity()
 
     @overrides(GlutFramework.keyboard_down)
-    def keyboard_down(self, key, x, y):  # @UnusedVariable
+    def keyboard_down(self, key, x, y):
         if key == 32 or key == ' ':
             with self.start_condition:
                 if not self.user_pressed_start:
