@@ -36,7 +36,7 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install pip, etc
-      uses: ./support/actions/python-tools
+      uses: SpiNNakerManchester/SupportScripts/actions/python-tools@main
 
     - name: Install Spinnaker Dependencies
       uses: SpiNNakerManchester/SupportScripts/actions/install-spinn-deps@main
