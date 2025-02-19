@@ -39,7 +39,7 @@ jobs:
       uses: ./support/actions/python-tools
 
     - name: Install Spinnaker Dependencies
-      uses: ./support/actions/install-spinn-deps
+      uses: SpiNNakerManchester/SupportScripts/actions/install-spinn-deps@main
       with:
         repositories: >
           SpiNNUtils SpiNNMachine SpiNNMan PACMAN spalloc
