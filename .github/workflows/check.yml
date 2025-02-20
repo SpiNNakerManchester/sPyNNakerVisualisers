@@ -36,10 +36,10 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install pip, etc
-      uses: ./support/actions/python-tools
+      uses: SpiNNakerManchester/SupportScripts/actions/python-tools@main
 
     - name: Install Spinnaker Dependencies
-      uses: ./support/actions/install-spinn-deps
+      uses: SpiNNakerManchester/SupportScripts/actions/install-spinn-deps@main
       with:
         repositories: >
           SpiNNUtils SpiNNMachine SpiNNMan PACMAN spalloc
@@ -47,7 +47,7 @@ jobs:
         install: true
 
     - name: Setup
-      uses: ./support/actions/run-install
+      uses: SpiNNakerManchester/SupportScripts/actions/run-install@main
 
     - name: Lint with flake8
       run: flake8 --ignore F403,F405 spynnaker_visualisers
@@ -60,9 +60,9 @@ jobs:
 
     - name: Run rat copyright enforcement
       if: matrix.python-version == 3.12
-      uses: ./support/actions/check-copyrights
+      uses: SpiNNakerManchester/SupportScripts/actions/check-copyrights@main
       with:
-        config_file: rat_asl20.xml
+        config-file: rat_asl20.xml
 
     - name: Validate CITATION.cff
       if: matrix.python-version == 3.12
